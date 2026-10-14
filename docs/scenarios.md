@@ -58,7 +58,7 @@ must never be inferred from another layer.
 
 V2 proxy mapping uses an APIM preview endpoint shape with known provider
 compatibility limits. V3 is explicitly experimental, not an automatic fallback.
-No federation, arbitrary provider credential testing, custom evaluator language,
+No live federation, arbitrary provider credential testing, custom evaluator language,
 archive migration, network diagnosis probes or Copilot host UI troubleshooting is
 included.
 

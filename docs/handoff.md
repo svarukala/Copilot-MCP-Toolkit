@@ -82,8 +82,8 @@ to those private artifacts; obtain separately reviewed inputs if future work doe
 
 The user subsequently prioritized custom federated connector demo preparation.
 Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC4 in the tracker.
-Local schema/plan/bundle support is implemented; demo documentation/packed
-rehearsal is the next milestone. Tenant registration and live consumer acceptance
+Local schema/plan/bundle support, synthetic demo documentation and packed
+rehearsal are implemented. Tenant registration and live consumer acceptance
 remain separate, unverified operations. The original H1/H2 recommendation below
 still applies to the broader WIQD integration, not automatic completion by FCC.
 

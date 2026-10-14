@@ -46,7 +46,7 @@ Implementation details and all unsupported cases remain in
 | Tavily scoped v3 result | Closed first-call/dedicated profiles retained | Historical source success only; invalid-key initialization inconclusive; original calls consumed |
 | WIQD package integration | Proposed, not implemented | No end-to-end acceptance yet |
 | Actual Cowork execution | Outside standalone protocol proof | Unverified; package/protocol success must not be substituted |
-| Custom federated connector onboarding | Local schema, plan, approval-bound JSON and observed metadata checks | 24 targeted offline checks passed; registration and consumer execution unverified |
+| Custom federated connector onboarding | Local schema, plan, approval-bound JSON and observed metadata checks | Targeted offline and packed-consumer checks; registration and consumer execution unverified |
 
 ## Prioritized demo work: custom federated connectors
 
@@ -56,8 +56,8 @@ Local implementation approval is not approval for live identities or tenant roll
 
 | ID | Work | Status | Evidence / remaining gate |
 | --- | --- | --- | --- |
-| FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | 24 targeted tests; no root API expansion, network or registration |
-| FCC2 | Synthetic demo recipe and packed CLI rehearsal | In progress | Next milestone; synthetic inputs only, no claimed provider success |
+| FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | `1ec9bc0`: 24 initial targeted tests; additional boundary coverage in demo milestone; no root API expansion, network or registration |
+| FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | Existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | Not started | Exact endpoint/tenant/test audience and new bounded purpose with separate approvals |
 

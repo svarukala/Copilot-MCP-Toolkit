@@ -4,6 +4,10 @@ The FCC module prepares a private, local onboarding JSON draft for Microsoft 365
 custom federated connectors. It does not register a connector, deploy a server,
 change authentication, or claim Microsoft 365 compatibility.
 
+Start the presentation rehearsal with [the demo runbook](fcc-demo.md), using
+`examples/fcc/` for either an existing Entra MCP reference or synthetic REST/APIM
+generation. Both routes are covered by the offline packed-consumer test.
+
 ## Implementation plan and boundary
 
 1. Local contract, plan, reviewed no-overwrite bundle and offline tests.

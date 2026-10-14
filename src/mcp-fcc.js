@@ -8,8 +8,9 @@ import { validateMcpServerDescriptor } from './mcp-server.js';
 import { mcpCaptureFreshness } from './mcp-discovery.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { secretIssues } from './validation.js';
+import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 
-export const fccTokenStoreClientId = 'ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b';
+export const fccTokenStoreClientId = RESTRICTED_DISCOVERY_CLIENT_ID;
 const maximumBytes = 1048576;
 const text = maxLength => ({ type: 'string', minLength: 1, maxLength,
   pattern: '^[^\\u0000-\\u001f\\u007f-\\u009f\\u2028-\\u202e\\u2066-\\u2069]+$' });

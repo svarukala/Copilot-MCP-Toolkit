@@ -69,6 +69,7 @@ declared, and declaration is not verification.
 ## Integrations and boundaries
 
 - [Custom federated connector onboarding and demo preparation](docs/federated-connectors.md)
+- [FCC presentation rehearsal: synthetic offline and gated live tracks](docs/fcc-demo.md)
 - [Session handoff and next starting point](docs/handoff.md)
 - [Implementation and scenario tracking](docs/progress-tracker.md)
 - [Proposed MCP Toolkit to WIQD handoff](docs/wiqd-handoff.md)
