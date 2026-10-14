@@ -87,6 +87,14 @@ rehearsal are implemented. Tenant registration and live consumer acceptance
 remain separate, unverified operations. The original H1/H2 recommendation below
 still applies to the broader WIQD integration, not automatic completion by FCC.
 
+FCC milestones are committed in `1ec9bc0` and `13263f5`. The Windows/Node 24.19.0
+run passed all 607 offline tests, syntax checking and strict TypeScript checks.
+The demo runbook is `docs/fcc-demo.md`; start with the offline rehearsal. A live
+demo still needs the actual endpoint, explicit tenant/resource identity, SSO
+registration, small test audience and a new bounded consumer purpose. No
+registration, deployment, consent, provider call or historical proof replay was
+performed during FCC implementation.
+
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing
 public APIs or invoking cloud services. Confirm the intended implementation scope

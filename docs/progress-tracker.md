@@ -56,14 +56,20 @@ Local implementation approval is not approval for live identities or tenant roll
 
 | ID | Work | Status | Evidence / remaining gate |
 | --- | --- | --- | --- |
-| FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | `1ec9bc0`: 24 initial targeted tests; additional boundary coverage in demo milestone; no root API expansion, network or registration |
-| FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | Existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
+| FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | `1ec9bc0`, extended in `13263f5`: 28 FCC tests; no root API expansion, network or registration |
+| FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | `13263f5`: existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | Not started | Exact endpoint/tenant/test audience and new bounded purpose with separate approvals |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
 transfer account identities, credentials, approvals or consumed proofs.
+
+FCC milestone validation on Windows / Node 24.19.0: `npm run check`,
+`npm run test:types`, and `npm test` passed. The full suite passed 607 tests,
+including the 28 FCC tests and the expanded packed-consumer rehearsal. This
+validates local engineering behavior only. No Azure, provider, token-store or
+Microsoft 365 live journey was run; Linux remains Q1.
 
 ## Next work: MCP Toolkit to WIQD
 
