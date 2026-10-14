@@ -1,0 +1,12 @@
+{
+  "capture": ".mcp-observations\\REPLACE-WITH-ACTUAL-OBSERVATION-ID\\capture.json",
+  "toolName": "REPLACE-WITH-EXACT-CAPTURED-GET-BILL-NAME",
+  "arguments": {
+    "bill_id": 123
+  },
+  "safetyReview": {
+    "readOnly": true,
+    "reason": "EXAMPLE ONLY: replace with your actual review of the fixed GET route, exact schema and verified bill ID before approving a real call."
+  },
+  "responseAssertion": "legiscan-bill-v1"
+}

@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/svarukala/Cowork-Plugin-Toolkit",
+  "commit": "cca98401d9433c28b4c01fec2f90bba8fb21bec4",
+  "note": "Source byte hashes are attribution, not current build identity or deployment authority. Extracted files are independently maintained; see docs/extraction.md.",
+  "files": [
+    {
+      "path": "src/anonymous-metadata.js",
+      "sourceSha256": "806db61b53dc4c111baeff00f2f778a43e3d29b3b4eed6d3cb5cdb6dc6ac85cb"
+    },
+    {
+      "path": "src/anonymous-network.js",
+      "sourceSha256": "e93e6e68b237e080188b7f8ee3383178459937c1b6036ebea90ab277eb88211b"
+    },
+    {
+      "path": "src/apim-managed-identity.js",
+      "sourceSha256": "5c4a0d795aee299216189d5ced5a27c74355738fcba53f0876d56806f9f47a67"
+    },
+    {
+      "path": "src/apim-renderer.js",
+      "sourceSha256": "ba96e53fcf042f42e9bb0b55475649aa3f0cd529ea010e3cd62a695aa4552f5d"
+    },
+    {
+      "path": "src/apim-safety.js",
+      "sourceSha256": "271bbeafb3d29a95670c6e3c645bcba31efa7dd391fb466528b12cc94b577a12"
+    },
+    {
+      "path": "src/azure-device-code.js",
+      "sourceSha256": "52b44fc75efdfdbda4513301759de7b628be5d457915bcddb45a0509b44e8f2b"
+    },
+    {
+      "path": "src/azure-identity.js",
+      "sourceSha256": "8c6604fc0c8745da0ce45742100f83952542674b64c7d9f15e0d012420e1dc88"
+    },
+    {
+      "path": "src/azure.js",
+      "sourceSha256": "f1f352c7583e0483c262043d232cf65b37d0980d74cb76a0da9708c951ebb134"
+    },
+    {
+      "path": "src/cli-feedback.js",
+      "sourceSha256": "8d515051fee59ece37d05f68c0f03a938afa3f771daf42f337d4f0e0fdd0d5cd"
+    },
+    {
+      "path": "src/config.js",
+      "sourceSha256": "8a33d3ef9b27d167276cc97bc03ea3b43da6746be12b584b82d5789edfdb1ae7"
+    },
+    {
+      "path": "src/contract.js",
+      "sourceSha256": "03d1c51a263c9d9fbd57b9fb73691c4667212110269686bebbab3cf501e0f9ef"
+    },
+    {
+      "path": "src/entra-discovery.js",
+      "sourceSha256": "fe1ba89ca8db47a863fc75389321c6adf4bce74339c722d23d2db04c96c75dec"
+    },
+    {
+      "path": "src/entra-metadata.js",
+      "sourceSha256": "4ea0a3119cd7513b5fc68a06c5ece17358fb63535ea69b94bb5e839bdacadd74"
+    },
+    {
+      "path": "src/inspection-budget.js",
+      "sourceSha256": "c4b2e6556d90847b3e83993da7517779bd1b7893472c6af5dc6025dcbf3fd06b"
+    },
+    {
+      "path": "src/mcp-app-setup.js",
+      "sourceSha256": "9f220fe842bf39aee9c0823c4c1c608457f5422894901a65677ad54fa931dcaa"
+    },
+    {
+      "path": "src/mcp-auth-rejection.js",
+      "sourceSha256": "a7ebd1d6d026b52ba33b9b9d5ca188e24020f0b4c8bc4b16339a2fcd803d1185"
+    },
+    {
+      "path": "src/mcp-configuration.js",
+      "sourceSha256": "28e0db83ff8d66d361eff4ca59e9b7f36c90cadf3cdf4e90234594c7c7ac3c0d"
+    },
+    {
+      "path": "src/mcp-control.js",
+      "sourceSha256": "496166d9bb8951a92ccb841e3d3de5fe441d0d321e591449d03da7cbc2dcbb07"
+    },
+    {
+      "path": "src/mcp-delegated-fixture.js",
+      "sourceSha256": "962ea81c8fcb5d69c5e03cfbb603d5756f6fed61363e6bb46cc7f9be94a23887"
+    },
+    {
+      "path": "src/mcp-diagnosis.js",
+      "sourceSha256": "1372d13bbacd760483f763f29f6ff62e4fc45aa8fdd41592193598dc3c228836"
+    },
+    {
+      "path": "src/mcp-discovery-project.js",
+      "sourceSha256": "ea553c0f6debc32182d0ef9c6bd5a6c794e4f20c42c2efbd93c48b5483e02a8a"
+    },
+    {
+      "path": "src/mcp-discovery.js",
+      "sourceSha256": "79ad1d5f48e6dadedb56c3e2380f7a2efca560af95cba0a3132d737a858affd5"
+    },
+    {
+      "path": "src/mcp-evidence.js",
+      "sourceSha256": "66190845fb902f0faeb6c5bf6c71fe3ba050cd3b837c986bb238788f830a725f"
+    },
+    {
+      "path": "src/mcp-failure.js",
+      "sourceSha256": "19f8e648a25c09c1e0fb88961c56ade47c11ce500d20bc20facce46cfa2af9aa"
+    },
+    {
+      "path": "src/mcp-graph-organization.js",
+      "sourceSha256": "e4d30d3ed875a2d4054e1fed5e66d7fcf7459180ca3ff82302a51aaeaa7cedb8"
+    },
+    {
+      "path": "src/mcp-lifecycle.js",
+      "sourceSha256": "f895fc706ea1a8f3088d74a613ee320f24be7671af7f52a5b26649f6a1ff832a"
+    },
+    {
+      "path": "src/mcp-mapped-get.js",
+      "sourceSha256": "6df3a737a86a2b9d7cdc1ea4076a188f621d2d88d6d58fc35ad838a97727a439"
+    },
+    {
+      "path": "src/mcp-native-proof.js",
+      "sourceSha256": "a278697b537843883db3913c28d8258ee9f4f92741832009b96f3fee8e00b271"
+    },
+    {
+      "path": "src/mcp-prerequisites.js",
+      "sourceSha256": "5358cff3b69fc2aa9a5146ccefaca7df15762e45e8203ce1f73104a7bee38354"
+    },
+    {
+      "path": "src/mcp-proof-history.js",
+      "sourceSha256": "b2b25eb4a83d1c24546da919d81577cb23b48693ef647660e97595da94608ed4"
+    },
+    {
+      "path": "src/mcp-protocol.js",
+      "sourceSha256": "07a8c421ea73b3f6250c01cedaf2d292283d047153b56dae5dbee5c110792c73"
+    },
+    {
+      "path": "src/mcp-recovery.js",
+      "sourceSha256": "b9a49f0a159edc443fcb6166c3c8318268fa2dd56b5b8c671ba583686c047118"
+    },
+    {
+      "path": "src/mcp-resources.js",
+      "sourceSha256": "726003b441a4d18f0176d5c120b3cfb6e4e5d4c48e5fca87f6e51c01b99deff6"
+    },
+    {
+      "path": "src/mcp-resume.js",
+      "sourceSha256": "bd5224861e89db2d07b4a6b6b3d81ef0a2dcb8b34df405cf7c6ad2145f2b2fbb"
+    },
+    {
+      "path": "src/mcp-server.js",
+      "sourceSha256": "067757075da66025fec351276d27d5cea9d57710b49cc578a4b194627c83ece0"
+    },
+    {
+      "path": "src/mcp-status.js",
+      "sourceSha256": "249641f561163304483e71d79b0defe779846f123808db43d0690c8aec516dae"
+    },
+    {
+      "path": "src/mcp-tavily-qualification.js",
+      "sourceSha256": "4030c93b6438f22151b56a5b9a6b1e1e559984e88228e5869d2095516334a6c5"
+    },
+    {
+      "path": "src/mcp-tools.js",
+      "sourceSha256": "dc5bdbd0babc4b4571d5584eeef70912c179b25781ab4e1ba408ecd250e84478"
+    },
+    {
+      "path": "src/rest-authoring-cli.js",
+      "sourceSha256": "00a9971fc308244e17be0813e8eb68083f7884f713b22d9890a3d7c46337fa1b"
+    },
+    {
+      "path": "src/rest-authoring.js",
+      "sourceSha256": "db2decefbda8ef04ca1297c056181ba89332c3303c89dd969bd6fb2b6cda60ca"
+    },
+    {
+      "path": "src/rest-compatibility.js",
+      "sourceSha256": "39a4c6f3794c265013ccdcfecbc04c35a07c3ddbb8993ad8a09474e49a6d7db6"
+    },
+    {
+      "path": "src/validation.js",
+      "sourceSha256": "5d7f0acbe150799b8ef4c0c8b367c37d08222f3b7e0a38a51ff72d958e61d266"
+    },
+    {
+      "path": "src/workflow-state.js",
+      "sourceSha256": "ff5a8ba1dab4e7afca8522c48eea02923fc22805a5230e74374ae7f1c03265b0"
+    },
+    {
+      "path": "LICENSE",
+      "sourceSha256": "1906d0fd7dbb474162fe2bc5433fd3c346abd88006d20150fb812a6fcbcf9b30"
+    },
+    {
+      "path": "THIRD-PARTY-NOTICES.md",
+      "sourceSha256": "7697f8f9336ee1c2437d7c0e86ca65d85d49e7fce557284b0dab5a6d031d7a4e"
+    },
+    {
+      "path": ".npmrc",
+      "sourceSha256": "9773ed1a7dd1c6ecf9b1c1983e564e4941e3d0783ca4015e5ccb51476ecea09b"
+    },
+    {
+      "path": "examples/mcp/application-access.json",
+      "sourceSha256": "3afe96009be6da3d2d23166b67a3fb68e6570a6201e92bed51b6a958bf85a699"
+    },
+    {
+      "path": "examples/mcp/catalog.json",
+      "sourceSha256": "6855b4250a18aaecad588fee33fbd8dce951ff9e39e08bfc7acb002c2a77845f"
+    },
+    {
+      "path": "examples/mcp/controlled-delegated-fixture.json",
+      "sourceSha256": "60a04f6c2157cb6cf829c924d264ccdb5f235f28b89f4d2945067b82647d9d26"
+    },
+    {
+      "path": "examples/mcp/existing-anonymous.json",
+      "sourceSha256": "00994dcae176871a96c09d2ad8186e302b6a24532b9e7867da381dac10d0a0f0"
+    },
+    {
+      "path": "examples/mcp/graph-organization.json",
+      "sourceSha256": "102e972e2fc6738df1843ce83cf585d76cd4d7126b205cf9a218e5b9e053eac7"
+    },
+    {
+      "path": "examples/mcp/mapped-proof-selection.json",
+      "sourceSha256": "8d3e4db97718cfc7bc8a3b6c70be9a708320e9565ddf7a75a85ccdb8cb5a5986"
+    },
+    {
+      "path": "examples/mcp/upstream-key.json",
+      "sourceSha256": "3a3e80885df0f365031c8719e67994ca8d13c85e6a7cd89a064175add0ac4dca"
+    },
+    {
+      "path": "examples/openapi/catalog.json",
+      "sourceSha256": "eaf34204ab9bd770837ed8e46e14bb0774018c05dfd3add64bccfbfa3f57abbe"
+    },
+    {
+      "path": "test/apim-modes.test.js",
+      "sourceSha256": "ff180204157c4a528cd0d2a21d19ef6d2e3f784a703560422d7a3a5e37693425",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-server.test.js",
+      "sourceSha256": "efd3db9bb8fcacd019c94a149f01e99e19bb17147f50e83f772f1f60495ec3d1",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-lifecycle.test.js",
+      "sourceSha256": "8ad030bf22e015eda798df690bbf9832473f8d0763941ab0ff27d606d8acf83d",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-discovery.test.js",
+      "sourceSha256": "7bfc5f3171be13e5512eb4a05a6abd279069ad3db83a6080652604e12611e3a9",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-native-proof.test.js",
+      "sourceSha256": "26d202200b94f6bfdfd385ff0230f9ee1b0ce64329b69929ade28ccba179c812",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-tavily-qualification.test.js",
+      "sourceSha256": "1ddbb0b3ca84e12bbf5b29cd76fe01c9dd533cae052072b03d5c1b8786213672",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-resume.test.js",
+      "sourceSha256": "00d2b48d64d38750e133a6926c3c8cc2be9db1f793d341bdf2eaa17a54ec56d8",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-evidence.test.js",
+      "sourceSha256": "9cd01f4b80620383430a887cf11f72a3e7c2492a14ad5573dee567878d76772f",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-diagnosis.test.js",
+      "sourceSha256": "34833c8220ffdae52a1647f50aa01f01a2c388498cf81e2573685969e027e4b6",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/mcp-automation.test.js",
+      "sourceSha256": "0130a5481d36d7b556c04fa52cc403ac4b254f2f098e74b5996b7ac75c59adf5",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/azure-device-code.test.js",
+      "sourceSha256": "6b1d25354fa02ee738875f1aa0aab5745e460433bd6d6a60068eb9cb9f7fe8fc",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/azure-identity.test.js",
+      "sourceSha256": "b53d44039f7933ceac46e963e24adbcaa4007d00b7716d507f078c59993991ae",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/inspection-budget.test.js",
+      "sourceSha256": "e991be3b66d36ab3d6b79c27b3ddcae73b5cf8a0f1b27baffc829ebf0bef024e",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/cli-feedback.test.js",
+      "sourceSha256": "2d7d75a7a22a159e02fbf5778fc6781458afa2b963308d469f33288191e0946e",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/rest-authoring.test.js",
+      "sourceSha256": "5e607d2e0a827cb56f1ad035a783314d7d969e77d62956040f54ec3652795882",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/rest-compatibility.test.js",
+      "sourceSha256": "7d61270e183c17e605db0d51c70e7e6bba1e675cd6311c8bd1088605c09d0689",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/support/azure-identity.js",
+      "sourceSha256": "3c8e8b1c23677b0cdd50ac62d4a0500bc4e4bcb3fe23c45a80f17119879627bc",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/support/mcp-nullable.js",
+      "sourceSha256": "36045a06978c9e5b76068a21a01d0077a86f5723fab355a44f67dfdc6bd1ff89",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/support/mcp-observation.js",
+      "sourceSha256": "8e780e5beac986ced7fbadad9c073faa20f24e133d907196b81f52c00abce6ea",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/azure-cli-device-code.mjs",
+      "sourceSha256": "fbc3e033631abcd3f406b95451eb8ee9c93d72c52af57ca2ab162dad1307c8aa",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/azure-cli-diagnostics.mjs",
+      "sourceSha256": "a7ced156b858dbc700b33b81265543ebba28adc4e43741464016e5416d18a2d2",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/azure-cli-inspection.mjs",
+      "sourceSha256": "4331ce6e908d0ec1417bef522778ff4e4594f2d09984475a48212ae7494b3fc2",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/azure-cli-transport.mjs",
+      "sourceSha256": "8f69c85c33f85732c8c64656f981a3a16bbea75cacb7b20b5a6dc9408a5aae33",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/entra-network.mjs",
+      "sourceSha256": "d8f7efa43275a2a7510ab3c23f92908be4c2a8a1e2536f684228b16bff797d3a",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "test/fixtures/openapi/authorization-probes.json",
+      "sourceSha256": "374452a88ac0af052a298d5d8784ebce346ab3cf27bfa5a963b8932f67927b50",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "src/core.js",
+      "sourceSha256": "e8ddf9237da5282047918f86dd663c8d9e86be671875e1919ada2e4e69d863fe",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "src/core.d.ts",
+      "sourceSha256": "eec6e579f6e146717f1a7b0ae379cc19366bdd5492bf05907d59c47dc93b420a",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "bin/cowork-plugin.js",
+      "sourceSha256": "e805a2adea2a954ddea5ffbf8ab971e4dd24652651089f458a159b0f5616fea3",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "src/machine-contract.js",
+      "sourceSha256": "f7c3c89120d1f7e0ecb5b8b8411e516dc920e3376bfeec45d0c787fc94c4d360",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "package-lock.json",
+      "sourceSha256": "03ed4eeae7ffd6ae37299ee64a859015a831edf205d0ce57359f18617ab9753f",
+      "adaptation": "selected standalone declarations, command handlers or synthetic tests only; product-specific surfaces removed"
+    },
+    {
+      "path": "examples/rest-tools-legislation.json",
+      "sourceSha256": "fe37958e37bc287d6198997ba0badb8457919b0b3b1dd16ab8cb5299429534e9"
+    }
+  ]
+}

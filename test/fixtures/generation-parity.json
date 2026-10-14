@@ -1,0 +1,727 @@
+{
+  "sourceCommit": "cca98401d9433c28b4c01fec2f90bba8fb21bec4",
+  "provenance": "Synthetic example inputs compiled offline at the pinned source revision; byte hashes only, no deployment or observation evidence.",
+  "vectors": [
+    {
+      "name": "native-anonymous",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Catalog MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com",
+          "auth": "anonymous"
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Catalog local example, not a live deployment",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:62b0fca63e03d91385b9babde8af2ecdfdd266f77b09f4ffb98d44f45fa49ed6",
+      "descriptorDigest": "sha256:def6d24bfc224e042b99fc72d534ab2e4a0904403605b25800b126bebe0b84b0",
+      "files": {
+        "mcp-definition.json": "ec40330f8898e6ec5b327ad4af2d110e450c996e4599b783e884f85b2fb1a238",
+        "mcp-server.json": "f9e0479f0399d29ca9662cbabfce0d0c2f14fb7321aa829b1042309c24aa6925",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "38d72344e0544dc7348d541c0906cb7244d222f1824b73fec9d66e43afe124bf",
+        "infra/staging.json": "730363a2fe39336d0dc9d5617a66833220f20d31698fb05d34296b88b503a77d",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-delegated",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Catalog MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com",
+          "auth": "entra"
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Catalog local example, not a live deployment",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:409d0df28c4c031bc6fdf4bfc0f91b70035c5142e4bfdbe850c8abb625e1a689",
+      "descriptorDigest": "sha256:041405c3bee39d058336e47674adb49d0bd09e272f5e7f26f586aae2bfda9b02",
+      "files": {
+        "mcp-definition.json": "585ba22bee75cc096fe568289a5d0acdc6d237cd4c3f9ceada2b64596ab65140",
+        "mcp-server.json": "f7a59df2466dd3a9018f26be59421cf049a0d824144e47a9a370d54bf2e13aa8",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "bc77de274123c7bf208576494ede2544d4a8f8bd5b92b6967e6ed883012f9aa2",
+        "infra/staging.json": "730363a2fe39336d0dc9d5617a66833220f20d31698fb05d34296b88b503a77d",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-key-headerName",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Catalog MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "keyVaultName": "synthetic-vault"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com",
+          "auth": "api-key",
+          "apiKey": {
+            "secretIdentifier": "https://synthetic-vault.vault.azure.net/secrets/backend",
+            "headerName": "X-Api-Key"
+          }
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Catalog local example, not a live deployment",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:5b1657493e680ea273525b8ee6d5bad613f12c283eaf8d9e179ccaed7aee8d78",
+      "descriptorDigest": "sha256:a83813d7b91646dd79c150d9c34c185598d96c70439c4651bb86c66aae5beb5c",
+      "files": {
+        "mcp-definition.json": "60889c1955327319a5404d28c62ee2973eaacf54444eba7efc26e51615b5f50c",
+        "mcp-server.json": "90590fcd16f4c328df55ba718b3d3b4276395c0e43bf558a2a2c30fd277cd3b2",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "aa33ec8b27b88d8a31b0989b06dde0f749b043e7f0192aabc338e50967ff04d3",
+        "infra/gateway.json": "3519a21aa0bb9b41c24f0b5c476bdb8d62300f6b5480d80499a667b90377e743",
+        "infra/staging.json": "730363a2fe39336d0dc9d5617a66833220f20d31698fb05d34296b88b503a77d",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-key-queryParameterName",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Catalog MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "keyVaultName": "synthetic-vault"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com",
+          "auth": "api-key",
+          "apiKey": {
+            "secretIdentifier": "https://synthetic-vault.vault.azure.net/secrets/backend",
+            "queryParameterName": "key"
+          }
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Catalog local example, not a live deployment",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:d201e161758bb1b3249d09e023e2b86efe14a744e58ecdf7270b6c5d4b72b594",
+      "descriptorDigest": "sha256:0bbc14b4bd51d6998f109d3069fc22d9cd1411f95e7ee2367f39fe4071488c31",
+      "files": {
+        "mcp-definition.json": "b982da18a4b975f9c73faf46cecf7c5e8301a78b730db959a8ae481f85e1516f",
+        "mcp-server.json": "da59f125428f705dd0620e812d99a94ddc4244be24767816d5586fda72f7a84c",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "aa33ec8b27b88d8a31b0989b06dde0f749b043e7f0192aabc338e50967ff04d3",
+        "infra/gateway.json": "f8ab6d68817647fb2090ee4dfa07953b903925fc847b466e1d7d4549513d6230",
+        "infra/staging.json": "730363a2fe39336d0dc9d5617a66833220f20d31698fb05d34296b88b503a77d",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-new-apim",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Catalog MCP"
+        },
+        "azure": {
+          "apimMode": "new",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "location": "eastus",
+          "publisherName": "Synthetic",
+          "publisherEmail": "publisher@example.com",
+          "sku": "Developer"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com",
+          "auth": "anonymous"
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Catalog local example, not a live deployment",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:639c2fde81f73f6218fd04509b5ea77bbf6cd83553cf523bccef51aa28973d1a",
+      "descriptorDigest": "sha256:08af786df3bc7279a8abc8c88a2610554e35bfe2da21ad4593f6237465a7dcf0",
+      "files": {
+        "mcp-definition.json": "3688092fcf7b19e3a537ee0da085c5a3d060d8e82fcbf1a1aa0ed1235265dcb2",
+        "mcp-server.json": "51185daf93c600bf9b4b12f20bc1743c9894bb6892cf56aa75f1c9cd114458e6",
+        "infra/foundation.json": "1dd837e59b82bbe3bec3d7ee2137d7849beb36371da9f7074c1a930e8ba96ca6",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "c7863e9b205f9596ac9e1b397eba1817310c6a4aaa53d1e690e6e5dda4c7ea52",
+        "infra/staging.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-managed-identity",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Application access MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "resourceGroupMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://application-backend.example.com",
+          "auth": "managed-identity",
+          "managedIdentity": {
+            "type": "system-assigned",
+            "principalId": "88888888-8888-4888-8888-888888888888",
+            "resource": "66666666-6666-4666-8666-666666666666",
+            "servicePrincipalId": "77777777-7777-4777-8777-777777777777",
+            "appRoleId": "99999999-9999-4999-8999-999999999999",
+            "appRole": "Catalog.Read.All"
+          }
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Synthetic application-access example, not a deployed backend",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/items": {
+              "get": {
+                "operationId": "listItems",
+                "description": "List catalog items",
+                "responses": {
+                  "200": {
+                    "description": "Catalog items"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "listItems"
+        ]
+      },
+      "reviewDigest": "sha256:cae1faa796c582bc4e82f3948c40f456003b3e943b24d65ef452d9af747494fb",
+      "descriptorDigest": "sha256:ace0598679b8161feb8de91f89dac2a429d9b17b08cec9edd62181583fc1bc20",
+      "files": {
+        "mcp-definition.json": "62ad78dfc44358a9f1991fb3d005b663b519c00b25cedd3e6d818242e9bf9143",
+        "mcp-server.json": "2dc10069fbd8fe7d7dea243198e4e04130db01fdb74f2fd46c40d3b31116fa37",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "c7377724bc5d18becd50e5685b9fe71c77cd985fe9845190fabc3b82c00d432c",
+        "infra/staging.json": "d1396216db4560a7e027366a9ce4a6b077c70501207970ffe6622ee4ebc540fc",
+        "infra/operation-map.json": "523a373fba31e73787d57ea3af125b13ca161b5c2e6f88fe59acd2db2683eddd",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "native-graph-organization",
+      "input": {
+        "schemaVersion": 1,
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Graph organization MCP"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "resourceGroupMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-graph-rg",
+          "apimName": "reviewed-graph-apim"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://graph-mcp.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://graph.microsoft.com",
+          "auth": "managed-identity",
+          "managedIdentity": {
+            "type": "system-assigned",
+            "principalId": "88888888-8888-4888-8888-888888888888",
+            "resource": "00000003-0000-0000-c000-000000000000",
+            "servicePrincipalId": "77777777-7777-4777-8777-777777777777",
+            "appRoleId": "498476ce-e0fe-48b0-b801-37ba7e2685c6",
+            "appRole": "Organization.Read.All"
+          }
+        },
+        "document": {
+          "openapi": "3.0.3",
+          "info": {
+            "title": "Graph organization qualification; synthetic tenant and identity placeholders",
+            "version": "1.0.0"
+          },
+          "paths": {
+            "/organization-check": {
+              "get": {
+                "operationId": "readOrganization",
+                "description": "Read only the reviewed tenant organization identifier.",
+                "x-cowork-backend": {
+                  "path": "/v1.0/organization/22222222-2222-4222-8222-222222222222",
+                  "query": {
+                    "$select": "id"
+                  },
+                  "parameterNames": {}
+                },
+                "responses": {
+                  "200": {
+                    "description": "Selected organization identifier; not token-claim attestation."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationIds": [
+          "readOrganization"
+        ]
+      },
+      "reviewDigest": "sha256:09aedfa0a05cf5bf42445357f1a96de50577e7dfac1975e50b2708b6217eac00",
+      "descriptorDigest": "sha256:f88162355e7e3516da2e72c72c07db6cdaee7a8e83aaed0750bb58b663d727b8",
+      "files": {
+        "mcp-definition.json": "66cfc79d3a05d4a358e43bdb889bdfcdf4e8e8cad1d7799f6c2208b1104e6e0c",
+        "mcp-server.json": "8168bdb56e9cc5524d25604ed723e496c04ba9412d9da62ba065ff4990cdcf6a",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "78b65551c85a4379485ec954dadec73f8e59ec1ad825a86ecd528454ac538189",
+        "infra/staging.json": "e7bf8b594489de436e504a2c44b9e7709ea559f66a8392fd920f6c4497e842fb",
+        "infra/operation-map.json": "de77af886e0c8177b44a27e12eba64fcb23a12ba4c828041eeca1fdd2561f575",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "proxy-new-v1-input",
+      "input": {
+        "schemaVersion": 2,
+        "kind": "apim-mcp-proxy",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Upstream MCP proxy"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "keyVaultName": "catalog-vault"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com/mcp",
+          "auth": "api-key",
+          "apiKey": {
+            "secretIdentifier": "https://catalog-vault.vault.azure.net/secrets/upstream",
+            "headerName": "X-Api-Key"
+          }
+        }
+      },
+      "reviewDigest": "sha256:63aa615619fac6ad0cb26f939c3389214afad7642014b234b758a283522ef921",
+      "descriptorDigest": "sha256:9b3e7f147e01cd88c9daa5ce4eca293d288384644e26dfb638ccdd3a18830c50",
+      "files": {
+        "mcp-definition.json": "e48c58f333cc8b1f74591332bb7bb79e702bd25402f7a390a2a0496e635322eb",
+        "mcp-server.json": "f5cefb89ab2262cf4f574b9344654e9d9836bf2c89bfd015868abf4c1d64a617",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "d5fa1c759e34a4d5418fec81613e07260d922d58b9e9f4f6667121e17112884a",
+        "infra/gateway.json": "9b208cd222af52281397ba6dafa0b0983173364fc9f16d7e3ba11b94c62f5d8e",
+        "infra/staging.json": "055d7560f4f0323e1419789eba3fe7dc21a70a05c9b985c291faed4859eccd9a",
+        "infra/operation-map.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "proxy-v2",
+      "input": {
+        "schemaVersion": 2,
+        "kind": "apim-mcp-proxy",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Upstream MCP proxy"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "keyVaultName": "catalog-vault"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://catalog.example.com/mcp",
+          "auth": "api-key",
+          "apiKey": {
+            "secretIdentifier": "https://catalog-vault.vault.azure.net/secrets/upstream",
+            "headerName": "X-Api-Key"
+          }
+        }
+      },
+      "reviewDigest": "sha256:63aa615619fac6ad0cb26f939c3389214afad7642014b234b758a283522ef921",
+      "descriptorDigest": "sha256:9b3e7f147e01cd88c9daa5ce4eca293d288384644e26dfb638ccdd3a18830c50",
+      "files": {
+        "mcp-definition.json": "e48c58f333cc8b1f74591332bb7bb79e702bd25402f7a390a2a0496e635322eb",
+        "mcp-server.json": "f5cefb89ab2262cf4f574b9344654e9d9836bf2c89bfd015868abf4c1d64a617",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "d5fa1c759e34a4d5418fec81613e07260d922d58b9e9f4f6667121e17112884a",
+        "infra/gateway.json": "9b208cd222af52281397ba6dafa0b0983173364fc9f16d7e3ba11b94c62f5d8e",
+        "infra/staging.json": "055d7560f4f0323e1419789eba3fe7dc21a70a05c9b985c291faed4859eccd9a",
+        "infra/operation-map.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "proxy-v3",
+      "input": {
+        "schemaVersion": 3,
+        "kind": "apim-mcp-proxy",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Upstream MCP proxy"
+        },
+        "azure": {
+          "apimMode": "existing",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "subscriptionId": "33333333-3333-4333-8333-333333333333",
+          "resourceGroup": "reviewed-catalog-rg",
+          "apimName": "reviewed-catalog-apim",
+          "keyVaultName": "catalog-vault",
+          "resourceGroupMode": "existing",
+          "keyVaultMode": "existing"
+        },
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        },
+        "backend": {
+          "endpoint": "https://upstream.example.com/mcp/",
+          "auth": "api-key",
+          "apiKey": {
+            "secretIdentifier": "https://catalog-vault.vault.azure.net/secrets/upstream",
+            "headerName": "X-Api-Key"
+          }
+        },
+        "experimentalProfile": "owned-backend-routing-v1"
+      },
+      "reviewDigest": "sha256:81f20f6ccd564b7414ed7e17106ea82d7e77354af51efdb1c71e31eef32e13fe",
+      "descriptorDigest": "sha256:8827009a5f1e486526915364aa86b0375d155bb6fe078c784a5b47f396c8fc33",
+      "files": {
+        "mcp-definition.json": "e00b117a1745d1089d8ac1f485a485acce32b4eaf69d247ffa2360aa802b14c4",
+        "mcp-server.json": "9c5b6ec572ba94faf41321e6c4dabca4793f012f77ff4fb36c9d39d104e48563",
+        "infra/foundation.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/secret-access.json": "b540a8799e6357e1e418e86b7d322714e736880b4a1b202a55b46d0fd3847030",
+        "infra/gateway.json": "4ff1619ce23f8b6182184c3086aa439f6b351c31df4bb0085d715f880d40702e",
+        "infra/staging.json": "055d7560f4f0323e1419789eba3fe7dc21a70a05c9b985c291faed4859eccd9a",
+        "infra/operation-map.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "infra/deny-policy.json": "49555253fd217a552bb7ffc2a308d0ff1c994725c20493a7905acfdd1ab5628e"
+      }
+    },
+    {
+      "name": "reference-anonymous",
+      "input": {
+        "schemaVersion": 1,
+        "kind": "existing-mcp",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Existing MCP reference"
+        },
+        "endpoint": "https://catalog.example.com/mcp",
+        "inbound": {
+          "type": "anonymous"
+        }
+      },
+      "reviewDigest": "sha256:69531da6b531b9e28164656bb1f74978bab586d2356ad094ce9c71c2fbd97b99",
+      "descriptorDigest": "sha256:6394fa51bca7806d88a5342e959680694131a662887c9f57df1c5c45a1c291cf",
+      "files": {
+        "mcp-definition.json": "e16e67d397bf081bcd085c8fcad5c3f13c47b4b5d15acbcfa3115ee0424dd1fb",
+        "mcp-server.json": "46052124848430bcbe8f7a6bdfaaed18ade055234ad74fb0eca90f330273a4d1"
+      }
+    },
+    {
+      "name": "reference-entra",
+      "input": {
+        "schemaVersion": 1,
+        "kind": "existing-mcp",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Existing MCP reference"
+        },
+        "endpoint": "https://catalog.example.com/mcp",
+        "inbound": {
+          "type": "entra",
+          "tenantId": "22222222-2222-4222-8222-222222222222",
+          "clientId": "44444444-4444-4444-8444-444444444444",
+          "applicationIdUri": "api://catalog.example.com",
+          "scope": "access_as_user",
+          "allowedClientIds": [
+            "55555555-5555-4555-8555-555555555555"
+          ]
+        }
+      },
+      "reviewDigest": "sha256:48539896376aff0c8937d1d38dfa0f00a94eff3acaf6f7c662a2f36f5d199aba",
+      "descriptorDigest": "sha256:1beb99bb3f925b2309d68f942bd7360fe9876e6cf13349921c3ca1e9511bd3ee",
+      "files": {
+        "mcp-definition.json": "c02f90f77a7fe1ddd2965cd4008835d3d8f2f575f6741169fcc8161492198148",
+        "mcp-server.json": "d53b868d7caf4f15e1948a875d5eb25dd4406a2790ce0a4c18adbb242df1de50"
+      }
+    },
+    {
+      "name": "reference-oauth",
+      "input": {
+        "schemaVersion": 1,
+        "kind": "existing-mcp",
+        "server": {
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Existing MCP reference"
+        },
+        "endpoint": "https://catalog.example.com/mcp",
+        "inbound": {
+          "type": "oauth"
+        }
+      },
+      "reviewDigest": "sha256:d7932c3c2f9a6a9cb74aef875f6dc766719d1e7218acbc6709eff13e83b157ed",
+      "descriptorDigest": "sha256:c4bd702ed65bdae344ae1c789fbe963a3176bbdc89fbab95c06679d315e878da",
+      "files": {
+        "mcp-definition.json": "b2c5e105ee7a100d0e5a7e318f160456221698827a6e6cf8eaf5d2e454dd278b",
+        "mcp-server.json": "98bae97a3eb9e52b3b3be0fc1c5a63202ca2fd14c4b13d48ba9ae5eeb92e6558"
+      }
+    }
+  ]
+}

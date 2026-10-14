@@ -1,0 +1,12 @@
+node_modules/
+.test-output/
+.source-import/
+.local-*
+coverage/
+*.tgz
+.azure-auth/
+.azure-identity.json
+generated/
+artifacts/
+recovery/
+.mcp-*/

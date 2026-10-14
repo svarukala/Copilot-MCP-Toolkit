@@ -1,0 +1,60 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Example catalog API", "version": "1.0.0" },
+  "servers": [{ "url": "https://api.example.com/v1" }],
+  "paths": {
+    "/items": {
+      "get": {
+        "operationId": "list-items",
+        "summary": "List catalog items",
+        "description": "Return a paginated list of catalog items.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of items to return.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalog items",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Item" } }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/items/{id}": {
+      "get": {
+        "operationId": "get-item",
+        "summary": "Get a catalog item",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "description": "Catalog item identifier.", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalog item",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Item" } } }
+          },
+          "404": { "description": "Item not found" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Item identifier." },
+          "name": { "type": "string", "description": "Item name." }
+        },
+        "required": ["id", "name"]
+      }
+    }
+  }
+}

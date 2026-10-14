@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "server": { "id": "11111111-1111-4111-8111-111111111111", "name": "Application access MCP" },
+  "azure": {
+    "apimMode": "existing",
+    "resourceGroupMode": "existing",
+    "tenantId": "22222222-2222-4222-8222-222222222222",
+    "subscriptionId": "33333333-3333-4333-8333-333333333333",
+    "resourceGroup": "reviewed-catalog-rg",
+    "apimName": "reviewed-catalog-apim"
+  },
+  "inbound": {
+    "type": "entra",
+    "tenantId": "22222222-2222-4222-8222-222222222222",
+    "clientId": "44444444-4444-4444-8444-444444444444",
+    "applicationIdUri": "api://catalog.example.com",
+    "scope": "access_as_user",
+    "allowedClientIds": ["55555555-5555-4555-8555-555555555555"]
+  },
+  "backend": {
+    "endpoint": "https://application-backend.example.com",
+    "auth": "managed-identity",
+    "managedIdentity": {
+      "type": "system-assigned",
+      "principalId": "88888888-8888-4888-8888-888888888888",
+      "resource": "66666666-6666-4666-8666-666666666666",
+      "servicePrincipalId": "77777777-7777-4777-8777-777777777777",
+      "appRoleId": "99999999-9999-4999-8999-999999999999",
+      "appRole": "Catalog.Read.All"
+    }
+  },
+  "document": {
+    "openapi": "3.0.3",
+    "info": { "title": "Synthetic application-access example, not a deployed backend", "version": "1.0.0" },
+    "paths": {
+      "/items": {
+        "get": {
+          "operationId": "listItems",
+          "description": "List catalog items",
+          "responses": { "200": { "description": "Catalog items" } }
+        }
+      }
+    }
+  },
+  "operationIds": ["listItems"]
+}

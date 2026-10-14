@@ -1,0 +1,52 @@
+{
+  "name": "copilot-mcp-toolkit",
+  "version": "0.1.0",
+  "description": "Independent guarded REST-to-MCP authoring and lifecycle tooling for Node.js and Copilot CLI.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/svarukala/Copilot-MCP-Toolkit.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/core.d.ts",
+      "import": "./src/core.js"
+    }
+  },
+  "types": "./src/core.d.ts",
+  "bin": {
+    "copilot-mcp": "bin/copilot-mcp.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "src/",
+    "bin/",
+    "skills/",
+    "examples/",
+    "docs/",
+    "library-assets.json",
+    "source-provenance.json",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "scripts": {
+    "start": "node bin/copilot-mcp.js",
+    "check": "node --check bin/copilot-mcp.js",
+    "test": "node --test test/*.test.js",
+    "test:types": "tsc --noEmit --strict --module nodenext --target es2022 test/types.mts"
+  },
+  "dependencies": {
+    "@azure/msal-node": "7.0.0",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "fflate": "0.8.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}

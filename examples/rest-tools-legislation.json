@@ -1,0 +1,36 @@
+{
+  "title": "Legislation tools",
+  "apiKeyQueryParameter": "key",
+  "tools": [
+    {
+      "name": "search_bills",
+      "description": "Search bills by text and optionally narrow the state, session year mode and result page.",
+      "backendPath": "/",
+      "fixedQuery": { "op": "getSearch" },
+      "arguments": [
+        { "name": "query", "description": "Search terms, for example renewable energy.", "type": "string", "required": true },
+        { "name": "state", "description": "State abbreviation or ALL.", "type": "string", "required": false, "default": "ALL" },
+        { "name": "year", "description": "Documented backend year/session selector.", "type": "integer", "required": false, "default": 2 },
+        { "name": "page", "description": "One-based result page.", "type": "integer", "required": false, "default": 1 }
+      ]
+    },
+    {
+      "name": "get_bill",
+      "description": "Get details for a bill ID returned by search.",
+      "backendPath": "/",
+      "fixedQuery": { "op": "getBill" },
+      "arguments": [
+        { "name": "bill_id", "description": "Numeric bill ID from a search result.", "type": "integer", "required": true, "backendName": "id" }
+      ]
+    },
+    {
+      "name": "get_roll_call",
+      "description": "Get the recorded votes for a roll-call ID from bill details.",
+      "backendPath": "/",
+      "fixedQuery": { "op": "getRollCall" },
+      "arguments": [
+        { "name": "roll_call_id", "description": "Numeric roll-call ID from bill details.", "type": "integer", "required": true, "backendName": "id" }
+      ]
+    }
+  ]
+}

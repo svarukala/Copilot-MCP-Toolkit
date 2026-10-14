@@ -1,0 +1,73 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Authorization probe fixtures",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/tenants/{tenant}/items/{item}": {
+      "parameters": [
+        {
+          "name": "tenant",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": ["reviewed-tenant"]
+          }
+        }
+      ],
+      "get": {
+        "operationId": "get-reviewed-item",
+        "parameters": [
+          {
+            "name": "item",
+            "in": "path",
+            "required": true,
+            "example": "sample-42",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "summary"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fixture response"
+          }
+        }
+      }
+    },
+    "/unsupported/{item}": {
+      "get": {
+        "operationId": "get-unsupported-item",
+        "parameters": [
+          {
+            "name": "item",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "example": {
+                "id": "not-safe-for-a-path"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fixture response"
+          }
+        }
+      }
+    }
+  }
+}
