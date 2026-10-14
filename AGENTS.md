@@ -3,6 +3,15 @@
 Independent Node.js 22+ ESM package and `copilot-mcp` CLI. Work only in this
 repository; the originating Cowork toolkit is not a runtime dependency.
 
+## Continuing work
+
+Read `docs/handoff.md`, `docs/progress-tracker.md` and `docs/wiqd-handoff.md`
+before continuing the integration work. Keep the tracker current as work lands.
+Distinguish implemented capabilities, historical evidence and proposed work;
+the handoff recommendations are not approval for live execution or publication.
+
+## Engineering boundaries
+
 - `npm test` is offline. Use synthetic transports and Azure runners; never
   contact Azure, Microsoft 365 or a provider from tests.
 - Generation, identity selection, inspection, deployment, discovery and proof

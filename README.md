@@ -68,6 +68,9 @@ declared, and declaration is not verification.
 
 ## Integrations and boundaries
 
+- [Session handoff and next starting point](docs/handoff.md)
+- [Implementation and scenario tracking](docs/progress-tracker.md)
+- [Proposed MCP Toolkit to WIQD handoff](docs/wiqd-handoff.md)
 - [CLI contract and exact approval flows](docs/cli-contract.md)
 - [Scenario/auth coverage and unsupported limits](docs/scenarios.md)
 - [Install the GitHub Copilot CLI skill](docs/copilot-cli.md)
