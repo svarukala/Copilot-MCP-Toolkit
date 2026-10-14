@@ -64,6 +64,22 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'].includes(command)) {
+      const schema = command === 'mcp-fcc-schema';
+      const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json',
+        ...(command === 'mcp-fcc-plan' ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!options.config || !options.output || !workspaceRoot)) {
+        throw new Error('FCC schema accepts only --json. FCC plan/bundle requires --workspace-root, --config and new --output; bundle also needs exact --approve. No live operations are supported.');
+      }
+      const fcc = await import('../src/mcp-fcc.js');
+      if (schema) print(fcc.fccInputSchema, true);
+      else {
+        const selected = { config: options.config, output: options.output, workspaceRoot, approval: options.approve };
+        print(await (command === 'mcp-fcc-plan' ? fcc.planFccBundle : fcc.writeFccBundle)(selected), true);
+      }
+      return 0;
+    }
     if (command === 'mcp-diagnose') {
       if (!options.project || Object.keys(options).some(key => !['project', 'config', 'workspace-root', 'json'].includes(key))) {
         throw new Error('Diagnosis requires --project and accepts only optional --config, --workspace-root and --json. It never executes probes or retries.');
@@ -363,7 +379,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     const checkpoint = standaloneMcp ? failureTools.mcpFailureGuidance(diagnostics,
       error.invocationStatus === 'unknown' ? 'unknown-no-replay' : undefined) ?? checkpoints[error.code] : undefined;
     if (json) print({ success: false, error: error.message,
-      ...(/^MCP_(?:ARCHIVE|RECOVERY|PERSISTENCE|DIAGNOSIS)_/.test(error.code ?? '') ? { code: error.code } : {}),
+      ...(/^MCP_(?:ARCHIVE|RECOVERY|PERSISTENCE|DIAGNOSIS|FCC)_/.test(error.code ?? '') ? { code: error.code } : {}),
       ...(error.code === 'PROOF_CAPTURE_INVALID'
       ? { code: error.code, field: 'capture', reason: error.reason } : {}),
       ...(checkpoint ? { checkpoint } : {}), ...(diagnostics ? { diagnostics } : {}) }, true);

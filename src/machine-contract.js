@@ -52,6 +52,6 @@ export async function capabilities() {
     copilotCli: { integration: 'installable-guidance-skill', skill: 'skills/copilot-mcp/SKILL.md',
       engine: 'copilot-mcp', nativeMcpFacade: false, hostRegistration: false },
     unsupported: ['plugin-authoring', 'plugin-ZIP', 'consumer-registration', 'provider-OAuth-exchange',
-      'federated-connectors', 'arbitrary-REST-to-code-generation', 'automatic-retry-or-history-migration'],
+      'federated-connector-registration', 'arbitrary-REST-to-code-generation', 'automatic-retry-or-history-migration'],
   };
 }

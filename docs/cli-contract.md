@@ -25,10 +25,19 @@ dependency directory. Never use a filesystem root.
 | Closed checks | `mcp-auth-rejection-plan`, `mcp-backend-rejection-plan`, `mcp-qualification-plan` | Corresponding executor with exact approval and `--allow-network`; qualification also needs selection |
 | Local journey | `mcp-status`, `mcp-resume`, `mcp-diagnose` with `--project DIR` | Resume may delegate ONE phase only after exact current `next.approval` and `next.requiredFlags` |
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
+| Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
 probes. Unsupported flags are not substitutes for a reviewed plan.
+
+FCC plan/bundle requires an explicit workspace separate from installed code.
+Source descriptor/capture paths resolve relative to the config file. It preserves
+all observed tool schemas and requires explicit metadata-export and read-only
+reviews. Missing/stale metadata is reported as blocked, not fabricated or renewed.
+Exit 0 means local plan/write completion; inspect the separate readiness object.
+`--summary` is supported on `mcp-fcc-plan`. See
+[FCC onboarding](federated-connectors.md) for the complete boundary.
 
 ## Output and approvals
 

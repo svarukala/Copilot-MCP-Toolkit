@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate standalone REST-to-MCP APIM bundles, explicit existing MCP references, and safely resume, inspect or preserve their evidence with the local copilot-mcp CLI. Use for MCP toolkit scenarios, not plugin authoring or arbitrary OAuth/server generation.
+description: Review and generate standalone REST-to-MCP APIM bundles, prepare custom federated connector onboarding drafts, and safely resume, inspect or preserve MCP evidence with the local copilot-mcp CLI. Not plugin authoring or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -35,9 +35,23 @@ installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
 
 Never collect keys or client secrets. Backend keys are versionless Key Vault
 references; APIM managed identity reads them. Never downgrade inbound Entra.
-No default grant, provider OAuth exchange, consumer registration or federation
+No default grant, provider OAuth exchange, consumer registration or runtime federation
 is supported. Generated infrastructure and an observed protocol result are not
 business correctness or host acceptance.
+
+## Custom federated connector preparation
+
+Read `docs/federated-connectors.md` and `mcp-fcc-schema --json`. Use
+`mcp-fcc-plan --workspace-root ABS --config FILE --output NEW.json --json --summary`
+for a local onboarding draft. Review all metadata for private export and each
+observed tool for read-only behavior; never filter write tools locally and imply
+the endpoint is restricted. Missing/stale captures stay blocked.
+
+After exact local approval, use `mcp-fcc-bundle` with the same inputs and
+`--approve` from the plan. The output is not a Microsoft manifest or registration.
+SSO registration/app changes, consent, staged rollout and consumer execution are
+separate owner checkpoints. No Auth is limited to declared public data. Never
+substitute an SSO registration ID for a client credential or discovery identity.
 
 First-call Tavily result acceptance is the fixed profile on a FUTURE unused
 ordinary call only. Show the same-call credit caveat and exact approved arguments.

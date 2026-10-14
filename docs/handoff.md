@@ -80,6 +80,13 @@ to those private artifacts; obtain separately reviewed inputs if future work doe
 
 ## Recommended next session
 
+The user subsequently prioritized custom federated connector demo preparation.
+Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC4 in the tracker.
+Local schema/plan/bundle support is implemented; demo documentation/packed
+rehearsal is the next milestone. Tenant registration and live consumer acceptance
+remain separate, unverified operations. The original H1/H2 recommendation below
+still applies to the broader WIQD integration, not automatic completion by FCC.
+
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing
 public APIs or invoking cloud services. Confirm the intended implementation scope

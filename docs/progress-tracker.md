@@ -46,6 +46,24 @@ Implementation details and all unsupported cases remain in
 | Tavily scoped v3 result | Closed first-call/dedicated profiles retained | Historical source success only; invalid-key initialization inconclusive; original calls consumed |
 | WIQD package integration | Proposed, not implemented | No end-to-end acceptance yet |
 | Actual Cowork execution | Outside standalone protocol proof | Unverified; package/protocol success must not be substituted |
+| Custom federated connector onboarding | Local schema, plan, approval-bound JSON and observed metadata checks | 24 targeted offline checks passed; registration and consumer execution unverified |
+
+## Prioritized demo work: custom federated connectors
+
+User-directed priority on 2026-10-14: deliver FCC demo preparation in this repo
+before the general WIQD handoff. See [FCC design and workflow](federated-connectors.md).
+Local implementation approval is not approval for live identities or tenant rollout.
+
+| ID | Work | Status | Evidence / remaining gate |
+| --- | --- | --- | --- |
+| FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | 24 targeted tests; no root API expansion, network or registration |
+| FCC2 | Synthetic demo recipe and packed CLI rehearsal | In progress | Next milestone; synthetic inputs only, no claimed provider success |
+| FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
+| FCC4 | Staged Microsoft 365 demo acceptance | Not started | Exact endpoint/tenant/test audience and new bounded purpose with separate approvals |
+
+The FCC schema is a consumer-specific first implementation, not completion of H1
+or H3's general WIQD handoff. It preserves the ownership split and does not
+transfer account identities, credentials, approvals or consumed proofs.
 
 ## Next work: MCP Toolkit to WIQD
 

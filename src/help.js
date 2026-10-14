@@ -9,6 +9,7 @@ export const commandFamilies = {
     'mcp-qualification-plan', 'mcp-qualification'],
   journey: ['mcp-status', 'mcp-resume', 'mcp-diagnose'],
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
+  federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
 };
 
 export const HELP = `Copilot MCP Toolkit (Node.js 22+)
@@ -56,5 +57,9 @@ First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinar
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.
 Diagnosis is local evidence-only; no network probes, retries or host UI diagnosis.
+FCC: mcp-fcc-schema describes local onboarding input. mcp-fcc-plan requires
+--workspace-root, --config and --output NEW.json; mcp-fcc-bundle also requires
+the exact --approve token. Output is a private onboarding draft, not a Microsoft
+manifest or registered connector. Missing/stale metadata remains explicitly blocked.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.
 `;

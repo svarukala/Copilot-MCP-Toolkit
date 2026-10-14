@@ -4,7 +4,7 @@ import { secretIssues } from './validation.js';
 const context = new AsyncLocalStorage();
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
-  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan'];
+  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -117,6 +117,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-fcc-onboarding-write') {
+    writeFeedback(state, `[FCC summary]\nOperation: local private onboarding JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nReadiness: ${safe(plan.bundle.readiness.status)}; gaps: ${plan.bundle.readiness.gaps.length}\nCalls: zero; no login, registration, deployment or proof replay.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all exported metadata on stdout before mcp-fcc-bundle.\n`);
+    return;
+  }
   if (['standalone-mcp-evidence-export', 'standalone-mcp-evidence-restore'].includes(plan.action)) {
     writeFeedback(state, `[evidence summary]\nOperation: ${safe(plan.action)}\nNew destination: ${safe(plan.destination.path)}\nArchive SHA256: ${safe(plan.archiveSha256)}\nPersistence: ${safe(plan.persistence.status)}; same-filesystem checkpoint is NOT a cross-device backup.\nCalls: zero; identity: none. Evidence expiry and historical bindings are not renewed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nFull file hashes, exclusions, lock presence and limitations remain on stdout.\n`);
     return;

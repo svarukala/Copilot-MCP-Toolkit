@@ -68,6 +68,7 @@ declared, and declaration is not verification.
 
 ## Integrations and boundaries
 
+- [Custom federated connector onboarding and demo preparation](docs/federated-connectors.md)
 - [Session handoff and next starting point](docs/handoff.md)
 - [Implementation and scenario tracking](docs/progress-tracker.md)
 - [Proposed MCP Toolkit to WIQD handoff](docs/wiqd-handoff.md)
@@ -80,6 +81,11 @@ declared, and declaration is not verification.
 The skill provides instructions, not a second execution engine or an MCP tool-server
 facade. It cannot grant host/tool permissions or register the generated server.
 No live/cloud/provider validation is implied by the offline tests.
+
+The FCC module (`mcp-fcc-schema`, `mcp-fcc-plan`, `mcp-fcc-bundle`) creates a
+reviewed local onboarding draft for existing MCP descriptors. It checks
+metadata/SSO gaps and retains observed tool definitions without claiming that a
+connector is registered or ready. Microsoft 365 registration remains manual.
 
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
