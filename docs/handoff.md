@@ -273,6 +273,13 @@ Native Windows registration remains unimplemented: qualify a supported private
 credential boundary and registration-only interface before replacing the
 executor. See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
 
+Further source inspection found WIQD's separate cache-free CI refresh-token
+backend. It requires an explicit tenant and a caller-provided fresh delegated
+credential, and refuses interactive overrides. The public bootstrap command
+requires terminal-only human confirmation/disclosure. This is a possible
+integration direction, not authorization to capture/export existing tokens or
+an implemented native interactive adapter.
+
 Q1 is now complete for the fresh packed-consumer test. A missing private npm
 cache was populated separately with public dependencies, without installation
 scripts. A subsequent timeout on the Windows-mounted fixture was resolved by

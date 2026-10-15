@@ -245,6 +245,16 @@ settings, invoke its aggregate login/status/logout, extract its refresh token,
 or copy its cache to ATK as a workaround. WIQD status can silently acquire and
 persist tokens; it is not an offline isolation probe.
 
+Further inspection identified a distinct, cache-free CI backend using a
+caller-supplied delegated refresh token and explicit tenant. It does not use
+the interactive backend's shared encryption key, but is not a replacement for
+interactive login: WIQD rejects interactive overrides in that mode. Its public
+credential-bootstrap command requires a real terminal and deliberate human
+confirmation before revealing a new credential. Do not capture that disclosure,
+reuse an existing session's token, or manufacture CI credentials to bypass
+these requirements. A separately reviewed fresh-credential bootstrap and secure
+delivery design would be necessary before using this backend in our executor.
+
 The native adapter remains unimplemented pending a supported private credential
 boundary and a reviewed registration-only interface covering both MicrosoftEntra
 SSO and Custom OAuth. An independent browser/MSAL implementation is another
