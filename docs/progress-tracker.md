@@ -81,6 +81,13 @@ binding, unchanged canonical preparation, action-only placeholder injection,
 receipt integrity, consumed-target preservation and reference import into FCC.
 No live sign-in, service registration or consumer execution is established.
 
+WSL lifetime finding: an approved local initialization succeeded, but the
+distribution stopped between checkpoints and lost its tmpfs runtime before
+sign-in. No authentication or registration was dispatched. Keep a visible WSL
+terminal open throughout the private-session journey; durable initialized
+metadata alone does not establish runtime availability. Never restore a cache
+or reopen a consumed registration to recover from a stopped distribution.
+
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
 official portal supports direct SSO registration without creating an agent.

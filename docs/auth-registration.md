@@ -355,6 +355,13 @@ advertise a native Windows registration capability from this source inspection.
 
 Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installation,
 `/dev/shm` backed by tmpfs, and a browser able to reach the Linux loopback callback.
+Under WSL, keep an interactive Linux terminal open from initialization through
+registration and cleanup. Separate short-lived `wsl --exec` commands do not
+keep the distribution running between approval checkpoints: a stopped
+distribution loses the tmpfs runtime even though its durable session metadata
+still says initialized. Do not restore credentials or reuse a lost runtime.
+Retain the old journals and review a fresh session; any dispatched registration
+remains consumed regardless of a WSL restart.
 The browser can be on Linux or on Windows through separately verified WSL
 localhost forwarding. This is not support for arbitrary remote callbacks.
 No installation, Docker startup, browser automation or cache transfer
