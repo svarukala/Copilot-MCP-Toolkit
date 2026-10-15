@@ -188,6 +188,43 @@ export cannot refresh them. Invalid, future-dated or mismatched captures fail.
 Read-only annotations and reviews are declarations, not proof of backend safety.
 Explicit destructive or non-read-only annotations produce a blocking gap.
 
+### Native APIM annotations and consumer classification
+
+Read-only review on 2026-10-15 compared retained captures: the public Learn
+server supplied `readOnlyHint: true`, `destructiveHint: false` and
+`idempotentHint: true` on all three tools, while the controlled native APIM tool
+supplied no annotations. The owner's consumer views showed Read only and Write,
+respectively. This supports the missing-annotation explanation; it is not an
+independent verification of the consumer's exact classification implementation.
+MCP defaults an omitted `readOnlyHint` to false. A GET mapping or a description
+saying read-only does not itself emit that protocol hint.
+
+`src/apim-renderer.js` generates native `service/apis/tools` resources with
+`displayName`, `description` and `operationId`. These match the published
+`ToolContractProperties` for the pinned `2025-09-01-preview` API. The current
+[ARM tool reference](https://learn.microsoft.com/en-us/azure/templates/microsoft.apimanagement/service/apis/tools)
+and [public REST specification](https://github.com/Azure/azure-rest-api-specs/blob/main/specification/apimanagement/resource-manager/Microsoft.ApiManagement/ApiManagement/preview/2025-09-01-preview/openapi.json)
+expose no annotation property. No supported native-tool annotation-setting path
+was qualified by this review; this is not proof that every APIM mode or an
+undocumented/private feature lacks support. Discovery and FCC export preserve
+received annotations and do not manufacture them from HTTP methods.
+
+Do not add guessed ARM properties, modify saved captures or rewrite native MCP
+response bodies as a shortcut. Microsoft's
+[native MCP guidance](https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server)
+warns that accessing `context.Response.Body` buffers responses and can disrupt
+streaming. Changing SSO permissions cannot supply tool annotations.
+
+Recommended next decision: seek a supported native annotation mechanism from
+the APIM product team. If unavailable, an explicitly implemented MCP backend
+that emits reviewed annotations, governed by APIM's
+[existing-server proxy mode](https://learn.microsoft.com/en-us/azure/api-management/expose-existing-mcp-server),
+is an architectural alternative, not a small template patch or an already
+qualified toolkit Entra-backend proxy journey. It requires separate protocol,
+authorization and deployment review. Preserve the user restriction and old
+proofs; verify any approved change through a new discovery and consumer metadata
+refresh. No such change, tool execution or fresh endpoint request occurred here.
+
 Proof and consumer outcomes are not imported or inferred. This module never
 reads or modifies the project's locks or proof journal. Consumed/unknown calls
 remain consumed even when the bundle or destination changes.

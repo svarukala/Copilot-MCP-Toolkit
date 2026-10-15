@@ -11,8 +11,14 @@ It contains public engineering context only, not credentials or execution author
   capture has no tool annotations; MCP defaults an omitted `readOnlyHint` to
   false, which is consistent with this classification but does not establish
   the client's exact classification logic. Do not edit the capture or invent
-  annotations in a handoff to change the UI. Server metadata support and any
-  live correction require separate review. No attributed tool execution,
+  annotations in a handoff to change the UI. A subsequent read-only comparison
+  confirmed the retained Learn tools declare readOnlyHint true. Native APIM's
+  published tool contract for the pinned API version has no annotation field;
+  the renderer matches that contract and discovery preserves received hints.
+  No supported native setter was qualified. See the
+  [annotation review](federated-connectors.md#native-apim-annotations-and-consumer-classification)
+  before considering a product-support inquiry or separately scoped MCP backend.
+  No live correction was attempted. No attributed tool execution,
   rollout audience or finalized legal-policy status is established.
 - Before that success, the owner encountered `AADSTS650057`. The retained app
   snapshot had an empty `requiredResourceAccess`, and the error named the same
