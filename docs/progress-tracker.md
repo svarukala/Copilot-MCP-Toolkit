@@ -61,7 +61,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
-| AUTH1 | Shared SSO and OAuth registration support | Approved implementation in progress | Port reviewed consumer-independent functionality from the frozen Cowork source; verify provider isolation, explicit app restrictions and secret references before live execution |
+| AUTH1 | Shared SSO and OAuth registration support | ID fix complete; provider isolation decision required | `2ffcda8`: 35 FCC tests plus packed test. ATK 1.1.17 uses OS credential storage/native broker; select isolated execution environment before adapting live creation. No auth registration was executed |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not

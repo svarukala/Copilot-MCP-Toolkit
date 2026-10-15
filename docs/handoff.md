@@ -110,6 +110,36 @@ availability, admin Ready status and tools-list success are distinct from that
 consumer result. See the dated layer table in [the tracker](progress-tracker.md).
 All real pilot files remain private; these notes transfer no execution authority.
 
+## Shared authentication registration continuation
+
+The user approved bringing shared SSO registration support into this independent
+toolkit, followed by generic OAuth registration and both consumer handoffs.
+The opaque FCC registration-ID fix is committed in `2ffcda8`; complete IDs,
+including Base64 punctuation and padding, survive export unchanged.
+
+The frozen Cowork implementation at `b51d6a8`, `src/sso-registration.js`, is the
+reference for guarded SSO creation. Its public ATK lifecycle uses
+`oauth/register` with `identityProvider: MicrosoftEntra`, captures the returned
+ID/Application ID URI, and retains unknown-attempt barriers. It is not a generic
+OAuth creation implementation and must not be copied with its plugin dependencies.
+
+Read-only inspection of installed ATK CLI 1.1.17 on 2026-10-15 found a provider
+isolation gate: `m365Login.ts` configures a Windows native broker;
+`cacheAccess.ts` uses a fixed OS credential-store service/account for its cache
+encryption key; the login command signs out the previous ATK account. Home-path
+redirection alone has not established private authentication. No auth caches
+were read or copied, and no ATK login or provisioning was invoked.
+
+Select an isolated provider execution environment with the user before enabling
+registration execution. Do not silently use shared credentials, monkey-patch
+Microsoft tooling, start Docker or create cloud resources. The port must still
+resolve explicit real app identity/restrictions for FCC and account verification,
+and generic OAuth must use reviewed credential references rather than raw
+secrets in toolkit arguments/configuration. Manual registration remains valid.
+
+The ID milestone passed 35 FCC tests and the offline packed-consumer test.
+SSO/OAuth execution and the shared registration module are not implemented yet.
+
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing
 public APIs or invoking cloud services. Confirm the intended implementation scope
