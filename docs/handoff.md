@@ -5,6 +5,21 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest owner-reported FCC outcome: the secured connector was added, and the
+  supplied tools screenshot shows the expected single fixture tool. Its UI
+  type is **Write**, despite the read-only description. The retained original
+  capture has no tool annotations; MCP defaults an omitted `readOnlyHint` to
+  false, which is consistent with this classification but does not establish
+  the client's exact classification logic. Do not edit the capture or invent
+  annotations in a handoff to change the UI. Server metadata support and any
+  live correction require separate review. No attributed tool execution,
+  rollout audience or finalized legal-policy status is established.
+- Before that success, the owner encountered `AADSTS650057`. The retained app
+  snapshot had an empty `requiredResourceAccess`, and the error named the same
+  app as client and resource with no valid resources. The owner manually added
+  its own delegated scope under API permissions; a supplied screenshot matched
+  that configuration. This is distinct from Expose an API preauthorization.
+  No automated cloud mutation or fresh Graph/consent-grant readback was performed.
 - Latest offline retrospective improvements: FCC planning now allows omitted
   developer fields only as a blocked draft, records optional caller-declared
   legal-policy status and blocks known placeholders, and reuses supplied SSO/
