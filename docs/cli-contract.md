@@ -36,6 +36,10 @@ Source descriptor/capture paths resolve relative to the config file. It preserve
 all observed tool schemas and requires explicit metadata-export and read-only
 reviews. Missing/stale metadata is reported as blocked, not fabricated or renewed.
 Exit 0 means local plan/write completion; inspect the separate readiness object.
+`bundle.manualSetup` supplies labeled human copy/paste fields and manual auth
+registration steps. Missing values remain null. OAuth accepts a registration
+reference only and remains blocked without supported discovery; no credentials,
+browser automation or tenant writes are admitted.
 `--summary` is supported on `mcp-fcc-plan`. See
 [FCC onboarding](federated-connectors.md) for the complete boundary.
 

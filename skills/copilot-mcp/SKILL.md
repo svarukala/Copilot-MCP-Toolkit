@@ -53,6 +53,14 @@ SSO registration/app changes, consent, staged rollout and consumer execution are
 separate owner checkpoints. No Auth is limited to declared public data. Never
 substitute an SSO registration ID for a client credential or discovery identity.
 
+The supported fallback when no registration API is qualified is a human
+copy-and-paste handoff, not automated browser submission. Present the bundle's
+`manualSetup.formFields` and `authenticationRegistration` fields/steps. Missing
+values stay missing. Obtain actual registration references from the owner and
+replan to a new output; never invent IDs or export secrets. OAuth preparation is
+reference-only and remains blocked by unsupported discovery/import, even with a
+registration ID. It is not a claim of secretless third-party OAuth.
+
 First-call Tavily result acceptance is the fixed profile on a FUTURE unused
 ordinary call only. Show the same-call credit caveat and exact approved arguments.
 Do not change profiles/captures or run dedicated qualification to replay consumed

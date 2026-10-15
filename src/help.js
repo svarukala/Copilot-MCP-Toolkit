@@ -60,6 +60,8 @@ Diagnosis is local evidence-only; no network probes, retries or host UI diagnosi
 FCC: mcp-fcc-schema describes local onboarding input. mcp-fcc-plan requires
 --workspace-root, --config and --output NEW.json; mcp-fcc-bundle also requires
 the exact --approve token. Output is a private onboarding draft, not a Microsoft
-manifest or registered connector. Missing/stale metadata remains explicitly blocked.
+manifest or registered connector. manualSetup contains human copy/paste fields and
+auth registration instructions. OAuth is reference-only; no login/exchange/discovery.
+Missing/stale metadata remains explicitly blocked. No browser submission is performed.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.
 `;

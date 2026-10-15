@@ -60,10 +60,21 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | `13263f5`: existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
+| FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
 transfer account identities, credentials, approvals or consumed proofs.
+
+On 2026-10-15 the user clarified that, absent a supported registration API, the
+toolkit should supply enough information for a human to enter the FCC form,
+including authentication registration and reference IDs. Live browser work was
+stopped. `manualSetup` now makes that handoff explicit; missing values stay null,
+credentials are rejected, and neither registration nor rollout is automated.
+The earlier live pilot remains historical evidence, not the product workflow.
+The manual-handoff change passed 33 FCC tests plus the offline packed-consumer
+test, CLI syntax checking and strict TypeScript checking on Windows. This is a
+targeted result, not a rerun of the historical 607-test full-suite milestone.
 
 FCC milestone validation on Windows / Node 24.19.0: `npm run check`,
 `npm run test:types`, and `npm test` passed. The full suite passed 607 tests,

@@ -9,8 +9,8 @@
 | Upstream MCP key proxy v2 | Same | API key | Explicit HTTPS base/message endpoint mapping; provider compatibility is not guaranteed |
 | Experimental proxy v3 | Same | Header key only | `owned-backend-routing-v1`; existing APIM/group/vault and secret-scoped grant, new owned backend, canonical `/mcp/` |
 | Existing MCP reference | Anonymous or explicit Entra | Provider-owned | Descriptor/reference only; separately approved observed tools/list and eligible single-call proof |
-| Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
-| Custom federated connector onboarding | Matching Entra SSO or anonymous public-data declaration | Existing toolkit descriptor | Local reviewed JSON, observed tools and readiness gaps only; not tenant registration or consumer verification |
+| Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor and local FCC form/reference draft only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
+| Custom federated connector onboarding | Matching Entra SSO, anonymous public-data declaration or OAuth reference | Existing toolkit descriptor | Local human copy/paste form/auth fields; OAuth reference drafts stay blocked with discovery/import unsupported; not tenant registration or consumer verification |
 
 Anonymous **backend** does not make generated inbound anonymous. Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator

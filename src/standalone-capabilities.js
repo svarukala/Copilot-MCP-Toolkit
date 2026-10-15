@@ -2,7 +2,8 @@ import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
 federatedConnectors: {
       contractVersion: 1, commands: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
-      status: 'local-onboarding-only', authentication: ['none-public-data', 'entra-sso'],
+      status: 'local-onboarding-only', authentication: ['none-public-data', 'entra-sso', 'oauth-reference-only'],
+      manualSetup: 'human-copy-paste-form-and-auth-registration-fields', oauthDiscovery: false,
       transport: 'streamable-http', readOnly: 'explicit-all-tool-review-not-enforcement',
       tools: 'observed-capture-only-no-schema-rewriting', captureFreshnessHours: 24,
       missingOrStaleCapture: 'blocked-draft-not-renewed', approval: 'inputs-build-freshness-destination-bound',

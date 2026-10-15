@@ -81,7 +81,7 @@ to those private artifacts; obtain separately reviewed inputs if future work doe
 ## Recommended next session
 
 The user subsequently prioritized custom federated connector demo preparation.
-Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC4 in the tracker.
+Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC5 in the tracker.
 Local schema/plan/bundle support, synthetic demo documentation and packed
 rehearsal are implemented. A separately authorized anonymous-MCP pilot has now
 completed toolkit discovery, private bundle writing and admin registration.
@@ -99,8 +99,13 @@ performed during FCC implementation.
 
 The subsequent anonymous pilot did not require Azure deployment or SSO. Its
 tenant-wide audience was explicitly requested by the user, not inferred from
-implementation approval. Continue with an attributed Copilot invocation of the
-custom entry, without changing the existing built-in connector. Registry
+implementation approval. The user subsequently directed the product to stop at a human copy-and-paste
+handoff when no supported registration API is available, rather than automate
+browser submission. The bundle now exposes `manualSetup` form/auth fields and
+steps, including supplied OAuth or secretless SSO registration references.
+OAuth is preparation-only with discovery/import unsupported. Live browser work
+was stopped at this direction; attributed Copilot execution remains unverified.
+Do not resume it merely from these notes or change the existing built-in connector. Registry
 availability, admin Ready status and tools-list success are distinct from that
 consumer result. See the dated layer table in [the tracker](progress-tracker.md).
 All real pilot files remain private; these notes transfer no execution authority.

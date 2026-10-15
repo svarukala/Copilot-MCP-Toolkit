@@ -69,6 +69,8 @@ syncBuiltinESMExports();
   assert.ok(cap.commands.includes('mcp-diagnose'));
   assert.ok(cap.commands.includes('mcp-fcc-plan'));
   assert.equal(cap.federatedConnectors.registration, false);
+  assert.equal(cap.federatedConnectors.manualSetup, 'human-copy-paste-form-and-auth-registration-fields');
+  assert.equal(cap.federatedConnectors.oauthDiscovery, false);
   assert.equal(invoke(['mcp-fcc-schema']).result.properties.schemaVersion.const, 1);
   const config = path.join(workspace, 'definition.json'), project = path.join(workspace, 'server');
   await copyFile(path.join(installed, 'examples', 'mcp', 'existing-anonymous.json'), config);
@@ -111,6 +113,9 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.ok(fccPlan.stderr.includes(fccPlan.result.approvalToken));
   assert.equal(fccPlan.result.bundle.readiness.status, 'blocked');
   assert.deepEqual(fccPlan.result.bundle.tools, []);
+  assert.equal(fccPlan.result.bundle.manualSetup.submission, 'manual-only');
+  assert.deepEqual(fccPlan.result.bundle.manualSetup.formFields.at(-1),
+    { label: 'SSO registration ID', value: null, status: 'missing' });
   assert.deepEqual(fccPlan.result.bundle.readiness.gaps.map(gap => gap.code),
     ['CAPTURE_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_AUDIENCE_MISSING']);
   invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', 'wrong'], [1]);

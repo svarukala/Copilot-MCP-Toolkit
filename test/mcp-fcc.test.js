@@ -45,7 +45,7 @@ async function fixture(t, { auth = 'anonymous', capture = true, tools = [tool], 
         privacyPolicyUrl: 'https://example.com/privacy', termsOfUseUrl: 'https://example.com/terms' } },
     source: { descriptorFile: 'descriptor.json', ...(capture ? { captureFile: 'capture.json' } : {}) },
     authentication: auth === 'entra' ? { type: 'entra-sso', registrationId: 'synthetic-registration',
-      applicationIdUri: `api://${resource}` } : { type: 'none' },
+      applicationIdUri: `api://${resource}` } : { type: auth === 'oauth' ? 'oauth' : 'none' },
     review: { metadataApprovedForExport: true, dataAccess: 'public-data',
       dataAccessReason: 'All synthetic records are intended to be public.',
       tools: tools.map(({ name }) => ({ name, readOnly: true, reason: 'Reviewed synthetic retrieval only.' })) },
@@ -88,6 +88,46 @@ test('FCC missing capture produces an explicitly blocked draft with no fabricate
   assert.deepEqual(plan.bundle.tools, []);
   assert.ok(plan.bundle.readiness.gaps.some(g => g.code === 'CAPTURE_MISSING'));
   await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+});
+
+test('FCC provides every anonymous admin form value without auth registration or rollout defaults', async t => {
+  const f = await fixture(t);
+  const { manualSetup } = (await planFccBundle(f.options)).bundle;
+  assert.equal(manualSetup.mode, 'human-copy-paste');
+  assert.equal(manualSetup.submission, 'manual-only');
+  assert.deepEqual(manualSetup.formFields, [
+    ['Display name', f.config.connector.displayName],
+    ['Description', f.config.connector.description],
+    ['MCP endpoint URL', f.descriptor.endpoint],
+    ['Developer name', f.config.connector.developer.name],
+    ['Website URL', f.config.connector.developer.websiteUrl],
+    ['Privacy policy URL', f.config.connector.developer.privacyPolicyUrl],
+    ['Terms of use URL', f.config.connector.developer.termsOfUseUrl],
+    ['Authentication type', 'None'],
+  ].map(([label, value]) => ({ label, value, status: 'provided' })));
+  assert.deepEqual(manualSetup.authenticationRegistration, { status: 'not-required', fields: [], steps: [] });
+  assert.ok(manualSetup.instructions.some(value => value.includes('No legal consent or rollout choice is inferred')));
+});
+
+test('FCC SSO handoff distinguishes registration reference, resource app, audience and token-store client', async t => {
+  const f = await fixture(t, { auth: 'entra' });
+  const plan = await planFccBundle(f.options);
+  const setup = plan.bundle.manualSetup;
+  const fields = Object.fromEntries(setup.authenticationRegistration.fields.map(field => [field.label, field.value]));
+  assert.equal(fields['Resource application client ID'], resource);
+  assert.equal(fields['SSO registration ID'], 'synthetic-registration');
+  assert.equal(fields['Registration Application ID URI'], `api://${resource}`);
+  assert.equal(fields['Microsoft Enterprise token-store client ID'], fccTokenStoreClientId);
+  assert.equal(fields['Web consent redirect URI'], 'https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect');
+  assert.equal(setup.formFields.find(field => field.label === 'Authentication type').value, 'Entra SSO');
+  delete f.config.authentication.registrationId;
+  delete f.config.authentication.applicationIdUri;
+  await f.save();
+  const missing = (await planFccBundle(f.options)).bundle.manualSetup;
+  assert.deepEqual(missing.formFields.at(-1), { label: 'SSO registration ID', value: null, status: 'missing' });
+  assert.deepEqual(missing.authenticationRegistration.fields.find(field => field.label === 'Registration Application ID URI'),
+    { label: 'Registration Application ID URI', value: null, status: 'missing' });
+  await assert.rejects(writeFccBundle({ ...f.options, approval: plan.approvalToken }), { code: 'MCP_FCC_APPROVAL_REQUIRED' });
 });
 
 test('FCC stale capture stays historical, and crossing expiry invalidates prior approval', async t => {
@@ -216,9 +256,58 @@ test('FCC output size and tool-count bounds cannot be bypassed', async t => {
   assert.ok(!(await readdir(f.root)).includes('onboarding.json'));
 });
 
-test('FCC rejects third-party OAuth references, not silently downgrading to anonymous', async t => {
+test('FCC prepares OAuth form references without claiming discovery, registration or secretless OAuth', async t => {
   const f = await fixture(t, { auth: 'oauth', capture: false });
+  f.config.review.dataAccess = 'user-scoped';
+  await f.save();
+  const missing = await planFccBundle(f.options);
+  assert.deepEqual(missing.bundle.readiness.gaps.map(g => g.code),
+    ['CAPTURE_MISSING', 'OAUTH_REGISTRATION_MISSING', 'OAUTH_DISCOVERY_UNSUPPORTED']);
+  assert.deepEqual(missing.bundle.manualSetup.formFields.at(-1),
+    { label: 'OAuth client registration ID', value: null, status: 'missing' });
+  f.config.authentication.registrationId = 'synthetic-oauth-reference';
+  await f.save();
+  const plan = await planFccBundle(f.options);
+  assert.equal(plan.bundle.readiness.status, 'blocked');
+  assert.deepEqual(plan.bundle.tools, []);
+  assert.equal(plan.bundle.evidence.consumerExecution, 'not-verified');
+  assert.equal(plan.bundle.manualSetup.formFields.find(field => field.label === 'Authentication type').value, 'OAuth 2.0');
+  assert.deepEqual(plan.bundle.manualSetup.formFields.at(-1),
+    { label: 'OAuth client registration ID', value: 'synthetic-oauth-reference', status: 'provided' });
+  assert.equal(plan.bundle.manualSetup.authenticationRegistration.fields[0].value,
+    'https://teams.microsoft.com/api/platform/v1.0/oAuthRedirect');
+  assert.ok(plan.bundle.manualSetup.authenticationRegistration.steps.some(step => step.instruction.includes('never in toolkit inputs')));
+  await assert.rejects(writeFccBundle({ ...f.options, approval: missing.approvalToken }), { code: 'MCP_FCC_APPROVAL_REQUIRED' });
+  await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+  assert.deepEqual(JSON.parse(await readFile(f.options.output)), plan.bundle);
+});
+
+test('FCC rejects OAuth capture import rather than relabeling anonymous observations', async t => {
+  const f = await fixture(t, { auth: 'oauth', capture: false });
+  const anonymous = await fixture(t);
+  await writeFile(path.join(f.root, 'capture.json'), savedJson(captureFor(anonymous.descriptor)));
+  f.config.source.captureFile = 'capture.json'; await f.save();
   await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_AUTH_UNSUPPORTED' });
+});
+
+test('FCC rejects every cross-method authentication mismatch', async t => {
+  for (const auth of ['anonymous', 'entra', 'oauth']) {
+    const f = await fixture(t, { auth, capture: false });
+    for (const type of ['none', 'entra-sso', 'oauth']) {
+      if (type === { anonymous: 'none', entra: 'entra-sso', oauth: 'oauth' }[auth]) continue;
+      f.config.authentication = { type }; await f.save();
+      await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_AUTH_MISMATCH' });
+    }
+  }
+});
+
+test('FCC auth reference input cannot carry provider credentials or arbitrary registration settings', async t => {
+  const f = await fixture(t, { auth: 'oauth', capture: false });
+  f.config.authentication.clientSecret = 'synthetic-not-a-real-secret'; await f.save();
+  await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_SENSITIVE_INPUT' });
+  delete f.config.authentication.clientSecret;
+  f.config.authentication.registrationId = 'invalid reference with whitespace'; await f.save();
+  await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_INPUT' });
 });
 
 test('FCC rejects mismatched, tampered and future-dated captures', async t => {

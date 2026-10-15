@@ -86,7 +86,10 @@ No live/cloud/provider validation is implied by the offline tests.
 The FCC module (`mcp-fcc-schema`, `mcp-fcc-plan`, `mcp-fcc-bundle`) creates a
 reviewed local onboarding draft for existing MCP descriptors. It checks
 metadata/SSO gaps and retains observed tool definitions without claiming that a
-connector is registered or ready. Microsoft 365 registration remains manual.
+connector is registered or ready. Its `manualSetup` section provides human
+copy-and-paste form fields and OAuth/secretless SSO registration instructions
+and references. OAuth is reference-only, with discovery still unsupported.
+Microsoft 365 registration remains manual; no browser submission is automated.
 
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
