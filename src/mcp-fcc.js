@@ -24,8 +24,8 @@ export const fccInputSchema = object({
   schemaVersion: { const: 1 },
   connector: object({
     displayName: text(100), description: text(1000),
-    developer: object({ name: text(100), websiteUrl: https, privacyPolicyUrl: https, termsOfUseUrl: https }),
-  }),
+    developer: object({ name: text(100), websiteUrl: https, privacyPolicyUrl: https, termsOfUseUrl: https }, []),
+  }, ['displayName', 'description']),
   source: object({ descriptorFile: text(2048), captureFile: text(2048),
     authenticationBundleFile: text(2048) }, ['descriptorFile']),
   authentication: { oneOf: [
@@ -37,10 +37,11 @@ export const fccInputSchema = object({
     metadataApprovedForExport: { const: true },
     dataAccess: { enum: ['public-data', 'shared-authorized-data', 'user-scoped'] },
     dataAccessReason: text(1000),
+    legalPolicies: { enum: ['not-reviewed', 'placeholder', 'reviewed'] },
     tools: { type: 'array', maxItems: 1000, items: object({
       name: text(128), readOnly: { const: true }, reason: text(1000),
     }) },
-  }),
+  }, ['metadataApprovedForExport', 'dataAccess', 'dataAccessReason', 'tools']),
 });
 const validateInput = new Ajv({ allErrors: true }).compile(fccInputSchema);
 function requireFcc(condition, code, message) {
@@ -68,12 +69,14 @@ async function readJson(filename) {
 function checkedInput(value) {
   requireFcc(validateInput(value), 'INPUT',
     'FCC input does not match mcp-fcc-schema. Use schemaVersion 1, explicit metadata export review, and none, entra-sso or oauth authentication.');
-  for (const item of [value.connector.displayName, value.connector.description, value.connector.developer.name,
+  const developer = value.connector.developer ?? {};
+  for (const item of [value.connector.displayName, value.connector.description,
+    ...(developer.name === undefined ? [] : [developer.name]),
     value.review.dataAccessReason, ...value.review.tools.flatMap(tool => [tool.name, tool.reason])]) {
     requireFcc(item.trim() === item && item.length > 0, 'INPUT', 'FCC text must be nonblank without surrounding whitespace.');
   }
   for (const key of ['websiteUrl', 'privacyPolicyUrl', 'termsOfUseUrl']) {
-    normalizeAnonymousEndpoint(value.connector.developer[key]);
+    if (developer[key] !== undefined) normalizeAnonymousEndpoint(developer[key]);
   }
   if (value.authentication.applicationIdUri !== undefined) {
     requireFcc(validApplicationIdUri(value.authentication.applicationIdUri),
@@ -84,6 +87,8 @@ function checkedInput(value) {
   return value;
 }
 const checklist = [
+  { id: 'legal', status: 'manual-checkpoint',
+    instruction: 'Review the developer identity and policies for this connector before submission. Supplied or reachable URLs are not finalized policies. A declared review is not independently verified, and placeholder policies must be finalized; no legal consent is inferred.' },
   { id: 'endpoint', status: 'manual-checkpoint',
     instruction: 'Verify the deployed HTTPS Streamable HTTP endpoint. Generation/reference metadata is not deployment evidence.' },
   { id: 'read-only', status: 'manual-checkpoint',
@@ -101,9 +106,9 @@ const ssoChecklist = [
   { id: 'sso-config', status: 'manual-checkpoint',
     instruction: 'In Teams Developer Portal > Tools > Microsoft Entra SSO client ID registration, register the exact endpoint and existing resource application client ID with the required scope. Confirm organization/app restrictions and retain the registration ID and generated Application ID URI privately. No WIQD agent or app package is required for this manual FCC route.' },
   { id: 'sso-restrictions', status: 'manual-checkpoint',
-    instruction: 'Review organization and app restrictions separately. The documented portal option Any Teams app permits registration without a final Teams app ID, but its broader app scope requires separate owner approval; never select it automatically. The reviewed ATK oauth/register action requires an app ID; that tooling requirement is not an FCC prerequisite. Do not create a dummy app to satisfy it.' },
+    instruction: 'Review organization and app restrictions separately. The documented portal option Any Teams app permits registration without a final Teams app ID, but its broader app scope requires separate owner approval; never select it automatically. ATK requires a real app ID unless the separate tenant-only AnyApp validation compatibility option is explicitly approved; that tooling requirement is not an FCC prerequisite. Do not create a dummy app to satisfy it.' },
   { id: 'sso-app', status: 'manual-checkpoint',
-    instruction: 'With separate owner approval, preserve existing identifierUris, add the registration Application ID URI and the Web redirect https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect, and preauthorize the Microsoft Enterprise token-store client for the required delegated scope.' },
+    instruction: 'Review current app settings and retained change receipts first; do not repeat completed mutations. Only with separate owner approval, add any missing registration Application ID URI, Web redirect https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect and Microsoft Enterprise token-store delegated-scope preauthorization. Preserve existing identifierUris and unrelated settings.' },
   { id: 'sso-endpoint', status: 'manual-checkpoint',
     instruction: 'With separate approval, verify tenant, token audience, delegated scope and token-store allowed client at the endpoint. Do not replace existing audiences, broaden access or silently mutate a shared app.' },
 ];
@@ -115,21 +120,38 @@ const oauthChecklist = [
   { id: 'oauth-reference', status: 'manual-checkpoint',
     instruction: 'Copy the actual saved OAuth client registration ID into authentication.registrationId and review a new bundle at a new destination. This ID is not the provider client ID, client secret or an SSO registration ID.' },
 ];
+function authenticationChecklist(auth) {
+  const steps = auth.type === 'entra-sso' ? ssoChecklist : auth.type === 'oauth' ? oauthChecklist : [];
+  if (!auth.registrationId) return steps;
+  return steps.map(step => {
+    if (step.id === 'sso-config' || step.id === 'oauth-portal') {
+      return { ...step, instruction: 'Reuse the supplied registration reference; do not create another registration. Review its existing endpoint, ownership and restrictions separately. Supplied references are not verified by this bundle. Preserve retained results and consumed registration attempts.' };
+    }
+    if (step.id === 'oauth-provider') {
+      return { ...step, instruction: 'Review the existing provider registration and its redirect, scopes and credential mode. A supplied reference does not authorize creating or changing a provider app. Enter any required secret only in the approved provider/portal UI, never in toolkit inputs or output.' };
+    }
+    if (step.id === 'oauth-reference') {
+      return { ...step, instruction: 'Preserve the supplied OAuth client registration ID exactly, including padding. It is not the provider client ID, client secret or an SSO registration ID. Changed references require a new reviewed bundle; do not recreate an existing registration.' };
+    }
+    return step;
+  });
+}
 function manualSetup(input, descriptor) {
   const field = (label, value) => ({ label, value: value ?? null, status: value === undefined ? 'missing' : 'provided' });
   const auth = input.authentication;
   const isSso = auth.type === 'entra-sso';
   const referenceLabel = isSso ? 'SSO registration ID' : 'OAuth client registration ID';
+  const developer = input.connector.developer ?? {};
   return {
     mode: 'human-copy-paste', submission: 'manual-only',
     formFields: [
       field('Display name', input.connector.displayName),
       field('Description', input.connector.description),
       field('MCP endpoint URL', descriptor.endpoint),
-      field('Developer name', input.connector.developer.name),
-      field('Website URL', input.connector.developer.websiteUrl),
-      field('Privacy policy URL', input.connector.developer.privacyPolicyUrl),
-      field('Terms of use URL', input.connector.developer.termsOfUseUrl),
+      field('Developer name', developer.name),
+      field('Website URL', developer.websiteUrl),
+      field('Privacy policy URL', developer.privacyPolicyUrl),
+      field('Terms of use URL', developer.termsOfUseUrl),
       field('Authentication type', { none: 'None', 'entra-sso': 'Entra SSO', oauth: 'OAuth 2.0' }[auth.type]),
       ...(auth.type === 'none' ? [] : [field(referenceLabel, auth.registrationId)]),
     ],
@@ -150,12 +172,13 @@ function manualSetup(input, descriptor) {
         field('OAuth redirect URI', 'https://teams.microsoft.com/api/platform/v1.0/oAuthRedirect'),
         field(referenceLabel, auth.registrationId),
       ] : [],
-      steps: isSso ? ssoChecklist : auth.type === 'oauth' ? oauthChecklist : [],
+      steps: authenticationChecklist(auth),
     },
     instructions: [
       'FCC onboarding does not require a WIQD project, declarative agent or Microsoft 365 app package. Use the direct authentication-registration portal when needed, then the Microsoft 365 admin-center FCC form; do not scaffold or provision an agent for this purpose.',
       'Copy only provided values into the matching form fields. Missing values are null, not placeholders to submit. UI labels may vary.',
       'Review reserved-word/name validation, legal notices, authentication and the exact audience yourself before saving. No legal consent or rollout choice is inferred.',
+      'Missing developer fields and declared placeholder policies block submission, not local draft writing. Never invent developer names or legal URLs to fill gaps. Finalize policies before submission; this offline planner does not fetch or verify pages.',
       'A registration reference is caller-supplied, not verified by this bundle. Do not substitute an app/client ID, invent an ID or include credentials.',
       'After registration or metadata changes, update the private input and review a new plan/output. Never overwrite historical bundles or reuse their approvals.',
     ],
@@ -198,6 +221,16 @@ async function prepare(options) {
     'OAuth onboarding is form/reference-only. OAuth discovery and capture import are not supported; do not substitute an anonymous capture.');
   const gaps = [];
   const gap = (code, message) => gaps.push({ code, message });
+  for (const key of ['name', 'websiteUrl', 'privacyPolicyUrl', 'termsOfUseUrl']) {
+    if (input.connector.developer?.[key] === undefined) {
+      gap('DEVELOPER_METADATA_MISSING', `Supply connector.developer.${key} from an owner-approved source; do not invent a value.`);
+    }
+  }
+  const legalPolicies = { status: input.review.legalPolicies ?? 'not-reviewed',
+    evidence: 'caller-declaration-not-verified' };
+  if (legalPolicies.status === 'placeholder') {
+    gap('LEGAL_POLICIES_PLACEHOLDER', 'The supplied privacy/terms pages are declared placeholders. Finalize policies covering this connector before submission; URL presence is not legal readiness.');
+  }
   let discovery = { status: 'not-provided', replayAuthorized: false }, tools = [], captureFile, capture;
   if (input.source.captureFile !== undefined) {
     captureFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.captureFile));
@@ -251,10 +284,10 @@ async function prepare(options) {
         fields: authenticationBundle.manualSetup.fields, evidence: authenticationBundle.evidence },
     } : {}) },
     review: input.review, tools,
-    evidence: { discovery, configuration: 'not-verified', protocolProof: 'not-assessed',
+    evidence: { discovery, legalPolicies, configuration: 'not-verified', protocolProof: 'not-assessed',
       consumerExecution: 'not-verified', executionReadiness: false, proofReplayAuthorized: false },
     readiness: { status: gaps.length ? 'blocked' : 'manual-checkpoints-required', gaps },
-    checklist: [...(input.authentication.type === 'entra-sso' ? ssoChecklist : input.authentication.type === 'oauth' ? oauthChecklist : []), ...checklist],
+    checklist: [...authenticationChecklist(input.authentication), ...checklist],
     references: {
       setup: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/connectors/set-up-custom-federated-connectors',
       sso: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/plugin-authentication-entra-sso',

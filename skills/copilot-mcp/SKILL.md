@@ -61,6 +61,31 @@ replan to a new output; never invent IDs or export secrets. OAuth preparation is
 reference-only and remains blocked by unsupported discovery/import, even with a
 registration ID. It is not a claim of secretless third-party OAuth.
 
+Collect developer identity, policy URLs and intended audience early, before
+starting time-limited authentication or freshness-sensitive discovery. Developer
+fields may now be omitted to write an explicitly blocked draft; do not invent
+them or stall independent local preparation. Record known placeholder policies
+with `review.legalPolicies: "placeholder"`; this blocks submission even with all
+URLs present. `reviewed` is only an owner declaration, not independent legal
+verification. Do not fetch policy pages from offline commands or tests.
+
+Before asking for a retry, check whether the original owned sign-in is still
+active using nonsecret status. Do not launch a duplicate attempt or clear its
+lock. Keep challenges terminal-only and tell the human which terminal to use.
+At a human-only gate, ask once, record the blocker and stop until substantive
+input arrives. An unavailable response or generic completion reminder is not
+sign-in, identity confirmation, legal metadata, or approval of another phase.
+Report the completed phase precisely instead of repeatedly announcing the same
+blocker or claiming the whole journey is complete. Local handoff completion,
+human FCC submission, admin Ready status and attributed consumer execution are
+separate outcomes.
+
+Use the reference-aware registration checklist: preserve an existing ID exactly
+and do not create another registration. Preserve old descriptor-bound receipts
+when a new registration URI requires a new reference descriptor. Supply the
+existing ID/URI explicitly or create a separately reviewed matching preparation;
+never edit a receipt's source digest to make it importable.
+
 FCC-only requests do not require a WIQD project, declarative agent or app
 package. Do not route an FCC request to `wiqd agent create` or provision a dummy
 app to obtain an ID. For manual Entra SSO registration, use Teams Developer

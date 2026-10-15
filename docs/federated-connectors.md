@@ -95,6 +95,31 @@ the plan and `readiness` in the write result. A blocked draft can be written for
 review; its blocking gaps remain intact. There is deliberately no `ready` state:
 even with complete inputs the status is `manual-checkpoints-required`.
 
+### Incomplete metadata and legal review
+
+`connector.developer` and its individual fields may be omitted while preparing
+a draft. Each absent name/website/privacy/terms field produces a blocking
+`DEVELOPER_METADATA_MISSING` gap and a `null`/`missing` copy-and-paste field.
+Omission is deliberate; supplied empty, null, malformed or unknown fields still
+fail validation. Obtain actual owner-supplied values instead of inventing them
+to satisfy the schema. Complete existing inputs remain supported.
+
+Optional `review.legalPolicies` is one of `not-reviewed`, `placeholder`, or
+`reviewed`. Omission means `not-reviewed`. These are caller declarations,
+exported under `evidence.legalPolicies`, not independent legal verification.
+Known placeholders must be declared `placeholder`; they produce the blocking
+`LEGAL_POLICIES_PLACEHOLDER` gap even when every URL is supplied. All states,
+including `reviewed`, retain the human legal checkpoint and never authorize
+submission or make execution ready. The planner stays offline: it neither
+fetches URLs nor detects placeholder page contents on its own.
+
+For example, add `"legalPolicies": "placeholder"` inside the existing `review`
+object when the owner supplies unfinished policy pages. The blocked draft can
+still be written for review. Finalized policies or changed metadata require
+a new plan and output; old bundles and approvals are not updated in place.
+The stderr summary shows the declaration, discovery expiry when available,
+and the remaining human handoff. Zero structural gaps is not legal/runtime approval.
+
 Approval binds the current inputs, descriptor, full capture, installed build,
 freshness classification and destination. Changing any invalidates the approval.
 Only discovery metadata is exported: no raw results, account/user identity,
@@ -120,6 +145,13 @@ with status `missing`; never paste null or a made-up placeholder into a form.
 No Auth requires no registration. UI labels may vary; the observed form used
 `None`, `Entra SSO` and `OAuth 2.0`. Review reserved display-name restrictions
 and legal notices manually. No audience or consent selection is generated.
+
+When an SSO or OAuth registration reference is already supplied (directly or
+through an auth preparation import), both checklists instruct reuse and review
+of that reference, not duplicate registration. A reference does not prove
+settings/restrictions are correct. Review retained resource-change receipts and
+current settings before separately approving missing changes; never repeat
+completed mutations or reopen consumed attempts because of generic instructions.
 
 For readable local display after writing a reviewed bundle:
 

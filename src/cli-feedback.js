@@ -131,7 +131,8 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (plan.action === 'mcp-fcc-onboarding-write') {
-    writeFeedback(state, `[FCC summary]\nOperation: local private onboarding JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nReadiness: ${safe(plan.bundle.readiness.status)}; gaps: ${plan.bundle.readiness.gaps.length}\nCalls: zero; no login, registration, deployment or proof replay.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all exported metadata on stdout before mcp-fcc-bundle.\n`);
+    const discovery = plan.bundle.evidence.discovery;
+    writeFeedback(state, `[FCC summary]\nOperation: local private onboarding JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nReadiness: ${safe(plan.bundle.readiness.status)}; gaps: ${plan.bundle.readiness.gaps.length}\nLegal policies: ${safe(plan.bundle.evidence.legalPolicies.status)} (caller declaration, not verified)\nDiscovery: ${safe(discovery.status)}${discovery.expiresAt ? `; expires: ${safe(discovery.expiresAt)}` : ''}\nNext: resolve gaps and complete human legal/audience/submission checkpoints; zero gaps is NOT execution readiness.\nCalls: zero; no login, registration, deployment or proof replay.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all exported metadata on stdout before mcp-fcc-bundle.\n`);
     return;
   }
   if (['standalone-mcp-evidence-export', 'standalone-mcp-evidence-restore'].includes(plan.action)) {

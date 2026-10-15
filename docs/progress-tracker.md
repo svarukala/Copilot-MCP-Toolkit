@@ -62,6 +62,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
 | FCC6 | Fresh secured FCC onboarding handoff | One private local draft written and readback verified | Supplied developer fields, original SSO reference and one actual captured tool; manual-checkpoints-required, not execution-ready. Privacy/terms URLs resolve to placeholder pages; legal review, explicit audience, human submission and consumer verification remain |
+| FCC7 | Retrospective: draft gaps, legal declarations and reference reuse | Implemented/offline verified | Missing developer fields produce blocked drafts instead of preventing preparation; declared placeholder policies block submission; existing SSO/OAuth references produce reuse instructions. Summaries expose policy status/expiry; human-wait guidance avoids duplicate sign-ins and repeated blocker messages. No live artifacts or resources changed |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
 | AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
 | AUTH3 | SSO registration execution adapter | Implemented; one private Linux/ATK SSO registration created | Public ATK 1.1.17 returned a strictly parsed created-unverified receipt after identity review; consumed reservation retained. Broader provider qualification, resource settings and FCC execution remain separate |
@@ -75,6 +76,15 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH11 | Existing Entra/APIM FCC settings review | One private read-only review completed | Fresh private Azure sign-in; existing-app inspection and selected ARM/Graph GETs identified the gaps. Subsequent owner-approved changes are tracked in AUTH12; no endpoint execution |
 | AUTH12 | Approved additive Entra/APIM settings | One private change set applied and readback verified | One Graph PATCH and three ETag-guarded APIM policy updates; previous settings and all existing authorization checks preserved. Operator-reviewed merge, not a new general toolkit mutation capability |
 | AUTH13 | Fresh Entra metadata discovery after approved settings | One private authenticated discovery completed | Existing secretless public client, fresh in-memory sign-in and initialize/tools-list only. One controlled fixture tool captured; no tool execution, cache transfer or proof replay |
+
+FCC7 validation: 97 focused offline checks passed across FCC preparation,
+auth-reference import, CLI feedback and fresh packed consumption, plus syntax
+and strict types. Regression coverage includes partial/omitted developer data,
+invalid supplied values, declared placeholder/reviewed policies, stale approval
+rejection after metadata/review changes, imported reference reuse, immutable
+capture metadata and JSON stdout with policy/expiry summaries on stderr.
+The packed runtime denies networking and child processes. No new dependency,
+provider execution, live retry, saved-evidence rewrite or rollout was performed.
 
 AUTH9 validation: 123 targeted Windows tests passed across execution, shared
 preparation/WIQD handoff, FCC, CLI feedback and fresh packed consumption, plus

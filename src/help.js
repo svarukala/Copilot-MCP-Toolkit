@@ -68,6 +68,9 @@ the exact --approve token. Output is a private onboarding draft, not a Microsoft
 manifest or registered connector. manualSetup contains human copy/paste fields and
 auth registration instructions. OAuth is reference-only; no login/exchange/discovery.
 Missing/stale metadata remains explicitly blocked. No browser submission is performed.
+Developer fields may be omitted for a blocked draft; never invent legal URLs.
+review.legalPolicies declares not-reviewed, placeholder or reviewed; placeholders
+block submission, and even reviewed remains an unverified manual checkpoint.
 WIQD Windows handoff: mcp-auth-wiqd-schema describes registrationConfig,
 wiqdProject and environment. mcp-auth-wiqd-plan/bundle takes --workspace-root,
 --config and --output NEW.json; bundle requires exact --approve. Plan supports

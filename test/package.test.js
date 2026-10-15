@@ -71,6 +71,8 @@ syncBuiltinESMExports();
   assert.equal(cap.federatedConnectors.registration, false);
   assert.equal(cap.federatedConnectors.manualSetup, 'human-copy-paste-form-and-auth-registration-fields');
   assert.equal(cap.federatedConnectors.oauthDiscovery, false);
+  assert.equal(cap.federatedConnectors.incompleteDeveloperMetadata, 'blocked-local-draft');
+  assert.equal(cap.federatedConnectors.legalPolicies, 'optional-caller-declaration-placeholder-blocks-no-fetch');
   assert.equal(invoke(['mcp-fcc-schema']).result.properties.schemaVersion.const, 1);
   assert.ok(cap.commands.includes('mcp-auth-registration-plan'));
   assert.equal(cap.authRegistration.registration, false);
@@ -146,6 +148,21 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.equal(fccWritten.executionReadiness, false);
   assert.deepEqual(JSON.parse(await readFile(fccOutput)), fccPlan.result.bundle);
   invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', fccPlan.result.approvalToken], [1]);
+  const incompleteFccConfig = path.join(fccWorkspace, 'incomplete-onboarding.json');
+  const incompleteFccInput = JSON.parse(await readFile(fccConfig));
+  delete incompleteFccInput.connector.developer;
+  incompleteFccInput.review.legalPolicies = 'placeholder';
+  await writeFile(incompleteFccConfig, JSON.stringify(incompleteFccInput));
+  const incompleteFccArgs = [...fccBase, '--config', incompleteFccConfig,
+    '--output', path.join(fccWorkspace, 'incomplete-prepared.json')];
+  const incompleteFccPlan = invoke(['mcp-fcc-plan', ...incompleteFccArgs, '--summary']);
+  assert.equal(incompleteFccPlan.result.bundle.readiness.status, 'blocked');
+  assert.equal(incompleteFccPlan.result.bundle.readiness.gaps.filter(gap => gap.code === 'DEVELOPER_METADATA_MISSING').length, 4);
+  assert.ok(incompleteFccPlan.result.bundle.readiness.gaps.some(gap => gap.code === 'LEGAL_POLICIES_PLACEHOLDER'));
+  assert.match(incompleteFccPlan.stderr, /Legal policies: placeholder/);
+  assert.match(incompleteFccPlan.stderr, /zero gaps is NOT execution readiness/);
+  const incompleteWritten = invoke(['mcp-fcc-bundle', ...incompleteFccArgs, '--approve', incompleteFccPlan.result.approvalToken]).result;
+  assert.deepEqual(JSON.parse(await readFile(incompleteWritten.outputPath)), incompleteFccPlan.result.bundle);
   const authConfig = path.join(fccWorkspace, 'registration.json'), authOutput = path.join(fccWorkspace, 'auth.json');
   await copyFile(path.join(installed, 'examples', 'auth-registration', 'sso.json'), authConfig);
   const authInput = JSON.parse(await readFile(authConfig));
@@ -200,6 +217,8 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   const importedFccPlan = invoke(['mcp-fcc-plan', ...importedFccArgs]).result;
   assert.equal(importedFccPlan.bundle.authentication.registrationId, '+synthetic/registration==');
   assert.equal(importedFccPlan.bundle.manualSetup.sharedRegistration.referenceStatus, 'provided-unverified');
+  assert.match(importedFccPlan.bundle.manualSetup.authenticationRegistration.steps
+    .find(step => step.id === 'sso-config').instruction, /Reuse the supplied registration reference/);
   invoke(['mcp-fcc-bundle', ...importedFccArgs, '--approve', importedFccPlan.approvalToken]);
   const oauthDefinition = path.join(fccWorkspace, 'oauth-definition.json'), oauthProject = path.join(fccWorkspace, 'oauth-server');
   const oauthInput = JSON.parse(await readFile(fccDefinition));

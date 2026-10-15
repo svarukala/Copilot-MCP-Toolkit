@@ -5,6 +5,15 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest offline retrospective improvements: FCC planning now allows omitted
+  developer fields only as a blocked draft, records optional caller-declared
+  legal-policy status and blocks known placeholders, and reuses supplied SSO/
+  OAuth registration references in both checklists. Complete legacy inputs
+  remain supported; omitted legal status means not reviewed, not approved.
+  Summaries now expose policy status and capture expiry. The shipped skill
+  collects metadata earlier and stops at human gates without duplicate sign-ins
+  or repeated blocker messages. These changes apply to newly reviewed outputs;
+  existing private handoffs, receipts, captures and live resources were untouched.
 - Latest endpoint observation: fresh private Entra public-client sign-in and
   metadata-only discovery succeeded using the registration-URI-qualified scope.
   The original capture contains one controlled read-only fixture tool with an

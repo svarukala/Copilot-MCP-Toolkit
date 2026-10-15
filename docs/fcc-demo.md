@@ -99,6 +99,14 @@ code was copied. Before planning live effects, select and review:
 | Consumer rollout | Authorized admin and a small explicit test-user/group audience; no tenant-wide default |
 | Live purpose | New bounded discovery/consumer purpose and budget; do not recycle Tavily or other consumed proofs |
 
+Resolve developer/policy metadata and confirm human availability before starting
+time-limited sign-in or fresh discovery. Missing developer fields can now be
+omitted for a blocked local draft; known placeholder policy pages must be
+declared using `review.legalPolicies: "placeholder"`. Do not spend a live
+discovery's 24-hour window waiting for metadata that can be collected offline.
+If a sign-in is still active, use the original challenge in its terminal rather
+than starting a duplicate. A failed attempt is retained, not silently retried.
+
 After separately approved discovery produces an original capture:
 
 1. Set `source.captureFile` in the private FCC config to that capture's path,

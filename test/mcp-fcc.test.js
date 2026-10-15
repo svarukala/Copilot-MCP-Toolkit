@@ -90,6 +90,86 @@ test('FCC missing capture produces an explicitly blocked draft with no fabricate
   await writeFccBundle({ ...f.options, approval: plan.approvalToken });
 });
 
+test('FCC permits incomplete developer metadata only as a blocked, faithfully missing draft', async t => {
+  for (const developer of [undefined, {}, { name: 'Example Developer' },
+    { websiteUrl: 'https://example.com/docs', privacyPolicyUrl: 'https://example.com/privacy',
+      termsOfUseUrl: 'https://example.com/terms' }]) {
+    const f = await fixture(t);
+    if (developer === undefined) delete f.config.connector.developer;
+    else f.config.connector.developer = developer;
+    await f.save();
+    const plan = await planFccBundle(f.options);
+    const fields = plan.bundle.manualSetup.formFields.slice(3, 7);
+    const values = ['name', 'websiteUrl', 'privacyPolicyUrl', 'termsOfUseUrl'].map(key => developer?.[key]);
+    assert.deepEqual(fields.map(field => field.value), values.map(value => value ?? null));
+    assert.deepEqual(fields.map(field => field.status), values.map(value => value === undefined ? 'missing' : 'provided'));
+    assert.equal(plan.bundle.readiness.status, 'blocked');
+    assert.equal(plan.bundle.readiness.gaps.filter(gap => gap.code === 'DEVELOPER_METADATA_MISSING').length,
+      values.filter(value => value === undefined).length);
+    assert.deepEqual(plan.bundle.tools, [tool]);
+    await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+    assert.deepEqual(JSON.parse(await readFile(f.options.output)), plan.bundle);
+  }
+});
+
+test('FCC binds added developer metadata to a new approval without upgrading the old draft', async t => {
+  const f = await fixture(t);
+  const developer = f.config.connector.developer;
+  delete f.config.connector.developer; await f.save();
+  const missing = await planFccBundle(f.options);
+  f.config.connector.developer = developer; await f.save();
+  const supplied = await planFccBundle(f.options);
+  assert.notEqual(supplied.approvalToken, missing.approvalToken);
+  assert.equal(supplied.bundle.readiness.status, 'manual-checkpoints-required');
+  assert.equal(missing.bundle.readiness.status, 'blocked');
+  await assert.rejects(writeFccBundle({ ...f.options, approval: missing.approvalToken }), { code: 'MCP_FCC_APPROVAL_REQUIRED' });
+});
+
+test('FCC legal declarations retain manual review and explicitly block known placeholders', async t => {
+  const f = await fixture(t);
+  const original = await planFccBundle(f.options);
+  assert.deepEqual(original.bundle.evidence.legalPolicies,
+    { status: 'not-reviewed', evidence: 'caller-declaration-not-verified' });
+  for (const status of ['placeholder', 'reviewed', 'not-reviewed']) {
+    f.config.review.legalPolicies = status; await f.save();
+    const plan = await planFccBundle(f.options);
+    assert.equal(plan.bundle.evidence.legalPolicies.status, status);
+    assert.equal(plan.bundle.readiness.status, status === 'placeholder' ? 'blocked' : 'manual-checkpoints-required');
+    assert.equal(plan.bundle.readiness.gaps.some(gap => gap.code === 'LEGAL_POLICIES_PLACEHOLDER'), status === 'placeholder');
+    assert.equal(plan.bundle.checklist.find(step => step.id === 'legal').status, 'manual-checkpoint');
+    assert.equal(plan.bundle.evidence.executionReadiness, false);
+    assert.equal(plan.bundle.evidence.proofReplayAuthorized, false);
+    assert.deepEqual(plan.bundle.tools, original.bundle.tools);
+    assert.deepEqual(plan.bundle.evidence.discovery, original.bundle.evidence.discovery);
+    await assert.rejects(writeFccBundle({ ...f.options, approval: original.approvalToken }), { code: 'MCP_FCC_APPROVAL_REQUIRED' });
+  }
+  f.config.review.legalPolicies = 'placeholder'; await f.save();
+  const plan = await planFccBundle(f.options);
+  await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+  assert.deepEqual(JSON.parse(await readFile(f.options.output)), plan.bundle);
+});
+
+test('FCC existing SSO and OAuth references never instruct duplicate registration', async t => {
+  for (const auth of ['entra', 'oauth']) {
+    const f = await fixture(t, { auth, capture: auth === 'entra' });
+    f.config.authentication.registrationId = '+existing-reference=='; await f.save();
+    const plan = await planFccBundle(f.options);
+    const steps = plan.bundle.manualSetup.authenticationRegistration.steps;
+    const registration = steps.find(step => step.id === (auth === 'entra' ? 'sso-config' : 'oauth-portal'));
+    assert.match(registration.instruction, /Reuse the supplied registration reference/);
+    assert.match(registration.instruction, /do not create another registration/);
+    assert.match(registration.instruction, /consumed registration attempts/);
+    assert.equal(registration.status, 'manual-checkpoint');
+    assert.deepEqual(plan.bundle.checklist.slice(0, steps.length), steps);
+    assert.equal(plan.bundle.authentication.registrationId, '+existing-reference==');
+    delete f.config.authentication.registrationId; await f.save();
+    const missing = await planFccBundle(f.options);
+    const create = missing.bundle.manualSetup.authenticationRegistration.steps.find(step => step.id === registration.id);
+    assert.match(create.instruction, auth === 'entra' ? /register the exact endpoint/ : /create the connection/);
+    assert.equal(registration.instruction.includes('Reuse the supplied'), true, 'Shared checklist constants stay unchanged.');
+  }
+});
+
 test('FCC provides every anonymous admin form value without auth registration or rollout defaults', async t => {
   const f = await fixture(t);
   const { manualSetup } = (await planFccBundle(f.options)).bundle;
@@ -197,6 +277,13 @@ for (const [name, mutate, code] of [
   ['anonymous protected data', f => { f.config.review.dataAccess = 'user-scoped'; }, 'DATA_ACCESS'],
   ['authentication mismatch', f => { f.config.authentication = { type: 'entra-sso' }; }, 'AUTH_MISMATCH'],
   ['whitespace metadata', f => { f.config.connector.displayName = '   '; }, 'INPUT'],
+  ['blank developer name', f => { f.config.connector.developer.name = ' '; }, 'INPUT'],
+  ['null developer object', f => { f.config.connector.developer = null; }, 'INPUT'],
+  ['unknown developer field', f => { f.config.connector.developer.extra = 'value'; }, 'INPUT'],
+  ['null policy URL', f => { f.config.connector.developer.privacyPolicyUrl = null; }, 'INPUT'],
+  ['empty policy URL', f => { f.config.connector.developer.privacyPolicyUrl = ''; }, 'INPUT'],
+  ['insecure policy URL', f => { f.config.connector.developer.privacyPolicyUrl = 'http://example.com/privacy'; }, 'INPUT'],
+  ['invalid legal review', f => { f.config.review.legalPolicies = 'approved'; }, 'INPUT'],
   ['secret in metadata', f => { f.config.connector.description = 'client_secret=private-sensitive-value'; }, 'SENSITIVE_INPUT'],
 ]) {
   test(`FCC rejects ${name}`, async t => {
@@ -429,7 +516,7 @@ test('FCC concurrent writers do not overwrite and leave no staging files', async
 });
 
 test('FCC CLI keeps JSON parseable, provides exact stderr approval and rejects unrelated effect flags', async t => {
-  const f = await fixture(t, { capture: false });
+  const f = await fixture(t);
   const cli = path.join(TOOLKIT_ROOT, 'bin', 'copilot-mcp.js');
   const invoke = args => spawnSync(process.execPath, [cli, ...args, '--json'], { encoding: 'utf8', timeout: 30000 });
   assert.equal(JSON.parse(invoke(['mcp-fcc-schema']).stdout).properties.schemaVersion.const, 1);
@@ -438,6 +525,9 @@ test('FCC CLI keeps JSON parseable, provides exact stderr approval and rejects u
   assert.equal(planned.status, 0, planned.stderr + planned.stdout);
   const plan = JSON.parse(planned.stdout);
   assert.ok(planned.stderr.includes(plan.approvalToken));
+  assert.match(planned.stderr, /Legal policies: not-reviewed/);
+  assert.ok(planned.stderr.includes(`expires: ${plan.bundle.evidence.discovery.expiresAt}`));
+  assert.match(planned.stderr, /zero gaps is NOT execution readiness/);
   for (const extra of [['--allow-network'], ['--allow-cloud'], ['--interactive'], ['--project', f.root], ['--approve', 'bad']]) {
     const result = invoke(['mcp-fcc-plan', ...args, ...extra]);
     assert.equal(result.status, 1);
