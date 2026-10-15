@@ -61,6 +61,12 @@ flags. Plans support `--summary`; status is local-only. Registration results can
 be imported into preparation with `source.registrationResultFile`; a supplied
 reference/result cannot trigger another registration. See the auth runbook for
 Linux prerequisites, terminal-only login and unknown-attempt reconciliation.
+Login/register summaries also disclose ATK's ancillary experimentation-service
+request and machine-derived client metadata; the provider's telemetry flag does
+not disable that request. Browser callbacks may use separately verified
+Windows-to-WSL localhost forwarding; no automatic host switch is performed.
+ATK may launch the Windows default browser under WSL. The login summary discloses
+that browser cookies/history are outside the toolkit's private-cache boundary.
 
 ## Output and approvals
 

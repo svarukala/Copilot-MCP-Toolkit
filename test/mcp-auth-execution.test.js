@@ -86,7 +86,17 @@ test('isolated phases create one SSO registration and feed its real reference in
   const f = await fixture(t);
   const init = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
   assert.equal(init.status, 'planned'); assert.deepEqual(f.calls, []);
-  await f.signedIn();
+  assert.ok(!init.effects.some(effect => effect.includes('default.exp-tas.com')));
+  await f.run('initialize');
+  const loginPlan = await planAuthExecution({ ...f.options, phase: 'login' }, f.deps);
+  assert.ok(loginPlan.effects.some(effect => effect.includes('https://default.exp-tas.com/vscode/ab')
+    && effect.includes('--telemetry false does not disable')));
+  assert.ok(loginPlan.effects.some(effect => effect.includes('Windows-to-WSL forwarding')));
+  assert.ok(loginPlan.effects.some(effect => effect.includes('may open the Windows default browser')
+    && effect.includes('cookies/history are not isolated')));
+  await f.run('login');
+  const registrationPlan = await planAuthExecution({ ...f.options, phase: 'register' }, f.deps);
+  assert.ok(registrationPlan.effects.some(effect => effect.includes('https://default.exp-tas.com/vscode/ab')));
   const result = await f.run('register');
   assert.equal(result.status, 'created-unverified');
   assert.equal(result.executionReadiness, false);

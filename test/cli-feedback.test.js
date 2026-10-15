@@ -66,6 +66,16 @@ test('CLI summary selects only the exact top-level approval and screens untruste
   });
   assert.match(output.at(-1), /No usable top-level approval/);
   assert.doesNotMatch(output.at(-1), /bbbbbbbb/);
+  await withCliFeedback(async () => {
+    configureCliFeedback('mcp-auth-execution-plan', { summary: true });
+    cliPlanSummary({ action: 'mcp-auth-execution', phase: 'login', project: 'synthetic-session', status: 'planned',
+      effects: ['ATK startup requests https://default.exp-tas.com/vscode/ab; --telemetry false does not disable it.'],
+      approvalToken: token });
+    return 0;
+  });
+  assert.match(output.at(-1), /https:\/\/default\.exp-tas\.com\/vscode\/ab/);
+  assert.match(output.at(-1), /--telemetry false does not disable/);
+  assert.ok(output.at(-1).includes(`EXACT approvalToken: ${token}`));
   for (const unsafe of ['api_key=SUPER_PRIVATE_VALUE', 'Bearer abcdefghijklmnop', 'unsafe\u009b31m', 'fake\u2028line']) {
     await withCliFeedback(async () => {
       configureCliFeedback('mcp-account-plan', { summary: true });
@@ -80,18 +90,19 @@ test('CLI summary selects only the exact top-level approval and screens untruste
 test('feedback flags reject unrelated commands and finished contexts ignore late progress', async t => {
   const output = [];
   t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });
-  let late;
+  let late, releaseLate;
   await withCliFeedback(async () => {
     assert.throws(() => configureCliFeedback('create', { progress: true }), /--progress/);
     assert.throws(() => configureCliFeedback('mcp-proof', { summary: true }), /--summary/);
     configureCliFeedback('mcp-proof', { progress: true });
-    late = new Promise(resolve => setTimeout(() => { cliStage('mcp-call'); resolve(); }, 5));
+    late = new Promise(resolve => { releaseLate = resolve; }).then(() => cliStage('mcp-call'));
     return 2;
   });
 
   const count = output.length;
+  releaseLate();
   await late;
-  assert.equal(output.length, count);
+  assert.equal(output.length, count, JSON.stringify(output));
   assert.match(output.at(-1), /CLI stopped/);
 });
 

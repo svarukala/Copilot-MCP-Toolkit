@@ -217,6 +217,45 @@ a separate OS boundary, or that WSL presence alone qualifies authentication.
 Read [the assessment](auth-registration.md#windows-first-isolation-check).
 Keep the current Windows guard; no automatic cross-platform login/retry exists.
 
+### Resolved WSL setup and callback precheck
+
+Further work resolved the registry problem: the same public npm endpoint was
+accessible from WSL with TLS verification intact. Private official Node 22.23.3
+and pinned ATK 1.1.17 are now installed in this session's private tooling area,
+outside repository assets, using fresh npm configuration/cache and disabled
+installation scripts. No global tooling, account or provider code was changed.
+
+The real ATK help entry point completed in the private tmpfs runtime with all
+network dispatch denied and only its inspected read-only machine-ID command
+allowed. No account cache was created; runtime removal was verified. ATK did
+attempt its experimentation-service GET even with telemetry disabled, and the
+probe blocked it. Execution plans now disclose this ancillary request and
+machine-derived client metadata; the probe is not a production egress firewall.
+
+Windows successfully fetched a unique response from a synthetic WSL loopback
+server, which then exited. A Windows browser can therefore be considered for
+this host's callback without installing a Linux browser; actual Microsoft
+browser sign-in and host-specific browser policies remain untested. The docs
+and login plan now require verified callback reachability rather than assuming
+a Linux browser is mandatory. Source inspection also found that ATK's browser
+helper may automatically launch the Windows default browser under WSL, despite
+`BROWSER=/bin/true`. The login plan now discloses this: private ATK cache isolation
+does not isolate browser cookies/history. No real browser/sign-in was exercised.
+
+This completes the local Windows-first/fallback precheck, not live authentication.
+Keep Windows execution blocked, retain the Linux provider and its independent
+phase approvals, and obtain real app/identity review before live operations.
+Do not transfer this private tooling or any future account cache as repository
+evidence. See the auth runbook for exact validation scope.
+
+Final continuation checks passed: 33 targeted Windows tests including packed
+CLI, syntax/types, and twelve focused Linux checks on Node 22.23.3. The Linux
+scope includes actual tmpfs checks, synthetic SSO-to-FCC phases and CLI feedback.
+A timer-sensitive late-feedback test was made deterministic with an explicitly
+released promise. This is not the full Linux packed-consumer suite or live auth.
+Private Node/ATK tooling is retained; download/cache scratch files and all probe
+runtime/server processes are cleaned up.
+
 ## Broader WIQD integration
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine

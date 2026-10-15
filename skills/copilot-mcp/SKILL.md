@@ -75,7 +75,13 @@ initialize/login/register/close approvals, never the preparation token.
 Execution requires a trusted Linux host, owner-only tmpfs, an explicitly selected
 ATK 1.1.17 installation and real app ID. Windows/macOS are refused; never invoke
 ATK against shared credentials, install a provider or start Docker as a shortcut.
-Login URLs are terminal-only and need a browser on the same Linux host.
+Do not retain login URLs. ATK may launch the Windows default browser under WSL;
+the toolkit does not isolate browser cookies/history or select the browser account.
+The browser must reach the Linux loopback callback. A Windows browser may use separately verified WSL localhost forwarding;
+do not assume that forwarding or browser authentication works from WSL presence.
+Show the ancillary experimentation-service request in login/register approval
+summaries: ATK's `--telemetry false` does not suppress it. No provider-code patch
+or hidden network bypass is authorized to remove that disclosure.
 Public account/selected-tenant metadata is not token attestation: obtain the
 operator's actual identity review before `--confirm-identity`. Confidential
 OAuth additionally needs a matching private Azure identity and `--allow-cloud`.

@@ -167,8 +167,55 @@ that does not enumerate user-managed installations. Public npm metadata
 retrieval for the pinned ATK version failed TLS negotiation in both PowerShell
 and Node. Certificate validation was not disabled, and no alternate provider
 version was installed. The temporary Node tooling was removed after the check.
-Live fallback setup still needs a reviewed Linux ATK installation, working
-browser/callback and exact identity/phase approvals.
+The following continuation resolved the package-access/setup issue without
+weakening TLS verification.
+
+### WSL fallback continuation
+
+Public registry access succeeded from the selected WSL environment. Official
+Node 22.23.3 (checksum verified) and ATK 1.1.17 were installed in a separate
+private session tooling directory. Installation used fresh npm configuration
+paths, a private cache, the public registry and `--ignore-scripts`; no global
+Node/npm configuration, shared authentication cache or provider source was
+changed. These tools are local session prerequisites, not repository dependencies.
+
+The real installed ATK `--help` entry point completed under the adapter's private
+tmpfs/environment with networking denied by the probe. The probe admitted only
+ATK's inspected read-only machine-ID shell command; it did not stub provider
+results or allow other subprocess commands. No account cache was created, and
+the owned tmpfs runtime was removed and its absence checked.
+
+That probe also identified a nonessential startup request:
+`GET https://default.exp-tas.com/vscode/ab`. ATK initializes its experimentation
+service even with `--telemetry false`; the service supplies a machine-derived
+client identifier and CLI metadata. The request was blocked before network
+dispatch in the probe. A zero-request expectation was therefore incorrect:
+successful offline startup here means the CLI operated with that known request
+blocked, **not** that unmodified ATK never attempts networking. Login/register
+plans and their stderr summaries now disclose this additional provider effect.
+No supported opt-out was found in the inspected experimentation initializer.
+The test's network guard is not a production egress firewall.
+
+A separate synthetic Linux loopback server was reachable from Windows at
+`127.0.0.1`; the unique response marker matched and the server then exited.
+This checks WSL localhost forwarding, not Microsoft sign-in or browser policy.
+It allows a Windows browser to be considered for the callback rather than
+requiring a second browser installation inside Linux. Recheck the route on the
+actual host before use; never assume all WSL/network modes support it.
+
+The inspected ATK `open` dependency has a WSL-specific browser-launch path
+through Windows PowerShell. `BROWSER=/bin/true` does **not** guarantee suppression
+of that path. Login approval now explicitly discloses that ATK may open the
+Windows default browser. Private ATK token/cache storage does not isolate browser
+cookies, browser history or OS logging. The toolkit itself neither records the
+authentication URL nor selects a browser account; the operator must review the
+actual account/organization before registration. No browser was launched by the
+startup or loopback probes.
+
+Private Node/ATK tooling is retained for subsequent separately approved work;
+temporary download and probe runtime files are cleaned up. Live browser sign-in,
+tenant/account verification and registration remain unperformed and require
+their original independent reviews.
 
 The toolkit therefore keeps its Windows execution guard and the explicit Linux
 fallback. It does not silently start WSL, install tooling, copy credentials or
@@ -177,8 +224,10 @@ retry a registration on another platform.
 ### Linux execution prerequisites and phases
 
 Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installation,
-`/dev/shm` backed by tmpfs, and a browser on that same host for the loopback
-callback. No installation, Docker startup, browser automation or cache transfer
+`/dev/shm` backed by tmpfs, and a browser able to reach the Linux loopback callback.
+The browser can be on Linux or on Windows through separately verified WSL
+localhost forwarding. This is not support for arbitrary remote callbacks.
+No installation, Docker startup, browser automation or cache transfer
 is performed by the toolkit. Select a real intended M365 app ID, even for
 `AnyApp`; the toolkit will not create or invent one.
 
@@ -216,7 +265,7 @@ its `status` must be `planned`, not `blocked`.
 | Phase | Required effect flags, in addition to exact `--approve` | Effect |
 | --- | --- | --- |
 | `initialize` | `--allow-provider` | Create an owner-only tmpfs runtime and durable nonsecret session metadata; no login |
-| `login` | `--allow-provider --allow-network --interactive` | Public ATK browser sign-in to the explicit tenant; terminal-only URL, manually opened on the same Linux host |
+| `login` | `--allow-provider --allow-network --interactive` | Public ATK sign-in to the explicit tenant; may launch the Windows default browser under WSL, or the operator can open its displayed URL with verified access to the Linux callback |
 | `register` | `--allow-provider --allow-network --confirm-identity` | Recheck identity, durably reserve the target, invoke one public `oauth/register` action |
 | Confidential `register` | All registration flags plus `--allow-cloud` | Use the selected private Azure identity to retrieve the exact versioned Key Vault secret |
 | `close` | `--allow-provider` | Remove only the owned runtime; retain durable receipts, attempts and reservations; config is unnecessary |

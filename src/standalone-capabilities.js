@@ -9,6 +9,8 @@ authRegistrationExecution: {
       result: 'created-unverified', automaticRetry: false, sharedCredentials: false,
       secretPersistence: 'child-only-environment-and-owner-only-tmpfs-no-durable-output',
       liveQualified: false, windowsExecution: false, installation: false, dockerStartup: false,
+      ancillaryNetwork: 'ATK-experimentation-service-not-disabled-by-telemetry-flag',
+      browser: 'provider-managed-may-open-Windows-default-browser-under-WSL',
       publicLibrary: false, consent: false, consumerPublication: false,
     },
 authRegistration: {

@@ -19,6 +19,7 @@ export const authExecutionSchema = {
 };
 const validConfig = new Ajv().compile(authExecutionSchema);
 const hash = value => metadataDigest(boundedSnapshot(value));
+const providerStartupNotice = 'ATK startup also requests https://default.exp-tas.com/vscode/ab with a machine-derived client identifier and CLI metadata. --telemetry false does not disable this experimentation request.';
 function requireExecution(ok, code, message) {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_AUTH_EXECUTION_${code}` });
 }
@@ -183,9 +184,12 @@ async function prepare(options, provider) {
     effects: phase === 'initialize'
       ? ['Create one owner-only Linux tmpfs runtime and private session metadata. No provider login or cloud mutation.']
       : phase === 'login'
-        ? ['Sign in through the public ATK CLI with the explicit tenant in a fresh private cache. Browser URLs are terminal-only; manually open the displayed URL on this Linux host.',
+        ? [providerStartupNotice,
+          'Sign in through the public ATK CLI with the explicit tenant in a fresh private cache. ATK may open the Windows default browser under WSL; browser cookies/history are not isolated by the toolkit.',
+          'The toolkit does not retain authentication URLs. If opening the displayed URL manually, use a browser with access to the Linux loopback callback, including separately verified Windows-to-WSL forwarding.',
           'Check the public ATK account output and selected-tenant metadata. This is not token-issuer attestation or consent to registration.']
-        : ['Recheck the exact signed-in account and selected tenant; --confirm-identity confirms your manual review of the displayed organization and expected tenant.',
+        : [providerStartupNotice,
+          'Recheck the exact signed-in account and selected tenant; --confirm-identity confirms your manual review of the displayed organization and expected tenant.',
           ...(c.confidential ? ['Read only the exact versioned Key Vault secret with the separately selected private Azure identity; pass it in a child-only environment. Provider files/logs stay on owner-only tmpfs.'] : []),
           'Reserve this target durably BEFORE one public ATK oauth/register dispatch. Any failed, cancelled or unknown dispatch stays consumed.',
           'Write a nonsecret created-unverified receipt only after strict output parsing. No app mutation, consent, endpoint deployment, FCC submission or plugin publication.'] };
