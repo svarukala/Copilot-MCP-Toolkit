@@ -192,6 +192,31 @@ types. Synthetic providers cover the effect phases; packed runtime networking
 and subprocesses are denied. The actual Linux filesystem branch and live
 provider were not exercised. See the tracker for earlier separate baselines.
 
+### Subsequent Windows-first request
+
+The user requested trying safe Windows isolation first, with Linux as fallback.
+The read-only probe redirected profile folders but retained the same Windows
+security principal. Installed ATK 1.1.17 still had resolvable broker/keytar
+modules and fixed credential-store bindings; no supported complete isolation
+switch was found. Native same-user redirection therefore failed the precheck.
+No ATK sign-in, broker call, credential-store access or cache copy was attempted.
+Windows Sandbox was unavailable; no OS account/feature/VM was created.
+
+An existing WSL 2 Ubuntu environment was then used for seven focused offline
+checks with private, checksum-verified official Node 22.23.3. All passed,
+including actual tmpfs owner/permission checks and runtime cleanup. This adds
+real Linux filesystem evidence to the prior synthetic/Windows milestone, not
+live authentication or full packed portability. Temporary tooling was removed;
+system Node and user shell profiles were unchanged.
+
+Public npm metadata retrieval for ATK 1.1.17 failed TLS negotiation through both
+PowerShell and Node; certificate verification was not bypassed. The fallback
+still needs a reviewed Linux ATK installation and browser/callback setup before
+separately approved live work. Do not claim Windows isolation is impossible in
+a separate OS boundary, or that WSL presence alone qualifies authentication.
+Read [the assessment](auth-registration.md#windows-first-isolation-check).
+Keep the current Windows guard; no automatic cross-platform login/retry exists.
+
 ## Broader WIQD integration
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine

@@ -128,6 +128,54 @@ unsupported; a registration reference cannot remove that gap.
 
 ## Separate execution workflow
 
+### Windows-first isolation check
+
+On 2026-10-15, the user requested a Windows-first attempt before Linux fallback.
+A non-authenticating child-process probe redirected HOME, USERPROFILE, APPDATA
+and LOCALAPPDATA. Node reported the redirected home, but the child's Windows
+security principal was unchanged. No credential store, token cache, account list
+or sign-in was accessed by this probe.
+
+Inspection of installed ATK 1.1.17 confirmed:
+
+- `m365Login.ts` configures `NativeBrokerPlugin` on Windows. Its installed module
+  resolved successfully; this is not a claim that a live broker was exercised.
+- `cacheAccess.ts` uses the fixed Credential Manager service
+  `Microsoft 365 Agents Toolkit` with the cache name as its key account. The
+  installed keytar module resolved successfully. Redirected folders do not
+  establish a separate Windows credential-store boundary.
+- `accountLoginM365.ts` signs out before login and exposes a tenant selector,
+  not an isolation selector. No supported control to isolate both broker and
+  credential-store access was found in the inspected implementation.
+
+**The same-Windows-user folder-redirection approach did not pass the isolation
+precheck.** ATK login was deliberately not attempted to discover its impact on
+real credentials. This does not prove Windows isolation is impossible: a
+separate Windows VM/Sandbox or OS identity is a different approach that needs
+its own qualification. Windows Sandbox was not available in the inspected
+environment; no Windows feature, account or VM was created.
+
+The fallback check used an existing WSL 2 Ubuntu environment and a private,
+checksum-verified official Node.js 22.23.3 binary, without changing system Node
+or loading a user shell profile. Seven focused offline provider checks passed,
+including actual Linux tmpfs creation, permission rejection and cleanup.
+The other checks used synthetic subprocesses/account output, not real ATK login.
+This is not full Linux packed-consumer or live provider qualification.
+
+Node, ATK and a Linux browser were not found on the initial clean system paths;
+that does not enumerate user-managed installations. Public npm metadata
+retrieval for the pinned ATK version failed TLS negotiation in both PowerShell
+and Node. Certificate validation was not disabled, and no alternate provider
+version was installed. The temporary Node tooling was removed after the check.
+Live fallback setup still needs a reviewed Linux ATK installation, working
+browser/callback and exact identity/phase approvals.
+
+The toolkit therefore keeps its Windows execution guard and the explicit Linux
+fallback. It does not silently start WSL, install tooling, copy credentials or
+retry a registration on another platform.
+
+### Linux execution prerequisites and phases
+
 Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installation,
 `/dev/shm` backed by tmpfs, and a browser on that same host for the loopback
 callback. No installation, Docker startup, browser automation or cache transfer

@@ -66,6 +66,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH3 | SSO registration execution adapter | Implemented; real Linux/provider qualification outstanding | Public ATK 1.1.17, owner-only Linux tmpfs, separate phase approvals, identity confirmation and durable no-replay journals; Windows/macOS refused, no Docker/shared login |
 | AUTH4 | Generic OAuth registration execution | Implemented; live qualification outstanding | PKCE or exact versioned Key Vault secret using a matching private Azure identity and bounded HTTPS read; child-only secret environment, no secret in toolkit durable artifacts |
 | AUTH5 | Shared auth references for FCC/plugins | Local metadata/result import implemented; consumer execution unverified | Exact request/descriptor-bound created-unverified result import into preparation, then FCC; conflicts/stale approvals rejected. Plugin view remains mapping-required, not WIQD packaging |
+| AUTH6 | Windows-first isolation assessment | Same-user profile redirection rejected before login; Linux fallback partially checked | Redirected folders retained the same Windows principal; installed ATK broker/keytar paths remained available. No supported complete isolation switch found; Windows Sandbox unavailable. Seven focused WSL/Linux checks passed, including real tmpfs permissions/cleanup; no live auth |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -98,6 +99,17 @@ termination, malformed records and packed command/flag checks with networking
 and subprocesses denied. The Linux-specific filesystem branch was not run on
 Windows; live Linux/browser/ATK and consumer qualification remain outstanding.
 This is not a rerun of the historical full suite.
+
+Subsequent Windows-first investigation: the safe native Windows precheck did
+not establish broker/credential-store isolation, so no ATK sign-in was attempted.
+An existing WSL 2 Ubuntu environment passed seven focused checks using private
+official Node 22.23.3 tooling, including the real Linux filesystem branch.
+No system tooling, Windows account, Sandbox feature or Docker environment was
+installed/changed. Temporary Node tooling was removed. Pinned ATK registry
+metadata retrieval encountered TLS handshake failures; no verification bypass
+or alternative provider installation was attempted. Linux browser/ATK sign-in,
+registration and full packed portability remain outstanding. See
+[the Windows-first assessment](auth-registration.md#windows-first-isolation-check).
 
 Final targeted auth milestone: 85 tests passed (38 auth, 35 FCC, 11 shared
 CLI/guidance/independence and one expanded fresh packed-consumer journey).
@@ -151,7 +163,7 @@ See [the proposal](wiqd-handoff.md) for acceptance criteria and ownership.
 | H5 | P1 | Address Cowork-specific metadata/validation gaps upstream | WIQD | Proposed | Confirm each gap against current behavior before proposing fixes |
 | H6 | P1 | Verify one MCP Toolkit -> WIQD -> Cowork journey | Explicitly authorized operator | Not started | H2, H3, H4 and applicable H5; fresh purpose/approvals, bounded cost, separate layer results |
 | H7 | P2 | Decide whether a thin deterministic WIQD adapter/extension is justified | Joint | Deferred | H4/H6 experience; no duplicated infrastructure/auth engine |
-| Q1 | P2 | Linux/offline packed portability run | MCP Toolkit | Not run | Authorized Linux environment; do not start shared Docker implicitly |
+| Q1 | P2 | Linux/offline packed portability run | MCP Toolkit | Partial Linux isolation checks only; packed run not done | Seven focused WSL checks passed, including real tmpfs permissions/cleanup. Full Linux packed run and real provider/browser qualification remain separate; no shared Docker startup |
 | Q2 | P2 | Resolve provider invalid-key rejection uncertainty | Separate provider-specific investigation | Inconclusive | New justified purpose, exact approvals and cost bounds; never replay consumed checks |
 | R1 | Later | Archive the frozen Cowork repository | Repository owner | Deferred | Account for remaining consumer handoff needs and obtain explicit archive decision |
 

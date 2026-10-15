@@ -103,5 +103,12 @@ Real Linux/ATK registration is **not yet qualified**; Windows/macOS execution
 is refused. Results remain `created-unverified`. Consent, FCC submission and
 plugin publication are not automated. See [auth registration](docs/auth-registration.md).
 
+Linux/Docker is **not a general toolkit prerequisite**. Windows users can
+generate configurations and prepare FCC handoffs with manually supplied auth
+registration IDs. Only the separate automated auth-registration executor
+currently requires Linux; a container is not required. The Windows-first
+isolation precheck did not establish a safe same-user broker/credential-store
+boundary, so that guard remains in place.
+
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
