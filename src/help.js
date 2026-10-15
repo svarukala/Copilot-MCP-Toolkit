@@ -89,6 +89,10 @@ initialize | login | register | close, with --workspace-root, --project and --co
 --allow-network; register requires --confirm-identity and --allow-network, plus
 --allow-cloud only for a selected private Key Vault identity. No shared login,
 automatic install, Docker startup, registration retry, consent or publication.
+Execution config may opt into allowAnyAppValidationPlaceholder for Entra SSO
+with explicit HomeTenant / AnyApp and no supplied app ID. The unused ATK validation
+placeholder is disclosed in initialize/login/register plans; it creates no app. SpecificApp still
+requires a real intended app ID. This option does not enable Windows execution.
 Use mcp-auth-execution-status for local retained state. A created-unverified result
 can feed preparation through source.registrationResultFile; settings still need review.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.

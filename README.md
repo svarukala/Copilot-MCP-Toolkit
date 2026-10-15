@@ -106,6 +106,12 @@ Real Linux/ATK registration is **not yet qualified**; Windows/macOS execution
 is refused. Results remain `created-unverified`. Consent, FCC submission and
 plugin publication are not automated. See [auth registration](docs/auth-registration.md).
 
+For explicitly selected tenant-only Entra SSO with `AnyApp`, execution config
+can opt into `allowAnyAppValidationPlaceholder`. This handles ATK's unused
+app-ID validation argument without creating an app or changing restrictions
+later. Plans disclose the placeholder; `SpecificApp` still requires a real app
+ID. The option remains Linux-only and live qualification is still outstanding.
+
 Linux/Docker is **not a general toolkit prerequisite**. Windows users can
 generate configurations and prepare FCC handoffs with manually supplied auth
 registration IDs. Only the separate automated auth-registration executor

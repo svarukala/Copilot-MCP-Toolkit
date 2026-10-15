@@ -32,7 +32,10 @@ path. This does not implement a native automatic registration adapter.
 FCC-only clarification (2026-10-15): this optional app/plugin handoff is not a
 prerequisite for custom FCC onboarding. Do not create a WIQD agent or app package
 to satisfy the ATK action's app-ID requirement. The direct Teams Developer Portal
-auth-registration flow and manual FCC form are the current route; see
+auth-registration flow remains an alternative to the separate, explicitly
+opted-in tenant-only SSO ATK compatibility path. That executor can supply the
+unused `AnyApp` validation argument without an agent or later restriction
+switch; it does not change this WIQD handoff. FCC form entry stays manual; see
 [FCC-only onboarding](federated-connectors.md#fcc-only-route-no-agent-project).
 
 ## Boundary

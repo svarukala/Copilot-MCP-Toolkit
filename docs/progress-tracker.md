@@ -69,6 +69,17 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH6 | Windows-first isolation assessment | Native precheck rejected; WSL offline fallback checked | Same-user redirection retained the Windows principal and resolvable broker/keytar modules; credential-store access was not exercised. Twelve focused Linux checks passed; private pinned ATK help ran with network blocked and no account cache. Windows-to-WSL synthetic callback passed. Real sign-in/registration remains unverified |
 | AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
 | AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
+| AUTH9 | Explicit tenant-only SSO AnyApp validation compatibility | Implemented/offline verified; live acceptance unverified | Config-only opt-in for pinned ATK, disclosed unused UUID and unchanged request/target semantics; no app creation, no later restriction switch, no native Windows execution or live registration claim |
+
+AUTH9 validation: 123 targeted Windows tests passed across execution, shared
+preparation/WIQD handoff, FCC, CLI feedback and fresh packed consumption, plus
+syntax/types. Linux Node 22.23.3 passed all 37 execution tests and the fresh
+packed consumer using the retained private npm configuration/cache. That Linux
+run includes real tmpfs ownership/cleanup checks but synthetic provider calls.
+Compatibility regressions cover disabled/invalid opt-in, approval/session
+binding, unchanged canonical preparation, action-only placeholder injection,
+receipt integrity, consumed-target preservation and reference import into FCC.
+No live sign-in, service registration or consumer execution is established.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
@@ -97,9 +108,11 @@ reference. Source inspection found the app-ID gate in the actual 1.1.17 bundle,
 not just toolkit validation. The public 1.1.18 archive was integrity-checked
 and inspected without installation/execution; it retains the same unconditional
 runtime requirement despite its optional-schema/AnyApp semantics. No sign-in or
-registration attempt was dispatched. The direct portal route or an explicitly
-selected existing intended M365 app ID is still required; no dummy agent/app
-or provider patch was introduced. See [provider review](auth-registration.md#confirmed-anyapp-schemaruntime-mismatch).
+registration attempt was dispatched at that checkpoint. The user subsequently
+approved a bounded compatibility path: tenant-only / Any Teams app from the
+start, with an explicitly disclosed unused ATK validation UUID. AUTH9 implements
+that opt-in; no dummy agent/app or provider patch was introduced. The direct
+portal remains the alternative. See [provider review](auth-registration.md#confirmed-anyapp-schemaruntime-mismatch).
 
 AUTH8 validation: 53 targeted Windows tests passed (45 shared registration/
 handoff, four CLI feedback, three independence and one fresh packed consumer),

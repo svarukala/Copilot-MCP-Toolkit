@@ -85,6 +85,9 @@ syncBuiltinESMExports();
   assert.equal(cap.authRegistrationExecution.automaticRetry, false);
   assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'register', 'close']);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.schemaVersion.const, 1);
+  assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.allowAnyAppValidationPlaceholder.type, 'boolean');
+  assert.equal(cap.authRegistrationExecution.anyAppCompatibility.targetAudience, 'HomeTenant');
+  assert.equal(cap.authRegistrationExecution.anyAppCompatibility.createsApp, false);
   invoke(['mcp-auth-execution-schema', '--allow-provider'], [1]);
   invoke(['mcp-auth-execution-plan', '--phase', 'initialize', '--allow-network'], [1]);
   invoke(['mcp-auth-execute', '--phase', 'register', '--allow-provider'], [1]);
@@ -146,6 +149,8 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   const authConfig = path.join(fccWorkspace, 'registration.json'), authOutput = path.join(fccWorkspace, 'auth.json');
   await copyFile(path.join(installed, 'examples', 'auth-registration', 'sso.json'), authConfig);
   const authInput = JSON.parse(await readFile(authConfig));
+  authInput.registration.applicableToApps = 'AnyApp';
+  await writeFile(authConfig, JSON.stringify(authInput));
   const providerRoot = path.join(fccWorkspace, 'synthetic-atk');
   await mkdir(path.join(providerRoot, 'lib'), { recursive: true });
   await writeFile(path.join(providerRoot, 'package.json'), JSON.stringify({ name: '@microsoft/m365agentstoolkit-cli', version: '1.1.17' }));
@@ -158,6 +163,17 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.equal(executionPlan.result.status, 'blocked');
   assert.ok(executionPlan.result.gaps.includes('REAL_M365_APP_ID_REQUIRED'));
   assert.ok(executionPlan.stderr.includes(executionPlan.result.approvalToken));
+  invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
+  assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
+  await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
+    providerRoot, allowAnyAppValidationPlaceholder: true }));
+  const compatiblePlan = invoke(['mcp-auth-execution-plan', ...executionArgs, '--summary']);
+  assert.ok(!compatiblePlan.result.gaps.includes('REAL_M365_APP_ID_REQUIRED'));
+  assert.equal(compatiblePlan.result.providerCompatibility.expectedM365AppId, '');
+  assert.equal(compatiblePlan.result.request.registration.appId, undefined);
+  assert.ok(compatiblePlan.stderr.includes('HomeTenant / AnyApp'));
+  assert.ok(compatiblePlan.stderr.includes(compatiblePlan.result.providerCompatibility.validationAppId));
+  assert.notEqual(compatiblePlan.result.approvalToken, executionPlan.result.approvalToken);
   invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
   assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
   authInput.registration.reference = { registrationId: '+synthetic/registration==', applicationIdUri: 'api://literature.example.com' };

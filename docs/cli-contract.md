@@ -27,7 +27,7 @@ dependency directory. Never use a filesystem root.
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
 | Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
 | Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
-| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding |
+| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding. Config-only `allowAnyAppValidationPlaceholder` opt-in is limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for

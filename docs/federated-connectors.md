@@ -32,10 +32,19 @@ documented `Any Teams app` option permits registration without a final Teams app
 ID. Its broader app scope needs owner approval; this toolkit does not select it
 or claim that a particular restriction has been qualified for FCC.
 
-The reviewed ATK `oauth/register` action requires a real app ID even for `AnyApp`.
+By default, the reviewed ATK `oauth/register` action requires a real app ID even
+for `AnyApp`.
 That is a limitation of that execution path, not an FCC requirement. Do not
 create a dummy app to satisfy it. The optional WIQD handoff serves a separately
 requested app/plugin workflow; it is not the default FCC authentication route.
+
+The separate Linux ATK executor now supports an explicitly selected
+tenant-only SSO compatibility option, `allowAnyAppValidationPlaceholder`.
+It supplies a disclosed validation-only UUID with `AnyApp` from the start;
+the reviewed provider mapping sends no M365 app binding. It creates no app
+and does not change restrictions later. This is not supported for `SpecificApp`
+or arbitrary caller-supplied placeholder IDs. See the [auth runbook](auth-registration.md)
+for the retained identity, review and live-qualification gates.
 
 Copy the portal's actual SSO registration ID and generated Application ID URI,
 review the separately approved Entra/APIM audience and allowed-client changes,

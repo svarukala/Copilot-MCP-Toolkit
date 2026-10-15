@@ -15,13 +15,24 @@ import { runAzureCommand } from './azure.js';
 const text = { type: 'string', minLength: 1, maxLength: 2048 };
 export const authExecutionSchema = {
   type: 'object', additionalProperties: false, required: ['schemaVersion', 'registrationConfig', 'providerRoot'],
-  properties: { schemaVersion: { const: 1 }, registrationConfig: text, providerRoot: text, secretIdentityProject: text },
+  properties: { schemaVersion: { const: 1 }, registrationConfig: text, providerRoot: text, secretIdentityProject: text,
+    allowAnyAppValidationPlaceholder: { type: 'boolean' } },
 };
 const validConfig = new Ajv().compile(authExecutionSchema);
 const hash = value => metadataDigest(boundedSnapshot(value));
+const anyAppValidationId = '00000000-0000-4000-8000-000000000000';
 const providerStartupNotice = 'ATK startup also requests https://default.exp-tas.com/vscode/ab with a machine-derived client identifier and CLI metadata. --telemetry false does not disable this experimentation request.';
 function requireExecution(ok, code, message) {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_AUTH_EXECUTION_${code}` });
+}
+function anyAppCompatibility(request) {
+  const r = request.registration;
+  requireExecution(r.type === 'entra-sso' && r.targetAudience === 'HomeTenant'
+    && r.applicableToApps === 'AnyApp' && r.appId === undefined, 'COMPATIBILITY',
+  'The validation-placeholder opt-in requires Entra SSO, explicit HomeTenant/AnyApp and no supplied app ID. SpecificApp requires a real intended app ID.');
+  return { mode: 'atk-anyapp-validation-placeholder', reviewedVersion: '1.1.17',
+    validationAppId: anyAppValidationId, expectedM365AppId: '',
+    mappingEvidence: 'source-reviewed-not-live-verified', createsApp: false };
 }
 async function readJson(filename) {
   let result;
@@ -77,7 +88,8 @@ async function stateAt(project) {
   if (records.result !== null) {
     const result = checkedResult(records.result);
     requireExecution(attempt && result.attemptDigest === hash(attempt)
-      && hash(result.identity) === hash(login.identity) && hash(result.provider) === hash(session.provider),
+      && hash(result.identity) === hash(login.identity) && hash(result.provider) === hash(session.provider)
+      && hash(result.providerCompatibility ?? null) === hash(attempt.providerCompatibility ?? null),
     'STATE', 'Registration result does not match the retained attempt/identity/provider.');
   }
   return { session, records };
@@ -97,6 +109,12 @@ function checkedResult(value) {
     && ['entra-sso', 'oauth'].includes(value.request?.registration?.type)
     && contentDigest === hash(content), 'RESULT', 'Retained registration result is invalid or modified.');
   checkReference(value.registration, value.request?.registration?.type);
+  if (value.providerCompatibility !== undefined || !value.request.registration.appId) {
+    const expected = anyAppCompatibility(value.request);
+    requireExecution(value.provider?.version === expected.reviewedVersion
+      && hash(value.providerCompatibility ?? null) === hash(expected), 'RESULT',
+    'The registration result must retain the exact reviewed AnyApp compatibility disclosure.');
+  }
   return value;
 }
 async function context(options, provider) {
@@ -115,6 +133,11 @@ async function context(options, provider) {
   if (state) requireExecution(state.session.owner.workspaceRoot === path.resolve(options.workspaceRoot), 'STATE',
     'Authentication session workspace changed; copied/restored sessions cannot adopt provider identity.');
   const request = { tenantId: selected.input.operator.tenantId, registration: selected.input.registration };
+  requireExecution(request.registration.appId !== anyAppValidationId, 'COMPATIBILITY',
+    'The reserved validation placeholder must not be supplied as a real app ID.');
+  const compatibility = config.allowAnyAppValidationPlaceholder === true ? anyAppCompatibility(request) : null;
+  if (compatibility) requireExecution(installation.version === compatibility.reviewedVersion, 'COMPATIBILITY',
+    'The AnyApp validation workaround is qualified only against the pinned ATK 1.1.17 source contract.');
   const target = { type: request.registration.type, tenantId: request.tenantId.toLowerCase(),
     endpoint: selected.descriptor.endpoint, clientId: request.registration.type === 'entra-sso'
       ? selected.descriptor.inbound.clientId.toLowerCase() : request.registration.clientId,
@@ -136,7 +159,7 @@ async function context(options, provider) {
   }
   const inputDigest = hash({ configFile, config, registrationConfig, input: selected.input, descriptor: selected.descriptor });
   return { project, state, selected, installation, inputDigest, request, target, targetDigest,
-    reservation, reservations, consumed, confidential, azureIdentity, secretProject };
+    reservation, reservations, consumed, confidential, azureIdentity, secretProject, compatibility };
 }
 async function prepare(options, provider) {
   const phase = options.phase;
@@ -153,7 +176,7 @@ async function prepare(options, provider) {
   }
   const c = await context(options, provider), gaps = [];
   if (provider.platform() !== 'linux') gaps.push('LINUX_TMPFS_REQUIRED');
-  if (!c.request.registration.appId) gaps.push('REAL_M365_APP_ID_REQUIRED');
+  if (!c.request.registration.appId && !c.compatibility) gaps.push('REAL_M365_APP_ID_REQUIRED');
   if (phase === 'initialize') {
     requireExecution(!c.state, 'STATE', 'Initialize requires a new session directory.');
     try { await lstat(c.project); requireExecution(false, 'STATE', 'Session directory already exists; never overwrite or adopt it.'); }
@@ -178,6 +201,7 @@ async function prepare(options, provider) {
     producerBuild: (await getLibraryInfo()).contentDigest, provider: c.installation,
     operator: c.selected.input.operator, endpoint: c.selected.descriptor.endpoint,
     request: c.request, targetDigest: c.targetDigest, stateDigest: c.state ? hash(c.state) : null,
+    ...(c.compatibility ? { providerCompatibility: c.compatibility } : {}),
     consumedDigest: c.consumed ? hash(c.consumed) : null,
     azureIdentity: phase === 'register' ? c.azureIdentity : null,
     identityEvidence: c.state?.records.login?.identity ?? null,
@@ -193,6 +217,8 @@ async function prepare(options, provider) {
           ...(c.confidential ? ['Read only the exact versioned Key Vault secret with the separately selected private Azure identity; pass it in a child-only environment. Provider files/logs stay on owner-only tmpfs.'] : []),
           'Reserve this target durably BEFORE one public ATK oauth/register dispatch. Any failed, cancelled or unknown dispatch stays consumed.',
           'Write a nonsecret created-unverified receipt only after strict output parsing. No app mutation, consent, endpoint deployment, FCC submission or plugin publication.'] };
+  if (c.compatibility) plan.effects.push(
+    `Explicit compatibility opt-in: HomeTenant / AnyApp. ATK receives ${anyAppValidationId} only to satisfy local validation; its reviewed AnyApp mapping sends an empty m365AppId. This is not a real app identity, creates no app and needs no later app-restriction switch. Live mapping remains unverified.`);
   return { ...plan, approvalToken: `mcp-auth-execution/${hash(plan)}` };
 }
 async function inWorkspace(options, action) {
@@ -332,17 +358,24 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
             }
             requireExecution(!options.signal?.aborted && (await prepare(options, provider)).approvalToken === plan.approvalToken,
               'CHANGED', 'Inputs, session, identity or freshness changed before registration dispatch.');
+            const actionRequest = c.compatibility
+              ? { ...c.request, registration: { ...c.request.registration, appId: c.compatibility.validationAppId } }
+              : c.request;
+            const action = authRegistrationAction(actionRequest, c.selected.descriptor, { secretVariable: true });
+            requireExecution(action, 'INPUT', 'No complete reviewed registration action is available.');
             await mkdir(c.reservations, { recursive: true, mode: 0o700 });
             const attempt = { schemaVersion: 1, target: c.target, targetDigest: c.targetDigest, project,
+              ...(c.compatibility ? { providerCompatibility: c.compatibility } : {}),
               startedAt: new Date().toISOString(), approvalDigest: hash(plan), status: 'dispatch-reserved-consumed' };
             await writeControl(c.reservation, attempt, { create: true });
             await journal(project, 'register-attempt', attempt);
             const registration = await provider.register(plan.provider, session.runtime, session.owner,
-              authRegistrationAction(c.request, c.selected.descriptor, { secretVariable: true }), c.request.registration.type,
+              action, c.request.registration.type,
               { signal: options.signal, secret });
             checkReference(registration, c.request.registration.type);
             const content = { schemaVersion: 1, kind: 'mcp-auth-registration-result', status: 'created-unverified',
               request: c.request, descriptorDigest: c.selected.descriptor.descriptorDigest, endpoint: c.selected.descriptor.endpoint,
+              ...(c.compatibility ? { providerCompatibility: c.compatibility } : {}),
               registration, identity, provider: plan.provider, attemptDigest: hash(attempt),
               createdAt: new Date().toISOString(), settings: 'not-verified', executionReadiness: false };
             await journal(project, 'result', { ...content, contentDigest: hash(content) });

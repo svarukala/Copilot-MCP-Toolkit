@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { TOOLKIT_ROOT, withCliWorkspace } from '../src/config.js';
+import { boundedSnapshot, metadataDigest } from '../src/anonymous-metadata.js';
 import { prepareMcpServer } from '../src/mcp-server.js';
 import { planAuthExecution, executeAuthPhase, readAuthExecutionStatus, readAuthExecutionResult, fetchRegistrationSecret } from '../src/mcp-auth-execution.js';
 import { planAuthRegistrationBundle, writeAuthRegistrationBundle } from '../src/mcp-auth-registration.js';
@@ -82,8 +83,19 @@ async function fixture(t, type = 'entra-sso') {
   return { root, descriptor, input, execution, options, provider, calls, deps, save, run, signedIn };
 }
 
-test('isolated phases create one SSO registration and feed its real reference into FCC without readiness claims', async t => {
+for (const compatibility of [false, true]) test(`isolated phases create one SSO registration and feed its real reference into FCC without readiness claims${compatibility ? ' with explicit AnyApp compatibility' : ''}`, async t => {
   const f = await fixture(t);
+  if (compatibility) {
+    f.input.registration.applicableToApps = 'AnyApp';
+    delete f.input.registration.appId;
+    f.execution.allowAnyAppValidationPlaceholder = true;
+    await f.save();
+    const legacy = await planAuthRegistrationBundle({ workspaceRoot: f.root,
+      config: path.join(f.root, 'registration.json'), output: path.join(f.root, 'legacy.json') });
+    assert.equal(legacy.bundle.providerPreparation.action, null);
+    assert.ok(legacy.bundle.readiness.gaps.some(gap => gap.code === 'APP_ID_MISSING'));
+  }
+  const originalInput = await readFile(path.join(f.root, 'registration.json'), 'utf8');
   const init = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
   assert.equal(init.status, 'planned'); assert.deepEqual(f.calls, []);
   assert.ok(!init.effects.some(effect => effect.includes('default.exp-tas.com')));
@@ -101,6 +113,25 @@ test('isolated phases create one SSO registration and feed its real reference in
   assert.equal(result.status, 'created-unverified');
   assert.equal(result.executionReadiness, false);
   const receipt = JSON.parse(await readFile(result.resultFile));
+  assert.equal(await readFile(path.join(f.root, 'registration.json'), 'utf8'), originalInput);
+  if (compatibility) {
+    assert.equal(init.providerCompatibility.expectedM365AppId, '');
+    assert.equal(init.providerCompatibility.createsApp, false);
+    assert.equal(init.request.registration.appId, undefined);
+    assert.ok(init.effects.some(effect => effect.includes('HomeTenant / AnyApp')));
+    assert.deepEqual(receipt.providerCompatibility, init.providerCompatibility);
+    assert.equal(receipt.request.registration.appId, undefined);
+    const action = f.calls.find(call => typeof call === 'object').action;
+    assert.equal(action.with.appId, init.providerCompatibility.validationAppId);
+    assert.equal(action.with.applicableToApps, 'AnyApp');
+    assert.equal(action.with.targetAudience, 'HomeTenant');
+    const attempt = JSON.parse(await readFile(path.join(f.options.project, 'register-attempt.json')));
+    assert.equal(attempt.target.appId, null);
+    assert.deepEqual(attempt.providerCompatibility, init.providerCompatibility);
+  } else {
+    assert.equal(init.providerCompatibility, undefined);
+    assert.equal(receipt.providerCompatibility, undefined);
+  }
   assert.equal(receipt.registration.registrationId, registrationId);
   assert.equal(receipt.settings, 'not-verified');
   assert.equal(f.calls.filter(c => typeof c === 'object').length, 1);
@@ -209,6 +240,117 @@ test('Windows or missing real app ID remains blocked before any effect', async t
   assert.deepEqual(plan.gaps, ['LINUX_TMPFS_REQUIRED', 'REAL_M365_APP_ID_REQUIRED']);
   await assert.rejects(f.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
   assert.deepEqual(f.calls, []);
+});
+
+test('AnyApp without explicit compatibility opt-in remains blocked', async t => {
+  const f = await fixture(t);
+  f.input.registration.applicableToApps = 'AnyApp';
+  delete f.input.registration.appId;
+  for (const enabled of [undefined, false]) {
+    f.execution.allowAnyAppValidationPlaceholder = enabled;
+    await f.save();
+    const plan = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
+    assert.ok(plan.gaps.includes('REAL_M365_APP_ID_REQUIRED'));
+    assert.equal(plan.providerCompatibility, undefined);
+    await assert.rejects(f.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  }
+  assert.deepEqual(f.calls, []);
+});
+
+for (const invalid of ['SpecificApp', 'AnyTenant', 'oauth', 'supplied-app-id', 'reserved-app-id', 'unreviewed-provider', 'wrong-flag-type']) {
+  test(`AnyApp compatibility rejects ${invalid} before provider effects`, async t => {
+    const f = await fixture(t, invalid === 'oauth' ? 'oauth' : 'entra-sso');
+    f.input.registration.applicableToApps = 'AnyApp';
+    delete f.input.registration.appId;
+    f.execution.allowAnyAppValidationPlaceholder = true;
+    if (invalid === 'SpecificApp') f.input.registration.applicableToApps = 'SpecificApp';
+    if (invalid === 'AnyTenant') f.input.registration.targetAudience = 'AnyTenant';
+    if (invalid === 'supplied-app-id') f.input.registration.appId = appId;
+    if (invalid === 'reserved-app-id') {
+      f.input.registration.applicableToApps = 'SpecificApp';
+      f.input.registration.appId = '00000000-0000-4000-8000-000000000000';
+      delete f.execution.allowAnyAppValidationPlaceholder;
+    }
+    if (invalid === 'unreviewed-provider') {
+      const inspect = f.provider.inspect;
+      f.provider.inspect = async () => ({ ...await inspect(), version: '1.1.18' });
+    }
+    if (invalid === 'wrong-flag-type') f.execution.allowAnyAppValidationPlaceholder = 'true';
+    await f.save();
+    await assert.rejects(f.run('initialize'), {
+      code: invalid === 'wrong-flag-type' ? 'MCP_AUTH_EXECUTION_INPUT' : 'MCP_AUTH_EXECUTION_COMPATIBILITY',
+    });
+    assert.deepEqual(f.calls, []);
+    assert.ok(!(await readdir(f.root)).includes('session'));
+  });
+}
+
+test('AnyApp opt-in is approval/session bound and cannot enable Windows execution', async t => {
+  const f = await fixture(t);
+  f.input.registration.applicableToApps = 'AnyApp';
+  delete f.input.registration.appId;
+  await f.save();
+  const before = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
+  f.execution.allowAnyAppValidationPlaceholder = true;
+  await f.save();
+  const after = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
+  assert.notEqual(before.approvalToken, after.approvalToken);
+  await assert.rejects(executeAuthPhase({ ...f.options, phase: 'initialize',
+    approval: before.approvalToken, allowProvider: true }, f.deps), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  f.provider.platform = () => 'win32';
+  const windows = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
+  assert.deepEqual(windows.gaps, ['LINUX_TMPFS_REQUIRED']);
+  await assert.rejects(f.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  assert.deepEqual(f.calls, []);
+  f.provider.platform = () => 'linux';
+  await f.run('initialize');
+  delete f.execution.allowAnyAppValidationPlaceholder;
+  await f.save();
+  await assert.rejects(f.run('login'), { code: 'MCP_AUTH_EXECUTION_CHANGED' });
+});
+
+test('AnyApp failure stays consumed when switching from compatibility to a supplied real app ID', async t => {
+  const f = await fixture(t);
+  f.input.registration.applicableToApps = 'AnyApp';
+  delete f.input.registration.appId;
+  f.execution.allowAnyAppValidationPlaceholder = true;
+  await f.save();
+  await f.signedIn();
+  let dispatched = 0;
+  f.provider.register = async () => { dispatched++; throw new Error('synthetic failure'); };
+  await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_FAILED' });
+  const status = await readAuthExecutionStatus(f.options);
+  assert.equal(status.status, 'registration-unknown-consumed');
+  f.options.project = path.join(f.root, 'second-session');
+  f.input.registration.appId = appId;
+  delete f.execution.allowAnyAppValidationPlaceholder;
+  await f.save();
+  await f.signedIn();
+  await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  assert.equal(dispatched, 1);
+});
+
+test('AnyApp result import rejects removed or changed compatibility disclosure even with a new digest', async t => {
+  const f = await fixture(t);
+  f.input.registration.applicableToApps = 'AnyApp';
+  delete f.input.registration.appId;
+  f.execution.allowAnyAppValidationPlaceholder = true;
+  await f.save();
+  await f.signedIn();
+  const result = await f.run('register');
+  const original = JSON.parse(await readFile(result.resultFile));
+  for (const mutation of ['missing', 'bound-app', 'placeholder']) {
+    const content = structuredClone(original);
+    delete content.contentDigest;
+    if (mutation === 'missing') delete content.providerCompatibility;
+    if (mutation === 'bound-app') content.providerCompatibility.expectedM365AppId = appId;
+    if (mutation === 'placeholder') content.providerCompatibility.validationAppId = appId;
+    await writeFile(result.resultFile, JSON.stringify({
+      ...content, contentDigest: metadataDigest(boundedSnapshot(content)),
+    }));
+    await assert.rejects(withCliWorkspace(f.root, () => readAuthExecutionResult(result.resultFile, f.input, f.descriptor)),
+      { code: 'MCP_AUTH_EXECUTION_RESULT' });
+  }
 });
 
 for (const failure of ['failure', 'timeout', 'malformed-output']) {

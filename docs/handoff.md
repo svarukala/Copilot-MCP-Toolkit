@@ -5,10 +5,19 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest approved ATK direction (2026-10-15): the user confirmed no existing
+  SSO registration and agreed to tenant-only / Any Teams app from the start.
+  The separate executor now has a narrowly scoped
+  `allowAnyAppValidationPlaceholder` compatibility opt-in, not a fake app
+  binding or provider patch. Plans disclose the unused validation UUID; real
+  app IDs remain mandatory for `SpecificApp`. No live phase is implied by the
+  implementation or by these notes. Read the auth runbook before preparing
+  the separately reviewed Linux initialization, sign-in and registration.
 - Latest scope correction (2026-10-15): the current journey is FCC-only, not
   WIQD agent authoring. Do not create or provision an agent to obtain an app ID.
-  Use the direct Teams Developer Portal auth-registration route and manual FCC
-  form. The reviewed ATK action's app-ID requirement is not an FCC prerequisite.
+  The direct Teams Developer Portal route remains an alternative to the
+  explicitly approved ATK compatibility path; FCC form entry remains manual.
+  The reviewed ATK action's app-ID requirement is not an FCC prerequisite.
   A mistaken private local agent scaffold was stopped without cloud
   provisioning; it is not an FCC dependency or evidence. See
   [the FCC-only route](federated-connectors.md#fcc-only-route-no-agent-project).

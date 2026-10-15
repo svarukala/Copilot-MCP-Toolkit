@@ -31,6 +31,10 @@ describe that action, not the direct portal/FCC prerequisites. A direct
 `mcp-fcc-plan` can use the actual SSO reference and Application ID URI without a
 shared preparation bundle, WIQD project or consumer app ID.
 
+The separate ATK executor now offers the explicit, bounded compatibility option
+below for tenant-only SSO with `AnyApp`. It does not change the historical
+preparation format, create an app, or require a later portal restriction change.
+
 ## Local workflow
 
 Use an existing private workspace containing a toolkit-generated or referenced
@@ -354,8 +358,9 @@ Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installati
 The browser can be on Linux or on Windows through separately verified WSL
 localhost forwarding. This is not support for arbitrary remote callbacks.
 No installation, Docker startup, browser automation or cache transfer
-is performed by the toolkit. Select a real intended M365 app ID, even for
-`AnyApp`; the toolkit will not create or invent one.
+is performed by the toolkit. Select a real intended M365 app ID unless using
+the explicit tenant-only SSO compatibility option below. `SpecificApp` always
+requires a real intended app ID; the toolkit never creates a dummy app.
 
 Keep the session workspace private and durable, separate from installed code.
 `examples/auth-registration/execution.json` shows the additional configuration:
@@ -374,6 +379,37 @@ existing reference/result. Confidential OAuth also needs `secretIdentityProject`
 pointing to an **already selected private toolkit Azure identity** in the same
 workspace, matching the explicit tenant/account and subscription selection.
 This executor neither signs into Azure nor changes its selected account.
+
+#### Optional tenant-only SSO AnyApp compatibility
+
+Set `allowAnyAppValidationPlaceholder: true` in the execution configuration
+only after explicitly selecting `registration.type: "entra-sso"`,
+`targetAudience: "HomeTenant"` and `applicableToApps: "AnyApp"` in the registration
+input. Omit `registration.appId`. The option defaults to disabled; without it,
+the previous missing-app-ID gate remains. It is rejected for `SpecificApp`,
+`AnyTenant`, custom OAuth or any supplied app ID.
+
+For pinned ATK 1.1.17 only, the executor passes the reserved UUID
+`00000000-0000-4000-8000-000000000000` solely to satisfy the provider's local
+validation. The source-reviewed `AnyApp` mapping sends an empty `m365AppId` to
+the registration service. This value is **not an app identity or an app
+restriction**. It is never inserted into the user's registration input and must
+not be supplied as a real app ID. There is no initial `SpecificApp` registration,
+new Teams app, WIQD project or later manual switch to `AnyApp`.
+
+Initialize, login and register plans and stderr summaries disclose the
+restriction and placeholder. Close remains a separately approved cleanup phase.
+The opt-in is bound to the configuration, session and exact phase approval.
+Attempts/results retain `providerCompatibility` separately from the unmodified
+registration request. The no-replay target deliberately ignores an `AnyApp`
+app ID, as before: switching to a supplied ID or disabling the option cannot
+reopen a consumed target. Missing or changed receipt disclosure is rejected.
+
+This compatibility check does not enable native Windows execution, qualify
+live ATK/token-store behavior, or approve login/registration. Source inspection
+establishes the intended omission; synthetic tests are not an observed provider
+request. The Linux isolation, identity review and separate phase approvals
+remain mandatory. Version-1 preparation and WIQD handoff behavior are unchanged.
 
 On that Linux host, use the following plan pattern, replacing the private paths
 and phase. `--project` is a new private session directory, not the MCP server.
@@ -480,12 +516,12 @@ It was not installed or executed. The inspected public upstream source also
 retained the unconditional validation. This is not a live provider qualification
 or an upgrade of the executor's 1.1.17 pin.
 
-Consequently, sign-in alone cannot unblock ATK registration without a real
-intended M365/Teams app ID. Do not pass the resource client ID, an invented GUID
-or a placeholder to bypass the check, patch the provider, invoke its private
-driver directly, or create a dummy agent. Use the documented direct portal
-route for an FCC-only setup, or obtain an explicitly selected existing intended
-consumer app ID before reviewing the separate ATK execution phases.
+Without the explicit compatibility option above, sign-in alone cannot unblock
+ATK registration without a real intended M365/Teams app ID. Do not pass the
+resource client ID or a fabricated app identity, patch the provider, invoke its
+private driver directly, or create a dummy agent. The approved compatibility
+path labels its unused validation argument explicitly and never uses it as a
+`SpecificApp` binding. The direct portal route remains available.
 
 Reviewed the public CLI implementation installed as
 `@microsoft/m365agentstoolkit-cli` **1.1.17**, including its shipped sourcemap.

@@ -82,7 +82,8 @@ For separately requested registration execution, read the auth runbook first.
 Use `mcp-auth-execution-plan` and `mcp-auth-execute` for independent
 initialize/login/register/close approvals, never the preparation token.
 Execution requires a trusted Linux host, owner-only tmpfs, an explicitly selected
-ATK 1.1.17 installation and real app ID. Windows/macOS are refused; never invoke
+ATK 1.1.17 installation and real app ID unless the compatibility option below is
+explicitly selected. Windows/macOS are refused; never invoke
 ATK against shared credentials, install a provider or start Docker as a shortcut.
 Do not retain login URLs. ATK may launch the Windows default browser under WSL;
 the toolkit does not isolate browser cookies/history or select the browser account.
@@ -95,6 +96,16 @@ Public account/selected-tenant metadata is not token attestation: obtain the
 operator's actual identity review before `--confirm-identity`. Confidential
 OAuth additionally needs a matching private Azure identity and `--allow-cloud`.
 Real Linux/provider qualification remains outstanding.
+
+For an owner-approved tenant-only Entra SSO registration using `AnyApp`,
+execution config may set `allowAnyAppValidationPlaceholder: true` and omit the
+registration app ID. The executor supplies a disclosed, unused validation UUID;
+the reviewed provider mapping sends an empty M365 app binding. Do not create a
+dummy app, supply that UUID as a real app ID, or first register `SpecificApp`
+and ask the owner to broaden it later. The option is rejected for `SpecificApp`,
+`AnyTenant`, OAuth or supplied app IDs. Review its disclosure in each phase plan;
+all Linux isolation, identity and exact approval gates remain. Do not change
+the historical preparation format or infer live qualification from this option.
 
 Use local `mcp-auth-execution-status` after failures; never replay registration
 or remove consumed reservations. Unconfirmed termination retains the operation
