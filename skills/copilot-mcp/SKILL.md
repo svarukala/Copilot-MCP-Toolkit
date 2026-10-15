@@ -95,6 +95,17 @@ successful `created-unverified` result through preparation's
 `source.registrationResultFile`, never as readiness or publication authority.
 
 FCC may import the saved preparation through `source.authenticationBundleFile`.
+For the user-managed Windows alternative, use `mcp-auth-wiqd-schema`,
+`mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` with a private registration input,
+existing WIQD project directory and explicit environment. This writes only a
+review handoff; it never invokes WIQD, edits that project or transfers credentials.
+WIQD owns its ordinary profile authentication, not a toolkit-isolated session.
+The operator applies the action through WIQD's authoring workflow and verifies
+identity, validates the project and approves the ENTIRE provisioning lifecycle.
+Never treat the export approval as authority for any provider command. Return
+only the exact registration ID and SSO Application ID URI through the existing
+preparation/reference path; no raw environment-file or token import.
+
 References remain `provided-unverified`, conflicts are rejected, and missing
 discovery or endpoint settings remain gaps. The plugin view is mapping guidance,
 not a WIQD input or permission to publish. Do not repeat creation when the owner

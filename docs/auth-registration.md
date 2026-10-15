@@ -128,6 +128,70 @@ unsupported; a registration reference cannot remove that gap.
 
 ## Separate execution workflow
 
+### User-managed WIQD Windows handoff
+
+This is the simpler native Windows route: MCP Toolkit prepares nonsecret
+registration data; the operator runs WIQD's normal sign-in and provisioning
+workflow, then returns only the registration reference. WIQD owns its normal
+user-profile credentials. The toolkit neither reads those credentials nor claims
+to isolate WIQD's profile. No WSL, Linux, copied cache or new authentication
+system is needed for this handoff.
+
+Create a private configuration matching `mcp-auth-wiqd-schema`:
+
+```json
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "wiqdProject": "existing-wiqd-project",
+  "environment": "dev"
+}
+```
+
+The registration input is the existing `mcp-auth-registration-schema` contract.
+The WIQD directory must already exist in the selected private workspace. The
+toolkit does not create a dummy app, inspect the project's contents, or infer its
+app ID. The handoff output must be outside that WIQD project to avoid adding or
+changing its files. `examples/auth-registration/wiqd-handoff.json` is synthetic guidance.
+
+```powershell
+copilot-mcp mcp-auth-wiqd-plan --workspace-root C:\private\demo --config C:\private\demo\wiqd-handoff.json --output C:\private\demo\wiqd-review.json --json --summary
+copilot-mcp mcp-auth-wiqd-bundle --workspace-root C:\private\demo --config C:\private\demo\wiqd-handoff.json --output C:\private\demo\wiqd-review.json --approve "EXACT_CURRENT_PLAN_TOKEN" --json
+```
+
+That approval writes **one new JSON handoff only**, binding the selected
+registration inputs, operator, target project/environment, build and destination.
+It does not approve any provider command. The handoff contains argument arrays
+and quoted PowerShell commands for version, interactive login, validation and
+provisioning, plus the exact `oauth/register` action and return-field mapping.
+The JSON handoff is not itself a WIQD input file or a provisioning lifecycle.
+
+The operator must merge the action through WIQD's supported authoring workflow
+into both lifecycle files, preserving existing actions/references. Verify the
+actual app ID and restrictions; never silently change `SpecificApp` to `AnyApp`.
+Run sign-in from a real terminal and verify the actual account/tenant. Then
+validate the exact project/environment and **review every effect in the whole
+provisioning lifecycle** before provisioning. This may create/update/publish app
+resources beyond the registration: the toolkit does not certify or authorize
+those effects, bypass EULA/consent gates or orchestrate execution.
+
+SSO and secretless OAuth PKCE receive review actions when a real app ID is
+provided. Missing app IDs, confidential-client secret resolution, or an existing
+reference suppress all provider commands. Existing references must not trigger
+recreation. Failed/unknown attempts require provider reconciliation, not reruns.
+
+After successful operator-run registration, copy only `MCP_AUTH_REGISTRATION_ID`
+and, for SSO, `MCP_AUTH_APPLICATION_ID_URI` into `registration.reference` in a
+new registration-input file. Use the existing preparation plan/bundle commands
+with a fresh output, then import that preparation into FCC through
+`source.authenticationBundleFile`. Opaque punctuation/padding is preserved.
+Do not import the WIQD handoff directly as an authentication bundle, and do not
+copy whole environment files, tokens or raw logs.
+
+References remain `provided-unverified`; settings, consent and actual consumer
+execution remain separate. Historical version-1 preparation content is unchanged.
+The Linux executor below remains an independent, separately approved option.
+
 ### Windows-first isolation check
 
 On 2026-10-15, the user requested a Windows-first attempt before Linux fallback.

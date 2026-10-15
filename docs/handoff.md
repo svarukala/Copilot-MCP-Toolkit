@@ -296,6 +296,34 @@ consumed evidence must not be replayed.
 
 ## Broader WIQD integration
 
+### Implemented user-managed Windows registration handoff
+
+`mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` now provide
+the simpler native Windows option without claiming to replace the isolated
+executor. An existing private WIQD project/environment and registration input
+produce one reviewed, no-overwrite JSON handoff: SSO/PKCE action data, quoted
+operator commands and exact reference-return mappings. The toolkit does not
+run WIQD or alter its project, credentials, account selection or settings.
+
+WIQD owns ordinary user-profile authentication. Its provisioning command can
+affect the whole app, so its full lifecycle and identity must be independently
+reviewed; an export approval never authorizes provisioning. Missing app IDs,
+confidential secrets or existing references suppress provider commands. The
+existing descriptor-bound reference import path remains unchanged, including
+version-1 hashes and unverified status. See the auth runbook's
+[Windows handoff](auth-registration.md#user-managed-wiqd-windows-handoff).
+
+Validation passed: 53 targeted Windows tests plus syntax/types, and eight Linux
+Node 22.23.3 checks including the complete packed-consumer test. The command
+rejects handoff outputs inside the selected WIQD project; neither creation nor
+editing of that project is part of the write. Runtime networking/subprocesses
+remain denied during the packed test. No live WIQD operation was exercised.
+
+Live use remains separate. The user has identified an existing secured endpoint;
+keep real endpoint/identity/project details only in private operator inputs,
+never in these public notes. The intended app ID and existing WIQD project
+still need explicit selection. No live operation is implied by this code.
+
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing
 public APIs or invoking cloud services. Confirm the intended implementation scope

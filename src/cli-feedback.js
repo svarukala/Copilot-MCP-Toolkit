@@ -4,7 +4,7 @@ import { secretIssues } from './validation.js';
 const context = new AsyncLocalStorage();
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
-  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan'];
+  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -119,6 +119,10 @@ export function cliPlanSummary(plan) {
   if (!plan.action) return;
   if (plan.action === 'mcp-auth-execution') {
     writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
+    return;
+  }
+  if (plan.action === 'mcp-auth-wiqd-handoff-write') {
+    writeFeedback(state, `[WIQD handoff summary]\nOperation: local private JSON only; no WIQD invocation or project edits\nNew destination: ${safe(plan.outputPath)}\nWIQD project: ${safe(plan.bundle.target.project)}\nEnvironment: ${safe(plan.bundle.target.environment)}\nExpected operator: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.bundle.preparation.request.tenantId)}\nAuthentication belongs to the user-managed WIQD profile, not a toolkit-isolated session.\nProvisioning requires separate review of the ENTIRE WIQD lifecycle. No credential transfer or automatic retry.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nThis approval writes only the handoff; it authorizes none of its provider commands.\n`);
     return;
   }
   if (plan.action === 'mcp-auth-registration-preparation-write') {

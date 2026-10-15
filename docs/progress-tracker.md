@@ -68,6 +68,15 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH5 | Shared auth references for FCC/plugins | Local metadata/result import implemented; consumer execution unverified | Exact request/descriptor-bound created-unverified result import into preparation, then FCC; conflicts/stale approvals rejected. Plugin view remains mapping-required, not WIQD packaging |
 | AUTH6 | Windows-first isolation assessment | Native precheck rejected; WSL offline fallback checked | Same-user redirection retained the Windows principal and resolvable broker/keytar modules; credential-store access was not exercised. Twelve focused Linux checks passed; private pinned ATK help ran with network blocked and no account cache. Windows-to-WSL synthetic callback passed. Real sign-in/registration remains unverified |
 | AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
+| AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
+
+AUTH8 validation: 53 targeted Windows tests passed (45 shared registration/
+handoff, four CLI feedback, three independence and one fresh packed consumer),
+plus syntax/types. Eight Linux Node 22.23.3 checks passed (seven handoff cases
+and the complete fresh packed consumer). Coverage includes legacy preparation
+preservation, exact reference return to FCC, no provider commands for blocked or
+existing-reference inputs, identity/environment/destination-bound approvals,
+safe PowerShell quoting, and refusal to write inside the WIQD project.
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not

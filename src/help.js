@@ -11,6 +11,7 @@ export const commandFamilies = {
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
   federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
   registration: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
+  wiqdHandoff: ['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'],
   registrationExecution: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
 };
 
@@ -67,6 +68,13 @@ the exact --approve token. Output is a private onboarding draft, not a Microsoft
 manifest or registered connector. manualSetup contains human copy/paste fields and
 auth registration instructions. OAuth is reference-only; no login/exchange/discovery.
 Missing/stale metadata remains explicitly blocked. No browser submission is performed.
+WIQD Windows handoff: mcp-auth-wiqd-schema describes registrationConfig,
+wiqdProject and environment. mcp-auth-wiqd-plan/bundle takes --workspace-root,
+--config and --output NEW.json; bundle requires exact --approve. Plan supports
+--summary. Exports operator-run WIQD commands, action review data and reference
+return mapping. No WIQD invocation, project edits, credential access or Linux
+requirement. WIQD owns authentication; its whole provisioning lifecycle needs
+separate review. This is not project-isolated native authentication automation.
 Auth registration: mcp-auth-registration-schema describes explicit SSO/custom OAuth
 preparation. Plan/bundle takes --workspace-root, --config, --output NEW.json and,
 for bundle, exact --approve. Plan supports --summary. Exports form values, reviewed

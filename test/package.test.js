@@ -75,6 +75,10 @@ syncBuiltinESMExports();
   assert.ok(cap.commands.includes('mcp-auth-registration-plan'));
   assert.equal(cap.authRegistration.registration, false);
   assert.equal(cap.authRegistration.subprocesses, false);
+  assert.equal(cap.authWiqdHandoff.windowsWorkflow, true);
+  assert.equal(cap.authWiqdHandoff.registration, false);
+  assert.equal(invoke(['mcp-auth-wiqd-schema']).result.properties.schemaVersion.const, 1);
+  invoke(['mcp-auth-wiqd-schema', '--allow-network'], [1]);
   assert.equal(invoke(['mcp-auth-registration-schema']).result.properties.schemaVersion.const, 1);
   assert.ok(cap.commands.includes('mcp-auth-execution-plan'));
   assert.equal(cap.authRegistrationExecution.liveQualified, false);
@@ -198,6 +202,24 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.equal(oauthPlan.bundle.providerPreparation.action.with.scope, 'literature.read');
   assert.equal(oauthPlan.bundle.providerPreparation.action.with.clientSecret, undefined);
   invoke(['mcp-auth-registration-bundle', ...oauthArgs, '--approve', oauthPlan.approvalToken]);
+  const wiqdProject = path.join(fccWorkspace, "existing WIQD user's project");
+  await mkdir(wiqdProject);
+  const wiqdConfig = path.join(fccWorkspace, 'wiqd-handoff.json');
+  await writeFile(wiqdConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'oauth-registration.json',
+    wiqdProject, environment: 'dev' }));
+  const wiqdArgs = [...fccBase, '--config', wiqdConfig, '--output', path.join(fccWorkspace, 'wiqd-output.json')];
+  const wiqdPlan = invoke(['mcp-auth-wiqd-plan', ...wiqdArgs, '--summary']);
+  assert.ok(wiqdPlan.stderr.includes(wiqdPlan.result.approvalToken));
+  assert.match(wiqdPlan.stderr, /ENTIRE WIQD lifecycle/);
+  assert.equal(wiqdPlan.result.bundle.registration.action.with.clientSecret, undefined);
+  assert.equal(wiqdPlan.result.bundle.commands.provision.args.at(-1), wiqdProject);
+  for (const flag of ['--allow-provider', '--allow-network', '--allow-cloud', '--interactive']) {
+    invoke(['mcp-auth-wiqd-plan', ...wiqdArgs, flag], [1]);
+  }
+  invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', 'wrong'], [1]);
+  assert.equal(invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', wiqdPlan.result.approvalToken]).result.executionReadiness, false);
+  assert.deepEqual(await readdir(wiqdProject), []);
+  invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', wiqdPlan.result.approvalToken], [1]);
   const confidentialConfig = path.join(fccWorkspace, 'oauth-confidential.json');
   oauthRegistration.registration.isPKCEEnabled = false;
   oauthRegistration.registration.credential = { type: 'key-vault-reference',

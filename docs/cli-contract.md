@@ -70,6 +70,15 @@ that browser cookies/history are outside the toolkit's private-cache boundary.
 
 ## Output and approvals
 
+`mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` implement
+a local-only, user-managed WIQD handoff. Config selects a registration input,
+existing private WIQD project directory and explicit environment. Plan/bundle
+requires `--workspace-root --config --output`; plan accepts `--summary`, and
+bundle requires exact `--approve`. Effect flags are rejected. Output includes
+operator commands/action review data, never provider execution or project edits.
+Only the local JSON write is approved. WIQD's entire provisioning lifecycle,
+identity, consent and any publication remain separately operator-reviewed.
+
 JSON stdout is the complete machine contract; `--json` never embeds progress.
 Exit 0 means the command completed in its documented sense, not universal readiness.
 Exit 1 is an error; exit 2 is a blocked/declined/non-passing supported outcome where

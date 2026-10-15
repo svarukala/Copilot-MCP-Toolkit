@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "wiqdProject": "existing-wiqd-project",
+  "environment": "dev"
+}

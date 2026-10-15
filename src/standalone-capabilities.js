@@ -1,5 +1,15 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+authWiqdHandoff: {
+      contractVersion: 1, commands: ['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'],
+      status: 'local-handoff-for-user-managed-WIQD', guidanceVersion: '0.18.0',
+      authentication: ['entra-sso-review-data', 'oauth-pkce-review-data', 'existing-reference-import'],
+      windowsWorkflow: true, linuxRequired: false, toolkitManagedAuthentication: false,
+      projectIsolatedAuthentication: false, projectEdits: false, subprocesses: false, networkCalls: false,
+      credentialAccess: false, credentialTransfer: false, registration: false, liveQualified: false,
+      provisionScope: 'entire-user-reviewed-WIQD-lifecycle-not-registration-only',
+      resultImport: 'existing-auth-preparation-reference-path-provided-unverified', publicLibrary: false,
+    },
 authRegistrationExecution: {
       contractVersion: 1, commands: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
       phases: ['initialize', 'login', 'register', 'close'], platform: 'linux-owner-only-tmpfs',

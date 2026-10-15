@@ -8,6 +8,7 @@ import { boundedSnapshot, metadataDigest, savedJson } from '../src/anonymous-met
 import { planAuthRegistrationBundle, writeAuthRegistrationBundle, readAuthRegistrationBundle } from '../src/mcp-auth-registration.js';
 import { planFccBundle, writeFccBundle, fccTokenStoreClientId } from '../src/mcp-fcc.js';
 import { writeNewJsonBundle } from '../src/mcp-bundle-write.js';
+import { planAuthWiqdBundle, writeAuthWiqdBundle } from '../src/mcp-auth-wiqd.js';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
 const resource = '22222222-2222-4222-8222-222222222222';
@@ -328,4 +329,113 @@ test('shared bundle writer rejects changed review after staging and removes only
     async () => ++calls === 1 ? plan : { ...plan, approvalToken: 'changed-during-write' }, requireBundle)), { code: 'INPUT_CHANGED' });
   assert.equal(calls, 2);
   assert.ok(!(await readdir(f.root)).some(file => file.endsWith('.pending') || file === 'auth.json'));
+});
+
+async function wiqdOptions(f) {
+  const project = path.join(f.root, "WIQD user's project");
+  await mkdir(project);
+  const input = { schemaVersion: 1, registrationConfig: 'registration.json',
+    wiqdProject: path.basename(project), environment: 'dev' };
+  const options = { workspaceRoot: f.root, config: path.join(f.root, 'wiqd.json'), output: path.join(f.root, 'handoff.json') };
+  const save = () => writeFile(options.config, savedJson(input));
+  await save();
+  return { input, options, save, project };
+}
+
+for (const type of ['entra-sso', 'oauth']) {
+  test(`WIQD ${type} handoff is local-only, quotes Windows paths and preserves the registration contract`, async t => {
+    const f = await fixture(t, type), w = await wiqdOptions(f);
+    const legacy = await planAuthRegistrationBundle(f.options);
+    const plan = await planAuthWiqdBundle(w.options);
+    const b = plan.bundle;
+    assert.deepEqual(b.preparation, legacy.bundle);
+    assert.deepEqual(b.registration.action, legacy.bundle.providerPreparation.action);
+    assert.equal(b.provider.linuxRequired, false);
+    assert.equal(b.provider.automaticExecution, false);
+    assert.equal(b.provider.projectIsolatedByToolkit, false);
+    assert.equal(b.readiness.status, 'blocked');
+    assert.deepEqual(b.commands.login.args, ['auth', 'login', '--interactive', '--skill', 'wiqd', '--workflow', 'wiqd-core']);
+    assert.equal(b.commands.provision.args.at(-1), w.project);
+    assert.ok(b.commands.provision.powershell.includes("user''s project"));
+    assert.ok(b.steps.some(step => step.includes('ENTIRE provisioning lifecycle')));
+    assert.ok(b.steps.some(step => step.includes('BOTH m365agents.yml and m365agents.local.yml')));
+    assert.ok(b.steps.some(step => step.includes('never automatically retried')));
+    assert.ok(!savedJson(b).includes(f.config.operator.accountName));
+    assert.equal(b.returnMapping.length, type === 'entra-sso' ? 2 : 1);
+    const { contentDigest, ...content } = b;
+    assert.equal(contentDigest, hash(content));
+    await assert.rejects(writeAuthWiqdBundle({ ...w.options, approval: 'wrong' }), { code: 'MCP_AUTH_WIQD_APPROVAL_REQUIRED' });
+    const written = await writeAuthWiqdBundle({ ...w.options, approval: plan.approvalToken });
+    assert.equal(written.executionReadiness, false);
+    assert.deepEqual(JSON.parse(await readFile(w.options.output)), b);
+    assert.deepEqual(await readdir(w.project), []);
+    assert.deepEqual((await planAuthRegistrationBundle(f.options)).bundle, legacy.bundle);
+    await assert.rejects(writeAuthWiqdBundle({ ...w.options, approval: plan.approvalToken }), { code: 'MCP_AUTH_WIQD_OUTPUT_EXISTS' });
+  });
+}
+
+for (const missing of ['app-id', 'confidential-secret', 'existing-reference']) {
+  test(`WIQD handoff emits no provider commands for ${missing}`, async t => {
+    const f = await fixture(t, missing === 'confidential-secret' ? 'oauth' : 'entra-sso');
+    const w = await wiqdOptions(f);
+    if (missing === 'app-id') delete f.config.registration.appId;
+    if (missing === 'confidential-secret') {
+      f.config.registration.isPKCEEnabled = false;
+      f.config.registration.credential = { type: 'key-vault-reference',
+        secretIdentifier: 'https://synthetic-vault.vault.azure.net/secrets/oauth-client/0123456789abcdef0123456789abcdef' };
+    }
+    if (missing === 'existing-reference') f.addReference();
+    await f.save();
+    const { bundle } = await planAuthWiqdBundle(w.options);
+    assert.equal(bundle.registration.action, null);
+    assert.deepEqual(bundle.commands, {});
+    assert.equal(bundle.effects.credentialAccess, false);
+    if (missing === 'existing-reference') {
+      assert.equal(bundle.registration.reference.registrationId, registrationId);
+      assert.equal(bundle.registration.status, 'provided-unverified');
+      await writePreparation(f);
+      const { options } = await fccOptions(f);
+      assert.equal((await planFccBundle(options)).bundle.authentication.registrationId, registrationId);
+    }
+  });
+}
+
+test('WIQD handoff approval binds identity, target environment and destination', async t => {
+  const f = await fixture(t), w = await wiqdOptions(f);
+  const { approvalToken } = await planAuthWiqdBundle(w.options);
+  w.input.environment = 'staging';
+  await w.save();
+  await assert.rejects(writeAuthWiqdBundle({ ...w.options, approval: approvalToken }), { code: 'MCP_AUTH_WIQD_APPROVAL_REQUIRED' });
+  w.input.environment = 'dev';
+  await w.save();
+  f.config.operator.accountName = 'different@example.com';
+  await f.save();
+  await assert.rejects(writeAuthWiqdBundle({ ...w.options, approval: approvalToken }), { code: 'MCP_AUTH_WIQD_APPROVAL_REQUIRED' });
+  f.config.operator.accountName = 'operator@example.com';
+  await f.save();
+  await assert.rejects(writeAuthWiqdBundle({ ...w.options, output: path.join(f.root, 'different.json'), approval: approvalToken }),
+    { code: 'MCP_AUTH_WIQD_APPROVAL_REQUIRED' });
+});
+
+test('WIQD handoff refuses unsafe environments, extra input, missing projects and path escape', async t => {
+  const f = await fixture(t), w = await wiqdOptions(f);
+  await assert.rejects(planAuthWiqdBundle({ ...w.options, output: path.join(w.project, 'handoff.json') }),
+    { code: 'MCP_AUTH_WIQD_OUTPUT' });
+  assert.deepEqual(await readdir(w.project), []);
+  for (const environment of ['../dev', 'dev;whoami', '', 'dev\n']) {
+    w.input.environment = environment;
+    await w.save();
+    await assert.rejects(planAuthWiqdBundle(w.options), { code: 'MCP_AUTH_WIQD_INPUT' });
+  }
+  w.input.environment = 'dev';
+  w.input.execute = true;
+  await w.save();
+  await assert.rejects(planAuthWiqdBundle(w.options), { code: 'MCP_AUTH_WIQD_INPUT' });
+  delete w.input.execute;
+  w.input.wiqdProject = 'missing';
+  await w.save();
+  await assert.rejects(planAuthWiqdBundle(w.options), { code: 'ENOENT' });
+  w.input.wiqdProject = '..';
+  await w.save();
+  await assert.rejects(planAuthWiqdBundle(w.options));
 });

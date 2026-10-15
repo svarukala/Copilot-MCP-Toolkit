@@ -93,6 +93,20 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       }
       return 0;
     }
+    if (['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'].includes(command)) {
+      const schema = command === 'mcp-auth-wiqd-schema', planning = command === 'mcp-auth-wiqd-plan';
+      const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json', ...(planning ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!options.config || !options.output || !workspaceRoot)) {
+        throw new Error('WIQD handoff schema accepts only --json. Plan/bundle needs --workspace-root, --config and new --output; bundle needs exact --approve. No WIQD execution or credential access.');
+      }
+      const wiqd = await import('../src/mcp-auth-wiqd.js');
+      if (schema) print(wiqd.authWiqdSchema, true);
+      else print(await (planning ? wiqd.planAuthWiqdBundle : wiqd.writeAuthWiqdBundle)({
+        config: options.config, output: options.output, workspaceRoot, approval: options.approve,
+      }), true);
+      return 0;
+    }
     if (['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'].includes(command)) {
       const schema = command === 'mcp-auth-registration-schema';
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json',

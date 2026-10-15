@@ -21,6 +21,14 @@ cache/token transfer is approved. See
 The toolkit's Linux fresh packed-consumer test now passes; this is package
 portability evidence, not WIQD consumer or live-authentication compatibility.
 
+The narrower user-managed Windows auth handoff is now implemented through
+`mcp-auth-wiqd-schema/plan/bundle`. It emits registration review data and
+operator-run WIQD command guidance, not the proposed H1 endpoint/tool contract.
+It never runs WIQD, edits its project, adopts its credentials or claims
+project-isolated authentication. Whole-app provisioning requires separate
+operator review. Reference return uses the existing unverified preparation/FCC
+path. This does not implement a native automatic registration adapter.
+
 ## Boundary
 
 MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explicit

@@ -110,5 +110,14 @@ currently requires Linux; a container is not required. The Windows-first
 isolation precheck did not establish a safe same-user broker/credential-store
 boundary, so that guard remains in place.
 
+For a native Windows workflow using an existing WIQD project,
+`mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` export
+reviewed SSO/PKCE action data, PowerShell-safe operator commands and exact
+registration-ID return mappings. **You run WIQD yourself** with its normal
+account picker; the toolkit never starts WIQD, edits its project or transfers
+credentials. WIQD provisioning can affect the whole app and needs its own full
+lifecycle review. This is a user-managed handoff, not a new isolated native auth
+executor. See [the Windows handoff](docs/auth-registration.md#user-managed-wiqd-windows-handoff).
+
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
