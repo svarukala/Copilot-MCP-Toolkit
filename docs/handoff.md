@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-10-14. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-15. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
@@ -83,8 +83,10 @@ to those private artifacts; obtain separately reviewed inputs if future work doe
 The user subsequently prioritized custom federated connector demo preparation.
 Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC4 in the tracker.
 Local schema/plan/bundle support, synthetic demo documentation and packed
-rehearsal are implemented. Tenant registration and live consumer acceptance
-remain separate, unverified operations. The original H1/H2 recommendation below
+rehearsal are implemented. A separately authorized anonymous-MCP pilot has now
+completed toolkit discovery, private bundle writing and admin registration.
+The admin reports Ready, enabled, visible to everyone, and three read-only tools.
+Attributed live consumer acceptance remains unverified. The original H1/H2 recommendation below
 still applies to the broader WIQD integration, not automatic completion by FCC.
 
 FCC milestones are committed in `1ec9bc0` and `13263f5`. The Windows/Node 24.19.0
@@ -94,6 +96,14 @@ demo still needs the actual endpoint, explicit tenant/resource identity, SSO
 registration, small test audience and a new bounded consumer purpose. No
 registration, deployment, consent, provider call or historical proof replay was
 performed during FCC implementation.
+
+The subsequent anonymous pilot did not require Azure deployment or SSO. Its
+tenant-wide audience was explicitly requested by the user, not inferred from
+implementation approval. Continue with an attributed Copilot invocation of the
+custom entry, without changing the existing built-in connector. Registry
+availability, admin Ready status and tools-list success are distinct from that
+consumer result. See the dated layer table in [the tracker](progress-tracker.md).
+All real pilot files remain private; these notes transfer no execution authority.
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing

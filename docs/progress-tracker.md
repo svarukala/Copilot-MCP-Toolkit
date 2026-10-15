@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-14.
+Last updated: 2026-10-15.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -46,7 +46,7 @@ Implementation details and all unsupported cases remain in
 | Tavily scoped v3 result | Closed first-call/dedicated profiles retained | Historical source success only; invalid-key initialization inconclusive; original calls consumed |
 | WIQD package integration | Proposed, not implemented | No end-to-end acceptance yet |
 | Actual Cowork execution | Outside standalone protocol proof | Unverified; package/protocol success must not be substituted |
-| Custom federated connector onboarding | Local schema, plan, approval-bound JSON and observed metadata checks | Targeted offline and packed-consumer checks; registration and consumer execution unverified |
+| Custom federated connector onboarding | Local schema, plan, approval-bound JSON and observed metadata checks | Anonymous public-MCP pilot discovered, bundled and registered; admin reports Ready/enabled/everyone; consumer execution unverified |
 
 ## Prioritized demo work: custom federated connectors
 
@@ -59,7 +59,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | `1ec9bc0`, extended in `13263f5`: 28 FCC tests; no root API expansion, network or registration |
 | FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | `13263f5`: existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
-| FCC4 | Staged Microsoft 365 demo acceptance | Not started | Exact endpoint/tenant/test audience and new bounded purpose with separate approvals |
+| FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -69,7 +69,29 @@ FCC milestone validation on Windows / Node 24.19.0: `npm run check`,
 `npm run test:types`, and `npm test` passed. The full suite passed 607 tests,
 including the 28 FCC tests and the expanded packed-consumer rehearsal. This
 validates local engineering behavior only. No Azure, provider, token-store or
-Microsoft 365 live journey was run; Linux remains Q1.
+Microsoft 365 live journey was run during that offline milestone; Linux remains Q1.
+
+### Separately authorized anonymous-MCP pilot
+
+Screened observations from 2026-10-15; the underlying configuration, capture,
+bundle and registration details remain in the selected private session workspace.
+This is an existing public MCP endpoint, not a generated REST adapter or SSO test.
+
+| Layer | Observed result | Remaining boundary |
+| --- | --- | --- |
+| Toolkit discovery | Initialize and tools-list succeeded; three tools declared read-only, non-destructive and idempotent | No tools/call proof or result-quality assertion |
+| Local FCC export | Reviewed bundle written with no gaps and manual checkpoints required | Bundle is not a deployable manifest or consumer-readiness assertion |
+| Admin registration | One custom connector created; later visible in Your Connections and the tools registry | Initial empty list was transient; reconcile before retrying creation |
+| Admin rollout | Ready, enabled, visible to everyone; three read-only and zero write/delete tools | Tenant-wide audience was explicitly user-selected, not a toolkit default |
+| Consumer execution | Not yet verified | Must attribute invocation to the custom entry; built-in connector and web results do not qualify |
+
+The existing built-in connector was left unchanged. The admin form rejected a
+reserved brand word in the proposed display name; a neutral name and newly
+reviewed bundle resolved the form validation. The tools registry initially
+reported unsupported discovery while the connector details later showed all
+three tools; neither registry availability nor a discovery count proves consumer
+execution. No authentication cache, real identity, raw capture or approval is
+published here. Historical consumed proofs remain consumed.
 
 ## Next work: MCP Toolkit to WIQD
 

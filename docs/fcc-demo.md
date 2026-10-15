@@ -120,6 +120,33 @@ an unannotated external tool for the toolkit's stricter proof executor.
 
 ## Presentation sequence
 
+### Anonymous existing-MCP pilot
+
+For a reviewed public endpoint, use the anonymous descriptor and
+`authentication: { "type": "none" }` with public-data justification. No resource
+app, operator discovery client or SSO registration is needed on this path.
+Endpoint selection, live discovery, registration and audience still require
+their separate reviews. Tenant-wide rollout is never an implicit default.
+
+The 2026-10-15 pilot reached admin registration and enabled rollout after actual
+tool discovery and private bundle writing; consumer execution is tracked
+separately in [the progress tracker](progress-tracker.md). During registration:
+
+- The admin form rejected a reserved brand word in the display name. Use an
+  organization/data-source-specific name and replan the bundle to a new output
+  if reviewed metadata changes; preserve the previous output.
+- The connection list was initially empty after successful creation. Reconcile
+  by refreshing/reopening the list and inspecting the exact custom entry before
+  considering another creation attempt. The tools registry can provide a
+  separate registration observation, not rollout or invocation proof.
+- Verify Ready status, enabled state, audience and discovered tools in the
+  connector details. A tools-registry discovery warning can differ from that
+  view; record the actual observations rather than inferring endpoint failure.
+- Keep any pre-enabled connector unchanged. A consumer response must identify
+  the custom entry rather than relying on the same endpoint's built-in connector.
+
+### On-stage order
+
 1. Explain MCP endpoint preparation versus Microsoft 365 connector registration.
 2. Show the nonsecret definition and local generation review.
 3. Show the FCC readiness gaps and why they prevent an unsupported success claim.
