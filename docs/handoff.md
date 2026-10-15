@@ -5,20 +5,32 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
-- Latest read-only settings review: private Azure sign-in and existing-app/APIM
+- Latest owner-approved settings outcome: the registration URI and Web consent
+  redirect were added to the existing Entra app, and the new audience was added
+  to the MCP gateway, REST wrapper and controlled backend. Fresh readback
+  verified the additive changes and preservation of other inspected settings.
+  One Graph PATCH was reconciled after URI reordering; it was not repeated.
+  Three APIM writes used concrete ETags. This was a private operator-reviewed
+  merge, not new toolkit support for automatic reused-resource mutation.
+  The backend user restriction and historical consumed proofs are preserved.
+  Endpoint calls, consent, FCC submission, rollout and consumer verification
+  remain separate. Do not upgrade or overwrite historical result/preparation
+  artifacts; private journals retain the exact changes and completion.
+- Pre-change read-only settings review: private Azure sign-in and existing-app/APIM
   inspection completed. The registration URI and Web consent redirect are
   missing from the existing Entra app. The MCP gateway, REST wrapper and
   controlled backend each need the new audience reviewed; existing token-store
   preauthorization/allowlists are present. Preserve all three authorization
   layers and the backend's matching user restriction. No cloud settings,
-  endpoint calls or consumed proofs were changed. Exact additive owner review
-  is the next gate, not another registration or an inferred execution approval.
+  endpoint calls or consumed proofs were changed at that checkpoint. The
+  subsequent explicit approval and additive updates are recorded above.
 - Latest SSO outcome: after corrected sign-in and operator identity confirmation,
   one explicitly approved public ATK HomeTenant / AnyApp registration returned a
   strictly parsed private `created-unverified` receipt. The target reservation
   remains consumed; do not recreate it. No dummy app or agent was created.
-  Service-side restriction readback, Entra/APIM settings, FCC submission and
-  consumer execution remain unverified/separate. Private runtime cleanup also
+  Service-side restriction readback, FCC submission and consumer execution
+  remain unverified/separate; the subsequent settings work above does not
+  upgrade this original receipt. Private runtime cleanup also
   requires its own reviewed phase; preserve the receipt and reservation.
 - Latest authentication correction: ATK's guided `--interactive true` mode
   discarded the explicit tenant, despite successful browser sign-in. The
