@@ -464,6 +464,29 @@ provider session/results private and export only reviewed consumer metadata.
 
 ## Provider review and remaining qualification
 
+### Confirmed AnyApp schema/runtime mismatch
+
+On 2026-10-15, read-only inspection confirmed an ATK limitation relevant to
+FCC-only registration. The shipped `oauth/register` YAML schema requires only
+`name` and `flow` inside `with`, and describes `appId` as effective only for
+`SpecificApp`. However, the actual ATK 1.1.17 bundled driver unconditionally
+rejects a missing or empty `appId`. Its `AnyApp` request mapping later sends an
+empty `m365AppId`; that does not avoid the earlier validation.
+
+The latest public npm release at that check, **1.1.18**, has the same runtime
+validation. Its published archive was fetched with normal TLS, verified against
+the registry's SHA-512 integrity value, and its source map inspected in memory.
+It was not installed or executed. The inspected public upstream source also
+retained the unconditional validation. This is not a live provider qualification
+or an upgrade of the executor's 1.1.17 pin.
+
+Consequently, sign-in alone cannot unblock ATK registration without a real
+intended M365/Teams app ID. Do not pass the resource client ID, an invented GUID
+or a placeholder to bypass the check, patch the provider, invoke its private
+driver directly, or create a dummy agent. Use the documented direct portal
+route for an FCC-only setup, or obtain an explicitly selected existing intended
+consumer app ID before reviewing the separate ATK execution phases.
+
 Reviewed the public CLI implementation installed as
 `@microsoft/m365agentstoolkit-cli` **1.1.17**, including its shipped sourcemap.
 This identifies a reviewed contract version, not a verified provider installation

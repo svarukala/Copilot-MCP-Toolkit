@@ -92,6 +92,15 @@ syntax/types. The new regression verifies direct SSO preparation without a
 WIQD project or consumer app ID, explicit restriction review, retained missing
 references/captures and no project creation. This is not live registration.
 
+Subsequent ATK-only registration request: the owner confirmed no existing SSO
+reference. Source inspection found the app-ID gate in the actual 1.1.17 bundle,
+not just toolkit validation. The public 1.1.18 archive was integrity-checked
+and inspected without installation/execution; it retains the same unconditional
+runtime requirement despite its optional-schema/AnyApp semantics. No sign-in or
+registration attempt was dispatched. The direct portal route or an explicitly
+selected existing intended M365 app ID is still required; no dummy agent/app
+or provider patch was introduced. See [provider review](auth-registration.md#confirmed-anyapp-schemaruntime-mismatch).
+
 AUTH8 validation: 53 targeted Windows tests passed (45 shared registration/
 handoff, four CLI feedback, three independence and one fresh packed consumer),
 plus syntax/types. Eight Linux Node 22.23.3 checks passed (seven handoff cases
