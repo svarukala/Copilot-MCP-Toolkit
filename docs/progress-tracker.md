@@ -63,13 +63,13 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
 | AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
-| AUTH3 | SSO registration execution adapter | Implemented; real Linux/provider qualification outstanding | Public ATK 1.1.17, owner-only Linux tmpfs, separate phase approvals, identity confirmation and durable no-replay journals; Windows/macOS refused, no Docker/shared login |
+| AUTH3 | SSO registration execution adapter | Implemented; one private Linux/ATK SSO registration created | Public ATK 1.1.17 returned a strictly parsed created-unverified receipt after identity review; consumed reservation retained. Broader provider qualification, resource settings and FCC execution remain separate |
 | AUTH4 | Generic OAuth registration execution | Implemented; live qualification outstanding | PKCE or exact versioned Key Vault secret using a matching private Azure identity and bounded HTTPS read; child-only secret environment, no secret in toolkit durable artifacts |
 | AUTH5 | Shared auth references for FCC/plugins | Local metadata/result import implemented; consumer execution unverified | Exact request/descriptor-bound created-unverified result import into preparation, then FCC; conflicts/stale approvals rejected. Plugin view remains mapping-required, not WIQD packaging |
 | AUTH6 | Windows-first isolation assessment | Native precheck rejected; WSL offline fallback checked | Same-user redirection retained the Windows principal and resolvable broker/keytar modules; credential-store access was not exercised. Twelve focused Linux checks passed; private pinned ATK help ran with network blocked and no account cache. Windows-to-WSL synthetic callback passed. Real sign-in/registration remains unverified |
 | AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
 | AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
-| AUTH9 | Explicit tenant-only SSO AnyApp validation compatibility | Implemented/offline verified; live acceptance unverified | Config-only opt-in for pinned ATK, disclosed unused UUID and unchanged request/target semantics; no app creation, no later restriction switch, no native Windows execution or live registration claim |
+| AUTH9 | Explicit tenant-only SSO AnyApp validation compatibility | Implemented/offline verified; one live registration dispatch succeeded | Requested HomeTenant / AnyApp with the disclosed validation-only UUID; no app creation or later restriction switch. Service-side restriction readback and consumer compatibility remain unverified |
 | AUTH10 | Preserve explicit tenant during ATK browser sign-in | Implemented/offline verified; one corrected private sign-in passed | Argument-driven ATK mode with human terminal I/O; matching public account/selected-tenant record observed, not token-issuer attestation; registration remains separate |
 
 AUTH9 validation: 123 targeted Windows tests passed across execution, shared
@@ -80,7 +80,8 @@ run includes real tmpfs ownership/cleanup checks but synthetic provider calls.
 Compatibility regressions cover disabled/invalid opt-in, approval/session
 binding, unchanged canonical preparation, action-only placeholder injection,
 receipt integrity, consumed-target preservation and reference import into FCC.
-No live sign-in, service registration or consumer execution is established.
+Those offline checks establish no live sign-in, service registration or consumer
+execution; subsequent live observations are recorded separately below.
 
 WSL lifetime finding: an approved local initialization succeeded, but the
 distribution stopped between checkpoints and lost its tmpfs runtime before
@@ -99,7 +100,8 @@ generic authentication failure. Historical failed attempts remain consumed.
 After an explicitly requested fresh retry, the corrected invocation completed
 and retained a matching public account/selected-tenant record. This is one
 private sign-in observation, not token-issuer attestation or registration
-qualification. Operator identity confirmation and registration remain separate.
+qualification. Operator identity confirmation and registration are separate
+gates, subsequently exercised as recorded below.
 
 AUTH10 validation: 46 Windows tests passed (41 execution tests, four CLI
 feedback tests and one fresh offline packed consumer), plus syntax/types.
@@ -108,6 +110,17 @@ Synthetic adapter regressions cover the exact login arguments, retained human
 terminal mode, correct/empty/wrong tenant selection and no cache repair.
 Failure regressions preserve consumed login attempts and suppress raw errors.
 No provider or cloud service was contacted by these checks.
+
+Subsequent SSO registration observation: after the operator confirmed proceeding
+with the displayed identity, a fresh register plan was reviewed and dispatched
+once through the public ATK CLI. Strict output parsing produced a private
+`created-unverified` receipt containing the registration ID and Application ID
+URI; a subsequent local status read confirmed the consumed target reservation.
+This qualifies that one requested HomeTenant / AnyApp creation path, not a
+service-side restriction readback, general provider support or FCC readiness.
+No Entra/APIM mutation, endpoint call, FCC submission or consumer execution was
+performed. Private identifiers stay outside this repository; runtime cleanup
+and downstream resource settings remain separately reviewed operations.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The

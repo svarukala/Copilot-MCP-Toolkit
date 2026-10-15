@@ -5,6 +5,13 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest SSO outcome: after corrected sign-in and operator identity confirmation,
+  one explicitly approved public ATK HomeTenant / AnyApp registration returned a
+  strictly parsed private `created-unverified` receipt. The target reservation
+  remains consumed; do not recreate it. No dummy app or agent was created.
+  Service-side restriction readback, Entra/APIM settings, FCC submission and
+  consumer execution remain unverified/separate. Private runtime cleanup also
+  requires its own reviewed phase; preserve the receipt and reservation.
 - Latest authentication correction: ATK's guided `--interactive true` mode
   discarded the explicit tenant, despite successful browser sign-in. The
   adapter now passes ATK `--interactive false` with interactive process I/O.
@@ -12,7 +19,7 @@ It contains public engineering context only, not credentials or execution author
   An explicitly requested fresh private retry subsequently passed the public
   account/selected-tenant checks. This is not token-issuer attestation or
   registration qualification. Operator identity confirmation and registration
-  remain separate gates; do not promote the historical failed attempts.
+  were handled separately as recorded above; do not promote historical failures.
 - Latest approved ATK direction (2026-10-15): the user confirmed no existing
   SSO registration and agreed to tenant-only / Any Teams app from the start.
   The separate executor now has a narrowly scoped
