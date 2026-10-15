@@ -77,9 +77,14 @@ FCC copy/paste output and shipped skill guidance now distinguish the existing
 resource app from a consumer app and forbid dummy-agent creation. Broader portal
 app restrictions still need explicit owner review. The mistaken private local
 agent scaffold was stopped; no cloud agent was provisioned and no new secured
-FCC registration or consumer result is claimed. The current live dependency is
-the endpoint owner's nonsecret resource authentication metadata and actual
-registration reference, plus legal/rollout review, not a new WIQD project.
+FCC registration or consumer result is claimed. The endpoint's nonsecret
+resource metadata was subsequently recovered from its original private input;
+the independent toolkit reproduced the selected endpoint offline. This is
+historical configuration, not current live verification. The remaining gates
+are current settings review, the actual registration reference and explicit
+restrictions/legal/rollout review, not a new WIQD project. The selected endpoint
+is a controlled delegated-auth fixture, not a business-data source; both its
+MCP and backing REST authorization need review without reopening consumed proofs.
 
 FCC-only correction validation: 82 targeted Windows tests passed (36 FCC,
 45 shared auth/WIQD handoff and one fresh offline packed consumer), plus

@@ -12,6 +12,13 @@ It contains public engineering context only, not credentials or execution author
   A mistaken private local agent scaffold was stopped without cloud
   provisioning; it is not an FCC dependency or evidence. See
   [the FCC-only route](federated-connectors.md#fcc-only-route-no-agent-project).
+- The supplied endpoint's original nonsecret input was recovered privately and
+  reproduced its exact URL through the independent toolkit's offline planner.
+  Resource tenant/client/scope/audience/allowlist values are therefore available
+  as historical configuration, not fresh live observations. A private worksheet
+  and reference-only input retain that distinction. No source captures,
+  authentication caches or approvals were transferred. Actual auth registration,
+  current settings, legal metadata and rollout remain separate owner gates.
 - Work continues in [Copilot MCP Toolkit](https://github.com/svarukala/Copilot-MCP-Toolkit),
   an independent Node.js 22+ ESM CLI/library with an installable Copilot CLI skill.
 - Initial implementation is commit
