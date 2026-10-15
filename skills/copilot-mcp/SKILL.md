@@ -67,8 +67,26 @@ approved `mcp-auth-registration-bundle`. Require explicit tenant/operator,
 endpoint descriptor, restrictions and OAuth endpoints/scopes/credential mode.
 Do not invent a M365 app ID. Secretless OAuth preparation requires explicit PKCE;
 confidential OAuth admits only a versioned Key Vault reference, never its value.
-This is local preparation, not login or registration. Provider isolation is
-unqualified; never invoke ATK against shared credentials as a shortcut.
+This is local preparation, not login or registration.
+
+For separately requested registration execution, read the auth runbook first.
+Use `mcp-auth-execution-plan` and `mcp-auth-execute` for independent
+initialize/login/register/close approvals, never the preparation token.
+Execution requires a trusted Linux host, owner-only tmpfs, an explicitly selected
+ATK 1.1.17 installation and real app ID. Windows/macOS are refused; never invoke
+ATK against shared credentials, install a provider or start Docker as a shortcut.
+Login URLs are terminal-only and need a browser on the same Linux host.
+Public account/selected-tenant metadata is not token attestation: obtain the
+operator's actual identity review before `--confirm-identity`. Confidential
+OAuth additionally needs a matching private Azure identity and `--allow-cloud`.
+Real Linux/provider qualification remains outstanding.
+
+Use local `mcp-auth-execution-status` after failures; never replay registration
+or remove consumed reservations. Unconfirmed termination retains the operation
+lock and owned process PID; do not clean up the runtime until reconciled.
+Normal close removes only the owned runtime, retaining journals. Import a
+successful `created-unverified` result through preparation's
+`source.registrationResultFile`, never as readiness or publication authority.
 
 FCC may import the saved preparation through `source.authenticationBundleFile`.
 References remain `provided-unverified`, conflicts are rejected, and missing

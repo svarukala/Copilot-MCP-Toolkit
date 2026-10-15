@@ -130,12 +130,11 @@ encryption key; the login command signs out the previous ATK account. Home-path
 redirection alone has not established private authentication. No auth caches
 were read or copied, and no ATK login or provisioning was invoked.
 
-Select an isolated provider execution environment with the user before enabling
-registration execution. Do not silently use shared credentials, monkey-patch
-Microsoft tooling, start Docker or create cloud resources. The port must still
-resolve explicit real app identity/restrictions for FCC and account verification,
-and generic OAuth must use reviewed credential references rather than raw
-secrets in toolkit arguments/configuration. Manual registration remains valid.
+This led to a Linux-only owner-private tmpfs adapter rather than a shared Windows
+profile or a Docker dependency. Actual Linux/provider qualification and explicit
+real app identity/restrictions are still required before live registration.
+Do not use shared credentials, monkey-patch Microsoft tooling, start Docker or
+create cloud resources implicitly. Manual registration remains valid.
 
 The ID milestone passed 35 FCC tests and the offline packed-consumer test.
 The shared local module is now implemented:
@@ -151,11 +150,47 @@ execution gaps. The targeted milestone passed 85 tests: 38 auth, 35 FCC,
 runtime networking/processes denied. Syntax/types also passed. This is offline
 evidence only, not a new full-suite or live result.
 
-The user was unavailable for the isolated provider environment choice. Safe local
-work continued without changing shared auth or starting Docker. SSO/OAuth
-execution, immutable provider-attempt journaling, live output receipts, secure
-secret resolution and actual consumer verification are still outstanding.
-Prioritize those approved AUTH3/AUTH4 items when the environment choice is resolved.
+The user then directed continued autonomous implementation. The separate
+`mcp-auth-execution-schema`, `mcp-auth-execution-plan`, `mcp-auth-execute` and
+`mcp-auth-execution-status` now implement AUTH3/AUTH4:
+
+- Independent initialize/login/register/close approvals using public ATK 1.1.17.
+  Only Linux owner-only `/dev/shm` tmpfs is admitted. D-Bus keyrings and ambient
+  provider overrides are excluded; Windows/macOS execution is refused.
+- Terminal-only browser sign-in URL with a same-host loopback callback.
+  Public account output plus selected-tenant metadata is not issuer attestation;
+  registration requires separate human identity confirmation.
+- SSO, generic OAuth PKCE and confidential OAuth. The latter uses an explicitly
+  selected matching private Azure identity for a Key Vault access token, then
+  one bounded HTTPS read of the exact secret version. Secret values do not go
+  through Azure CLI output/logging or toolkit durable artifacts.
+- Durable target reservations before one registration dispatch, including
+  unknown/failure barriers across renamed sessions. Unconfirmed subprocess
+  termination retains the lock/PID/runtime; no automatic retry or recovery.
+- Nonsecret `created-unverified` results imported through preparation's
+  `source.registrationResultFile`, then FCC's `source.authenticationBundleFile`.
+  Exact request/descriptor integrity is checked; existing references suppress
+  creation. Close removes only transient runtime files, retaining barriers.
+
+Read [auth registration](auth-registration.md) for the execution example,
+phase/flag table, cleanup and version-1 preparation compatibility. Old
+preparation gap identifiers remain unchanged to preserve historical hashes;
+consult the separate execution capability, not those gaps, for executor support.
+ATK entry-file fingerprints are not a full dependency attestation, and tmpfs
+does not protect against an untrusted host, same user, swap or crash dumps.
+
+No ATK sign-in/provisioning, Azure token/secret read or live registration was run
+for this implementation. The next live work needs a qualified Linux host/browser,
+the real intended app ID and exact phase reviews. Settings, consent, attributed
+FCC consumer execution and WIQD package compatibility are still unverified.
+Do not treat the code milestone as H1/H2/H6 completion or resume historical proofs.
+
+Execution milestone validation: 110 targeted offline tests passed on Windows /
+Node 24.19.0 (25 execution, 38 preparation, 35 FCC, 11 shared CLI/guidance/
+independence and one fresh packed-consumer journey), plus syntax and strict
+types. Synthetic providers cover the effect phases; packed runtime networking
+and subprocesses are denied. The actual Linux filesystem branch and live
+provider were not exercised. See the tracker for earlier separate baselines.
 
 ## Broader WIQD integration
 

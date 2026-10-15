@@ -20,7 +20,7 @@ function print(value, json) {
 export async function main(args = process.argv.slice(2), dependencies = {}) {
   return withCliFeedback(() => mainWithFeedback(args, dependencies));
 }
-async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport } = {}) {
+async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider } = {}) {
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
@@ -30,7 +30,8 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       options: Object.fromEntries([
         ...['project', 'output', 'config', 'workspace-root', 'phase', 'tenant-id', 'approve',
           'subscription-id', 'account-name', 'archive', 'sha256', 'persistence'].map(key => [key, { type: 'string' }]),
-        ...['json', 'help', 'version', 'interactive', 'allow-cloud', 'allow-network', 'experimental-configuration', 'use-device-code', 'progress', 'summary'].map(key => [key, { type: 'boolean' }]),
+        ...['json', 'help', 'version', 'interactive', 'allow-cloud', 'allow-network', 'allow-provider', 'confirm-identity',
+          'experimental-configuration', 'use-device-code', 'progress', 'summary'].map(key => [key, { type: 'boolean' }]),
       ]),
     });
     json = Boolean(options.json);
@@ -56,14 +57,42 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       throw new Error('--use-device-code is supported only for explicit Azure or standalone MCP account plan/switch commands.');
     }
     if (options['experimental-configuration'] !== undefined && !['mcp-reconcile-plan', 'mcp-reconcile'].includes(command)) throw new Error('--experimental-configuration is supported only for explicit v3 reconciliation/refresh.');
-    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
-    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP discovery, proof, qualification or rejection execution.');
+    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
+    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
+    if ((options['allow-provider'] !== undefined || options['confirm-identity'] !== undefined) && command !== 'mcp-auth-execute') {
+      throw new Error('--allow-provider/--confirm-identity are supported only for explicit mcp-auth-execute phases.');
+    }
     if (options['workspace-root'] !== undefined && !['rest-tools-plan', 'rest-tools-write'].includes(command)
       && !command.startsWith('mcp-')) {
       throw new Error('--workspace-root is supported only for standalone mcp-* and rest-tools-* journeys.');
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'].includes(command)) {
+      const schema = command === 'mcp-auth-execution-schema', status = command === 'mcp-auth-execution-status';
+      const allowed = schema ? ['json'] : ['workspace-root', 'project', 'json', ...(status ? [] : ['config', 'phase',
+        ...(command === 'mcp-auth-execution-plan' ? ['summary'] : ['approve', 'allow-provider', 'allow-network',
+          'allow-cloud', 'interactive', 'confirm-identity'])])];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || !schema && (!workspaceRoot || !options.project)
+        || !schema && !status && (!options.phase || options.phase !== 'close' && !options.config)) {
+        throw new Error('Use auth execution schema or an explicit workspace/project. Plan/execute requires a phase and config (except close). Each effect phase has separate exact approval and flags.');
+      }
+      const auth = await import('../src/mcp-auth-execution.js');
+      const selected = { workspaceRoot, project: options.project, config: options.config, phase: options.phase,
+        approval: options.approve, allowProvider: options['allow-provider'], allowNetwork: options['allow-network'],
+        allowCloud: options['allow-cloud'], interactive: options.interactive, confirmIdentity: options['confirm-identity'] };
+      const dependencies = { ...(authExecutionProvider ? { provider: authExecutionProvider } : {}), runAzure };
+      if (schema) print(auth.authExecutionSchema, true);
+      else if (status) print(await auth.readAuthExecutionStatus(selected), true);
+      else if (command === 'mcp-auth-execution-plan') print(await auth.planAuthExecution(selected, dependencies), true);
+      else {
+        const controller = new AbortController(), cancel = () => controller.abort();
+        process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+        try { print(await auth.executeAuthPhase({ ...selected, signal: controller.signal }, dependencies), true); }
+        finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+      }
+      return 0;
+    }
     if (['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'].includes(command)) {
       const schema = command === 'mcp-auth-registration-schema';
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json',

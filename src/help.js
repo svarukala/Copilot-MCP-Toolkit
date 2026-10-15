@@ -11,6 +11,7 @@ export const commandFamilies = {
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
   federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
   registration: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
+  registrationExecution: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
 };
 
 export const HELP = `Copilot MCP Toolkit (Node.js 22+)
@@ -37,6 +38,8 @@ ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands
 --use-device-code         Account plan/switch or resume: separately approved headless Azure login.
 --allow-cloud             Explicit approved inspection/app apply opt-in where required.
 --allow-network           Explicit approved MCP discovery/proof/rejection opt-in.
+--allow-provider          Explicit auth-provider phase opt-in (Linux tmpfs only).
+--confirm-identity        Registration only: confirm reviewed ATK account/organization.
 --interactive             Protected MCP runtime sign-in; terminal required, not Azure login.
 --experimental-configuration  V3-only read-only reconcile/refresh; no gateway replay.
 --archive ZIP --sha256 HEX External independent archive hash; inspection never extracts.
@@ -68,8 +71,17 @@ Auth registration: mcp-auth-registration-schema describes explicit SSO/custom OA
 preparation. Plan/bundle takes --workspace-root, --config, --output NEW.json and,
 for bundle, exact --approve. Plan supports --summary. Exports form values, reviewed
 provider action data and FCC/plugin references, not an executed registration.
-Live registration is blocked pending isolated provider authentication. No secret
-resolution, ATK invocation or provider OAuth exchange occurs. FCC can select the
+These preparation commands perform no secret resolution, ATK invocation or
+provider OAuth exchange. FCC can select the
 output via source.authenticationBundleFile; imported references remain unverified.
+Auth execution: separate mcp-auth-execution-plan / mcp-auth-execute --phase
+initialize | login | register | close, with --workspace-root, --project and --config
+(config not needed for close). Requires reviewed ATK 1.1.17, Linux owner-only tmpfs,
+--allow-provider and exact phase approval. Login requires --interactive and
+--allow-network; register requires --confirm-identity and --allow-network, plus
+--allow-cloud only for a selected private Key Vault identity. No shared login,
+automatic install, Docker startup, registration retry, consent or publication.
+Use mcp-auth-execution-status for local retained state. A created-unverified result
+can feed preparation through source.registrationResultFile; settings still need review.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.
 `;

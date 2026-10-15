@@ -1,10 +1,12 @@
-# Shared authentication registration preparation
+# Shared authentication registration
 
 The toolkit prepares **secretless Entra SSO** and **custom OAuth** registration
-metadata for FCC and plugin consumers. This is an implemented, local-only
-preparation/handoff module, **not automated registration**. It makes no network
-calls, invokes no provider CLI, resolves no secrets and changes no accounts.
-Live registration remains blocked pending an isolated provider environment.
+metadata for FCC and plugin consumers. The preparation/handoff commands remain
+local-only: no network, provider CLI, secret resolution or account changes.
+Separate **Linux-only execution commands** implement approval-bound ATK sign-in
+and registration. Their offline behavior is covered by synthetic providers;
+**real Linux/ATK registration is not yet qualified**. Windows/macOS execution
+is refused rather than falling back to shared credentials.
 
 This is not the universal H1 endpoint/tool export or a WIQD integration. WIQD
 still owns plugin composition, packaging, validation and distribution. Custom
@@ -67,8 +69,8 @@ For a confidential OAuth client, the only admitted credential shape is:
 }
 ```
 
-The version pins the selected secret metadata for future reviewed execution.
-The current module **does not fetch it** and emits no runnable action for that
+The version pins the selected secret metadata for separately reviewed execution.
+The preparation module **does not fetch it** and emits no runnable action for that
 case. Do not paste the reference into a portal's client-secret field. An
 authorized owner must supply any actual secret through an approved secure
 provider/portal UI. APIM's existing versionless backend-key contract is unchanged.
@@ -88,7 +90,15 @@ provider/portal UI. APIM's existing versionless backend-key contract is unchange
   a WIQD command input or Microsoft manifest.
 - `registrationReference.status` is `missing` or `provided-unverified`.
   No `created`, settings-verified or consumer-ready result is fabricated.
-  `readiness.status` remains `blocked` because execution is not implemented.
+  `readiness.status` remains `blocked`; preparation does not establish execution
+  or consumer readiness.
+
+Version-1 preparation artifacts retain their historical
+`REGISTRATION_EXECUTION_UNIMPLEMENTED`, `PROVIDER_ISOLATION_UNQUALIFIED` and
+`SECRET_RESOLUTION_UNIMPLEMENTED` gap identifiers/wording to preserve canonical
+content and previously saved hashes. They describe that preparer's limits, not
+the capabilities of the separate executor. Read
+`capabilities.authRegistrationExecution` and an execution plan for those.
 
 After manual registration, copy the actual ID unchanged into the private input's
 `registration.reference`; include the generated Application ID URI for SSO.
@@ -116,7 +126,120 @@ settings verification or consent. The ordinary FCC discovery, audience and
 token-store client checks still apply. OAuth discovery/capture import remains
 unsupported; a registration reference cannot remove that gap.
 
-## Provider qualification and remaining work
+## Separate execution workflow
+
+Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installation,
+`/dev/shm` backed by tmpfs, and a browser on that same host for the loopback
+callback. No installation, Docker startup, browser automation or cache transfer
+is performed by the toolkit. Select a real intended M365 app ID, even for
+`AnyApp`; the toolkit will not create or invent one.
+
+Keep the session workspace private and durable, separate from installed code.
+`examples/auth-registration/execution.json` shows the additional configuration:
+
+```json
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "providerRoot": "/opt/atk/node_modules/@microsoft/m365agentstoolkit-cli"
+}
+```
+
+The provider path is an example, not an installation instruction. Config-relative
+`registrationConfig` selects the complete local preparation input without an
+existing reference/result. Confidential OAuth also needs `secretIdentityProject`
+pointing to an **already selected private toolkit Azure identity** in the same
+workspace, matching the explicit tenant/account and subscription selection.
+This executor neither signs into Azure nor changes its selected account.
+
+On that Linux host, use the following plan pattern, replacing the private paths
+and phase. `--project` is a new private session directory, not the MCP server.
+
+```sh
+copilot-mcp mcp-auth-execution-schema --json
+copilot-mcp mcp-auth-execution-plan --workspace-root /private/demo --project /private/demo/auth-session --config /private/demo/execution.json --phase initialize --json --summary
+copilot-mcp mcp-auth-execute --workspace-root /private/demo --project /private/demo/auth-session --config /private/demo/execution.json --phase initialize --approve "EXACT_CURRENT_PHASE_TOKEN" --allow-provider --json
+```
+
+Plan and review **each phase independently**, then execute that phase with its
+own returned `approvalToken`. Exit 0 on a plan is not permission to proceed:
+its `status` must be `planned`, not `blocked`.
+
+| Phase | Required effect flags, in addition to exact `--approve` | Effect |
+| --- | --- | --- |
+| `initialize` | `--allow-provider` | Create an owner-only tmpfs runtime and durable nonsecret session metadata; no login |
+| `login` | `--allow-provider --allow-network --interactive` | Public ATK browser sign-in to the explicit tenant; terminal-only URL, manually opened on the same Linux host |
+| `register` | `--allow-provider --allow-network --confirm-identity` | Recheck identity, durably reserve the target, invoke one public `oauth/register` action |
+| Confidential `register` | All registration flags plus `--allow-cloud` | Use the selected private Azure identity to retrieve the exact versioned Key Vault secret |
+| `close` | `--allow-provider` | Remove only the owned runtime; retain durable receipts, attempts and reservations; config is unnecessary |
+
+After login, review the displayed account and organization against the selected
+tenant. The public account output and ATK tenant-selection file are **not token
+issuer attestation**. `--confirm-identity` is the operator's separate confirmation,
+not an automatically inferred flag. Login review expires after 15 minutes; an
+expired/failed login requires a newly reviewed private session, never adoption
+of the old cache. An attempted registration cannot be retried in a new session.
+
+The Linux adapter constructs a fresh environment, uses a unique owner-only
+tmpfs HOME/job area, makes D-Bus keyring endpoints unreachable, and admits no
+Windows broker or ambient provider overrides. It invokes the public CLI, not
+private Microsoft drivers or hidden token-store HTTP endpoints. Provider entry
+assets and Node version are approval-bound; this is **not a full dependency-tree
+or supply-chain attestation**. The host, installed provider and same OS user must
+be trusted. Tmpfs is not an OS sandbox or a guarantee against swap/crash dumps;
+use appropriate host swap/dump controls for credentials.
+
+For confidential OAuth, a bounded private Azure CLI access-token read is followed
+by one bounded HTTPS read of the exact Key Vault secret version. Redirects,
+alternate endpoints and automatic retries are refused. The secret response does
+not pass through Azure CLI output/logging. The value is passed to ATK only through
+its child environment; it is never a toolkit config, argument, result or durable
+receipt. Provider job files/logs stay on tmpfs. No physical memory-erasure
+guarantee is claimed.
+
+## Results, cleanup and no replay
+
+```sh
+copilot-mcp mcp-auth-execution-status --workspace-root /private/demo --project /private/demo/auth-session --json
+copilot-mcp mcp-auth-execution-plan --workspace-root /private/demo --project /private/demo/auth-session --phase close --json --summary
+```
+
+Status reads local retained metadata only; it does not contact ATK or establish
+that the tmpfs runtime survived a restart. Execute the close plan with its exact
+token and `--allow-provider` to remove credentials/transient files. Close does
+not delete cloud registrations or authorize a retry.
+
+Session journals and workspace `.auth-registration-attempts` reservations are
+exclusive and retained. Reservation occurs **before** registration dispatch;
+failed, cancelled, malformed-output and unknown attempts remain consumed, even
+after renaming a session or registration. Do not discard/move to a fresh
+workspace to bypass a reservation. A crash after reservation may require manual
+provider reconciliation, not replay. If subprocess termination is unconfirmed,
+the operation lock retains its owned process-group PID; preserve both lock and
+runtime until that process has been reconciled. No automatic lock recovery or
+registration retry exists.
+
+A successful dispatch with strictly parsed output writes `result.json` with
+`status: created-unverified`, the opaque registration reference and, for SSO,
+the Application ID URI. It does not verify settings, consent, endpoint audience,
+FCC readiness or plugin operation. To import it, create a new preparation input
+with the same exact registration request/descriptor and this source fragment:
+
+```json
+{
+  "source": {
+    "descriptorFile": "server/mcp-server.json",
+    "registrationResultFile": "auth-session/result.json"
+  }
+}
+```
+
+Do not also set `registration.reference`. Plan/write a new preparation output,
+then import that through FCC's `source.authenticationBundleFile`. Result digest,
+request and descriptor must match; import does not upgrade readiness. Keep
+provider session/results private and export only reviewed consumer metadata.
+
+## Provider review and remaining qualification
 
 Reviewed the public CLI implementation installed as
 `@microsoft/m365agentstoolkit-cli` **1.1.17**, including its shipped sourcemap.
@@ -133,17 +256,17 @@ selected endpoint without discovering an OpenAPI document.
 Provider login signs out the previous ATK account. Its cache implementation uses
 a fixed OS credential-store key, and its Windows login may configure a native
 broker. Changing HOME/USERPROFILE alone has **not** established isolated
-authentication. The user was unavailable for the execution-environment choice,
-so no Docker startup, VM provisioning or shared-profile sign-in was attempted.
+authentication on Windows. The separate Linux adapter addresses those cache
+routes without changing Microsoft's code, but actual host/browser/provider
+qualification remains outstanding. No Docker startup, VM provisioning or shared
+profile sign-in was attempted.
 
-Remaining execution gates: select/qualify an isolated OS profile or container;
-verify the exact provider build and operator tenant/account; bind a real app and
-restrictions; implement separate approval-bound login and registration with
-immutable target reservations, no retries after uncertain dispatch, strict
-output parsing and `created-unverified` receipts; separately review settings,
-consent and consumer behavior. Confidential-client execution additionally needs
-a reviewed private Key Vault identity/secret-delivery mechanism that cannot leak
-through provider files, logs, arguments or parent environment.
+Remaining live gates: qualify the Linux runtime, actual ATK account/output
+format and callback; supply the real app and selected identity; review each
+effect phase; separately verify registration settings, consent and consumer
+behavior. Generic OAuth registration does not implement provider MCP discovery,
+token exchange or proof. WIQD mapping, package validation and consumer acceptance
+remain separate.
 
 Do not bypass these gates with ambient credentials, hidden token-store REST
 calls, monkey-patched Microsoft code or a copied cache.

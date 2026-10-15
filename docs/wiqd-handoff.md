@@ -7,8 +7,9 @@ extension is implemented by this document. Track work in
 2026-10-15 approved scope addition: [shared auth preparation](auth-registration.md)
 now exports explicit SSO/OAuth settings and nonsecret FCC/plugin reference data.
 This narrow implementation is not H1/H3's endpoint/tool contract and does not
-invoke WIQD. Provider registration execution remains blocked by unqualified
-authentication isolation; package/runtime compatibility is still unverified.
+invoke WIQD. A separate Linux-only public ATK execution adapter now implements
+reviewed SSO/OAuth registration and unverified result import. Real
+Linux/provider qualification and package/runtime compatibility remain unverified.
 
 ## Boundary
 
@@ -16,8 +17,8 @@ MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explici
 Entra setup, and guarded discovery/proof/evidence. WIQD owns composing the
 endpoint into a Cowork/M365 app package, mapping consumer credential references,
 package validation, provisioning and distribution. Shared auth configuration
-preparation now belongs here; future approved registration execution must retain
-its own provider identity, no-replay and phase-review boundary.
+preparation and its separate execution module now belong here, retaining their
+own provider identity, no-replay and phase-review boundary.
 
 The integration should be a versioned data contract, not a dependency on a private
 MCP module, a copied infrastructure engine, or a revival of Cowork Plugin Toolkit.

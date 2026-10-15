@@ -1,5 +1,16 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+authRegistrationExecution: {
+      contractVersion: 1, commands: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
+      phases: ['initialize', 'login', 'register', 'close'], platform: 'linux-owner-only-tmpfs',
+      provider: '@microsoft/m365agentstoolkit-cli', version: '1.1.17', publicCliOnly: true,
+      identity: 'explicit-account-output-selected-tenant-plus-human-confirmation-not-token-attestation',
+      authentication: ['entra-sso', 'oauth-pkce', 'oauth-private-key-vault-secret'],
+      result: 'created-unverified', automaticRetry: false, sharedCredentials: false,
+      secretPersistence: 'child-only-environment-and-owner-only-tmpfs-no-durable-output',
+      liveQualified: false, windowsExecution: false, installation: false, dockerStartup: false,
+      publicLibrary: false, consent: false, consumerPublication: false,
+    },
 authRegistration: {
       contractVersion: 1, commands: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
       status: 'local-preparation-only', authentication: ['entra-sso', 'oauth-pkce-public-client', 'oauth-key-vault-reference'],

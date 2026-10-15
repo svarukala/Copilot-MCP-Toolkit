@@ -12,12 +12,15 @@
 | Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor and local FCC form/reference draft only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
 | Custom federated connector onboarding | Matching Entra SSO, anonymous public-data declaration or OAuth reference | Existing toolkit descriptor | Local human copy/paste form/auth fields; OAuth reference drafts stay blocked with discovery/import unsupported; not tenant registration or consumer verification |
 | Shared authentication registration preparation | Matching Entra or OAuth descriptor | Resource/provider-owned | Local explicit SSO/OAuth settings, PKCE or versioned Key Vault reference, and FCC/plugin metadata; no provider execution or secret resolution |
+| Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate Linux tmpfs initialize/login/register/close approvals; SSO, PKCE or private versioned Key Vault secret; created-unverified receipts and no replay; real Linux/provider qualification outstanding, Windows/macOS refused |
 
 Anonymous **backend** does not make generated inbound anonymous. Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator
 secret-write rights and service secret-read rights are separate. No shared-service
 identity PATCH, user-assigned identity, default-role fallback, app-role assignment
-mutation, OBO, client-secret flow or automatic consent is implemented.
+mutation, OBO, backend client-secret flow or automatic consent is implemented.
+The separate auth-config executor registers confidential OAuth metadata; it does
+not add a backend token-exchange flow or OAuth MCP discovery/proof.
 
 ## REST is not a universal schema compiler
 

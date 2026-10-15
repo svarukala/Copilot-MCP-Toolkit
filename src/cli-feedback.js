@@ -4,7 +4,7 @@ import { secretIssues } from './validation.js';
 const context = new AsyncLocalStorage();
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
-  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan'];
+  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -117,6 +117,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-auth-execution') {
+    writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
+    return;
+  }
   if (plan.action === 'mcp-auth-registration-preparation-write') {
     const request = plan.bundle.request;
     writeFeedback(state, `[auth registration summary]\nOperation: local private preparation JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nExpected operator: ${safe(plan.operator.accountName)}\nTenant: ${safe(request.tenantId)}\nRestrictions: ${safe(request.registration.targetAudience)} / ${safe(request.registration.applicableToApps)}\nReadiness: blocked; provider authentication and registration are NOT executed.\nCalls: zero; no secret resolution, ATK invocation or consent.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview full metadata on stdout before mcp-auth-registration-bundle.\n`);

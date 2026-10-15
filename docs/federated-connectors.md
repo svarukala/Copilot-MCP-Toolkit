@@ -6,14 +6,17 @@ change authentication, or claim Microsoft 365 compatibility.
 
 Without a qualified supported registration API, the product stops at a human
 copy-and-paste handoff. Browser automation is not a substitute API or a toolkit
-feature. A human performs authentication registration, consent, FCC form entry
-and rollout in the respective portals.
+feature. A human performs FCC form entry, consent and rollout in the respective
+portals. Authentication registration may be manual or use the separate guarded
+auth-config executor; that does not register the FCC itself.
 
 The [shared authentication preparation module](auth-registration.md) now supplies
 explicit SSO/custom OAuth registration settings and consumer references. Its
-public ATK action data is not execution; isolated provider login and registration
-remain unimplemented. This distinguishes programmable auth configuration from
-the still-unqualified direct FCC creation API.
+public ATK action data is not execution. Separate Linux-only phase commands now
+implement isolated ATK login and registration, with live qualification still
+outstanding. They return unverified references for a newly reviewed preparation
+bundle. This distinguishes programmable auth configuration from the
+still-unqualified direct FCC creation API.
 
 Start the presentation rehearsal with [the demo runbook](fcc-demo.md), using
 `examples/fcc/` for either an existing Entra MCP reference or synthetic REST/APIM

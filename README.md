@@ -95,9 +95,13 @@ Microsoft 365 registration remains manual; no browser submission is automated.
 `mcp-auth-registration-schema`, `mcp-auth-registration-plan` and
 `mcp-auth-registration-bundle` prepare shared SSO/custom OAuth settings, PKCE or
 versioned Key Vault credential references, and FCC/plugin reference handoffs.
-FCC can import this exact descriptor-bound metadata. **Live auth registration
-is not implemented**: isolated provider authentication remains a blocking gate.
-No ATK invocation, secret resolution, consent or plugin publication occurs.
+FCC can import this exact descriptor-bound metadata. Separate
+`mcp-auth-execution-*` / `mcp-auth-execute` commands implement **Linux-only**
+private ATK sign-in and SSO/OAuth registration, with independent phase approvals,
+versioned Key Vault secret retrieval and durable no-replay reservations.
+Real Linux/ATK registration is **not yet qualified**; Windows/macOS execution
+is refused. Results remain `created-unverified`. Consent, FCC submission and
+plugin publication are not automated. See [auth registration](docs/auth-registration.md).
 
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

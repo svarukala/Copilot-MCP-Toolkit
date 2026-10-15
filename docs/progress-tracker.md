@@ -63,9 +63,9 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
 | AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
-| AUTH3 | SSO registration execution adapter | Blocked on provider isolation choice/qualification | ATK 1.1.17 uses OS credential storage/native broker; home redirection alone is insufficient evidence. User unavailable for environment choice; no Docker startup/shared login |
-| AUTH4 | Generic OAuth registration execution | Not implemented | Explicit local action mapping exists; execution needs AUTH3 plus secure private Key Vault secret delivery for confidential clients |
-| AUTH5 | Shared auth references for FCC/plugins | Local metadata implemented; consumer execution unverified | Descriptor/integrity-bound FCC import rejects conflicts and stale approvals. Plugin view remains mapping-required, not WIQD input or packaging |
+| AUTH3 | SSO registration execution adapter | Implemented; real Linux/provider qualification outstanding | Public ATK 1.1.17, owner-only Linux tmpfs, separate phase approvals, identity confirmation and durable no-replay journals; Windows/macOS refused, no Docker/shared login |
+| AUTH4 | Generic OAuth registration execution | Implemented; live qualification outstanding | PKCE or exact versioned Key Vault secret using a matching private Azure identity and bounded HTTPS read; child-only secret environment, no secret in toolkit durable artifacts |
+| AUTH5 | Shared auth references for FCC/plugins | Local metadata/result import implemented; consumer execution unverified | Exact request/descriptor-bound created-unverified result import into preparation, then FCC; conflicts/stale approvals rejected. Plugin view remains mapping-required, not WIQD packaging |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -81,10 +81,24 @@ The subsequent user direction approved implementing shared auth registration
 for plugin and FCC consumers, while retaining manual FCC submission and separate
 live approvals. Opaque registration IDs now preserve Base64 characters and
 padding rather than rejecting valid provider references.
-The local shared module now produces complete registration settings and explicit
-execution gaps. Supplied IDs remain `provided-unverified`; no provider result or
-settings review is fabricated. See [auth registration](auth-registration.md).
+The local shared module produces complete registration settings and its
+preparation-only gaps. Supplied IDs remain `provided-unverified`; no provider
+result or settings review is fabricated. Separate execution commands now
+implement the AUTH3/AUTH4 phases with `created-unverified` receipts.
+Version-1 preparation gap identifiers are retained for hash compatibility,
+not used as the separate executor's capability matrix. See
+[auth registration](auth-registration.md).
 The selected operator is approval-bound but excluded from consumer exports.
+Execution milestone validation on Windows / Node 24.19.0: **110 targeted offline
+tests passed** (25 execution, 38 preparation, 35 FCC, 11 CLI/guidance/independence
+and one fresh packed-consumer journey), plus CLI syntax and strict types.
+Coverage includes synthetic SSO/PKCE/confidential registration, private identity
+and no-replay failures, result import, bounded secret reads, subprocess
+termination, malformed records and packed command/flag checks with networking
+and subprocesses denied. The Linux-specific filesystem branch was not run on
+Windows; live Linux/browser/ATK and consumer qualification remain outstanding.
+This is not a rerun of the historical full suite.
+
 Final targeted auth milestone: 85 tests passed (38 auth, 35 FCC, 11 shared
 CLI/guidance/independence and one expanded fresh packed-consumer journey).
 The packed journey covers SSO reference import, OAuth PKCE, confidential-client
@@ -131,7 +145,7 @@ See [the proposal](wiqd-handoff.md) for acceptance criteria and ownership.
 | ID | Priority | Work | Owner | Status | Depends on / completion gate |
 | --- | --- | --- | --- | --- | --- |
 | H1 | P0 | Define versioned consumer-neutral handoff and privacy/freshness rules | MCP Toolkit | Proposed | Review current contracts; agree bounded schema before implementation |
-| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Shared auth preparation here; WIQD owns consumer mapping | Provider contract inspected; consumer compatibility unverified | AUTH2/AUTH5 are narrow local metadata, not live auth or end-to-end compatibility; AUTH3 remains blocked |
+| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Shared auth preparation/execution here; WIQD owns consumer mapping | Provider contract inspected; consumer compatibility unverified | AUTH3/AUTH4 implementation does not qualify the Linux provider or establish live auth/package compatibility; AUTH5 remains narrow reference metadata |
 | H3 | P1 | Implement reviewed local handoff export and offline contract tests | MCP Toolkit | Not started | H1; no login, discovery, proof replay or evidence renewal during export |
 | H4 | P1 | Document synthetic WIQD consumption with existing skills | WIQD workflow guidance + MCP docs | Not started | H1, H2; observed tools mapped to required package artifact, not invented |
 | H5 | P1 | Address Cowork-specific metadata/validation gaps upstream | WIQD | Proposed | Confirm each gap against current behavior before proposing fixes |

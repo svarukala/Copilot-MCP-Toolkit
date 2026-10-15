@@ -46,7 +46,8 @@ const registrationSchema = { oneOf: [
     'tokenUrl', 'scopes', 'isPKCEEnabled', 'tokenExchangeMethodType', 'credential']),
 ] };
 export const authRegistrationInputSchema = object({
-  schemaVersion: { const: 1 }, source: object({ descriptorFile: text(2048) }),
+  schemaVersion: { const: 1 }, source: object({ descriptorFile: text(2048),
+    registrationResultFile: text(2048) }, ['descriptorFile']),
   operator: object({ tenantId: uuid, accountName: { ...text(254), format: 'email' } }),
   registration: registrationSchema,
   review: object({ metadataApprovedForExport: { const: true } }),
@@ -109,6 +110,24 @@ function checkedRequest(request, descriptor) {
   return request;
 }
 const field = (label, value) => ({ label, value: value ?? null, status: value === undefined ? 'missing' : 'provided' });
+export function authRegistrationAction(request, descriptor, { secretVariable = false } = {}) {
+  checkedRequest(request, descriptor);
+  const r = request.registration, sso = r.type === 'entra-sso';
+  if (r.reference || !r.appId || !sso && r.credential.type !== 'none' && !secretVariable) return null;
+  return {
+    uses: 'oauth/register',
+    with: { name: r.name, flow: 'authorizationCode', identityProvider: sso ? 'MicrosoftEntra' : 'Custom',
+      clientId: sso ? descriptor.inbound.clientId : r.clientId, appId: r.appId, baseUrl: descriptor.endpoint,
+      targetAudience: r.targetAudience, applicableToApps: r.applicableToApps,
+      ...(!sso ? { authorizationUrl: r.authorizationUrl, tokenUrl: r.tokenUrl,
+        ...(r.refreshUrl ? { refreshUrl: r.refreshUrl } : {}),
+        scope: r.scopes.join(','), isPKCEEnabled: r.isPKCEEnabled, tokenExchangeMethodType: r.tokenExchangeMethodType,
+        ...(r.credential.type !== 'none' ? { clientSecret: '${{MCP_AUTH_CLIENT_SECRET}}' } : {}) } : {}),
+    },
+    writeToEnvironmentFile: { configurationId: 'MCP_AUTH_REGISTRATION_ID',
+      ...(sso ? { applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' } : {}) },
+  };
+}
 function createBundle(request, descriptor, producer) {
   checkedRequest(request, descriptor);
   requireAuth(validProducer(producer), 'BUNDLE_INVALID', 'Unsupported authentication preparation producer identity.');
@@ -124,18 +143,7 @@ function createBundle(request, descriptor, producer) {
     message: 'ATK oauth/register requires a real M365 app ID even for AnyApp. Supply the intended app ID; never invent a dummy FCC app.' });
   if (!sso && r.credential.type !== 'none') gaps.push({ code: 'SECRET_RESOLUTION_UNIMPLEMENTED',
     message: 'The versioned Key Vault reference is retained but never fetched or converted to a provider secret. No runnable action is emitted.' });
-  const action = r.reference || !r.appId || !sso && r.credential.type !== 'none' ? null : {
-    uses: 'oauth/register',
-    with: { name: r.name, flow: 'authorizationCode', identityProvider: sso ? 'MicrosoftEntra' : 'Custom',
-      clientId, appId: r.appId, baseUrl: descriptor.endpoint,
-      targetAudience: r.targetAudience, applicableToApps: r.applicableToApps,
-      ...(!sso ? { authorizationUrl: r.authorizationUrl, tokenUrl: r.tokenUrl,
-        ...(r.refreshUrl ? { refreshUrl: r.refreshUrl } : {}),
-        scope: r.scopes.join(','), isPKCEEnabled: r.isPKCEEnabled, tokenExchangeMethodType: r.tokenExchangeMethodType } : {}),
-    },
-    writeToEnvironmentFile: { configurationId: 'MCP_AUTH_REGISTRATION_ID',
-      ...(sso ? { applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' } : {}) },
-  };
+  const action = authRegistrationAction(request, descriptor);
   const authentication = { type: r.type, ...(r.reference ?? {}) };
   const fields = [
     field('Registration name', r.name), field('Registration tenant ID', request.tenantId),
@@ -200,24 +208,37 @@ export async function readAuthRegistrationBundle(filename, descriptor) {
     'Authentication preparation content, source descriptor or integrity differs. Preserve historical files and prepare a new reviewed bundle.');
   return bundle;
 }
-async function prepare(options) {
-  requireAuth(typeof options.config === 'string' && typeof options.output === 'string', 'INPUT',
-    'Registration plan/bundle requires --config and a new --output JSON file.');
-  const configFile = await assertProjectPath(path.resolve(options.config));
+export async function loadAuthRegistration(config) {
+  requireAuth(typeof config === 'string', 'INPUT', 'An explicit registration config file is required.');
+  const configFile = await assertProjectPath(path.resolve(config));
   const input = await readJson(configFile);
   requireAuth(validInput(input), 'INPUT', 'Invalid registration input; use mcp-auth-registration-schema and explicit metadata review.');
   const descriptorFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.descriptorFile));
   const descriptor = validateMcpServerDescriptor(await readJson(descriptorFile));
+  let sourceResult = null;
+  if (input.source.registrationResultFile !== undefined) {
+    requireAuth(input.registration.reference === undefined, 'INPUT', 'Select a result file OR an explicit reference, never both.');
+    const resultFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.registrationResultFile));
+    const { readAuthExecutionResult } = await import('./mcp-auth-execution.js');
+    const imported = await readAuthExecutionResult(resultFile, input, descriptor);
+    input.registration.reference = imported.reference;
+    sourceResult = { resultFile, contentDigest: imported.contentDigest };
+  }
   const info = await getLibraryInfo();
   const bundle = createBundle({ tenantId: input.operator.tenantId, registration: input.registration }, descriptor,
     { name: info.name, version: info.version, buildId: info.contentDigest });
+  return { configFile, descriptorFile, input, descriptor, bundle, sourceResult };
+}
+async function prepare(options) {
+  requireAuth(typeof options.output === 'string', 'INPUT', 'Registration plan/bundle requires a new --output JSON file.');
+  const { configFile, descriptorFile, input, descriptor, bundle, sourceResult } = await loadAuthRegistration(options.config);
   const outputPath = await assertProjectPath(path.resolve(options.output));
   requireAuth(path.extname(outputPath).toLowerCase() === '.json', 'OUTPUT', 'Registration output must be a new .json file.');
   requireAuth((await lstat(path.dirname(outputPath))).isDirectory(), 'OUTPUT', 'Output parent must already exist.');
   try { await lstat(outputPath); requireAuth(false, 'OUTPUT_EXISTS', 'Output exists. Choose a new file; overwriting is not supported.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const binding = { configFile, descriptorFile, outputPath, inputDigest: digest(input),
-    descriptorDigest: digest(descriptor), contentDigest: bundle.contentDigest };
+    descriptorDigest: digest(descriptor), contentDigest: bundle.contentDigest, sourceResult };
   return { action: 'mcp-auth-registration-preparation-write', status: 'planned', outputPath,
     operator: input.operator, approvalToken: `mcp-auth-registration/${digest(binding)}`, bundle };
 }

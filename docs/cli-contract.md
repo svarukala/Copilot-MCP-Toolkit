@@ -27,6 +27,7 @@ dependency directory. Never use a filesystem root.
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
 | Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
 | Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
+| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
@@ -49,6 +50,17 @@ Auth-registration preparation uses the same explicit workspace, JSON stdout,
 See [shared auth preparation](auth-registration.md). FCC may select its output
 via `source.authenticationBundleFile`; this is an integrity/descriptor-bound
 reference import, not a consumer-readiness assertion or execution receipt.
+
+Auth execution phases are `initialize`, `login`, `register`, `close`, each with
+its own plan/token. All executions require `--allow-provider`; login also needs
+`--allow-network --interactive`, registration needs
+`--allow-network --confirm-identity`, and confidential registration additionally
+needs `--allow-cloud` with an explicit private Key Vault identity. Close needs
+no config and preserves consumed attempts. No other phase accepts those effect
+flags. Plans support `--summary`; status is local-only. Registration results can
+be imported into preparation with `source.registrationResultFile`; a supplied
+reference/result cannot trigger another registration. See the auth runbook for
+Linux prerequisites, terminal-only login and unknown-attempt reconciliation.
 
 ## Output and approvals
 
