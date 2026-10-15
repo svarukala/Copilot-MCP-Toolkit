@@ -5,6 +5,17 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest endpoint observation: fresh private Entra public-client sign-in and
+  metadata-only discovery succeeded using the registration-URI-qualified scope.
+  The original capture contains one controlled read-only fixture tool with an
+  empty object input schema and no annotations. Its timestamp is retained;
+  FCC capture admission expires after 24 hours. No tool was executed, and this
+  does not qualify token-store SSO, downstream runtime behavior or FCC consumer
+  acceptance. The new reference preserves the old descriptor/registration
+  receipt binding; do not import that old preparation into the new descriptor.
+  Approved developer/legal metadata is still missing and is required by the
+  FCC input schema, so a complete new onboarding bundle has not been written.
+  Human FCC submission, consent and secured-pilot audience review remain.
 - Latest owner-approved settings outcome: the registration URI and Web consent
   redirect were added to the existing Entra app, and the new audience was added
   to the MCP gateway, REST wrapper and controlled backend. Fresh readback

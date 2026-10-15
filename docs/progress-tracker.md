@@ -58,7 +58,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | --- | --- | --- | --- |
 | FCC1 | Local FCC contract, readiness plan and no-overwrite onboarding bundle | Implemented/offline verified | `1ec9bc0`, extended in `13263f5`: 28 FCC tests; no root API expansion, network or registration |
 | FCC2 | Synthetic demo recipe and packed CLI rehearsal | Implemented/offline verified | `13263f5`: existing-Entra and REST/APIM inputs exercised through fresh installed CLI with runtime networking/processes denied; [runbook](fcc-demo.md) |
-| FCC3 | Entra SSO consumer compatibility | One registration and approved resource settings observed; runtime unverified | Actual SSO reference plus additive Entra/APIM readbacks; fresh tool review, consent and FCC consumer execution remain separate |
+| FCC3 | Entra SSO consumer compatibility | Registration/settings and fresh public-client metadata discovery observed; FCC SSO unverified | One controlled tool captured using the registration-URI-qualified scope; no tools/call. Token-store SSO, consent and FCC consumer execution remain separate |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
@@ -73,6 +73,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH10 | Preserve explicit tenant during ATK browser sign-in | Implemented/offline verified; one corrected private sign-in passed | Argument-driven ATK mode with human terminal I/O; matching public account/selected-tenant record observed, not token-issuer attestation; registration remains separate |
 | AUTH11 | Existing Entra/APIM FCC settings review | One private read-only review completed | Fresh private Azure sign-in; existing-app inspection and selected ARM/Graph GETs identified the gaps. Subsequent owner-approved changes are tracked in AUTH12; no endpoint execution |
 | AUTH12 | Approved additive Entra/APIM settings | One private change set applied and readback verified | One Graph PATCH and three ETag-guarded APIM policy updates; previous settings and all existing authorization checks preserved. Operator-reviewed merge, not a new general toolkit mutation capability |
+| AUTH13 | Fresh Entra metadata discovery after approved settings | One private authenticated discovery completed | Existing secretless public client, fresh in-memory sign-in and initialize/tools-list only. One controlled fixture tool captured; no tool execution, cache transfer or proof replay |
 
 AUTH9 validation: 123 targeted Windows tests passed across execution, shared
 preparation/WIQD handoff, FCC, CLI feedback and fresh packed consumption, plus
@@ -146,6 +147,18 @@ remains historical and consumed. Private dispatch journals and results are
 retained; public automatic reused-app configuration support is unchanged.
 No endpoint calls, consent, FCC submission, rollout or consumer verification
 were performed, and existing receipts/preparation artifacts were not upgraded.
+
+Subsequent metadata discovery completed on 2026-10-15 using the existing
+secretless public client and a fresh reference declaring the registration URI.
+The original capture retains one controlled fixture tool, its empty object
+input schema and the absence of annotations. Management-plane review supports
+the read-only classification; discovery alone does not prove backend safety.
+The attempt completed without retry and released its owned network lock.
+No tools/call, token-store consumer flow or FCC submission was performed.
+Capture freshness is limited to 24 hours; no historical timestamp, descriptor,
+registration receipt or consumed proof was rewritten. Developer/legal metadata
+is still missing, so the required FCC input cannot yet produce a complete new
+onboarding bundle. Consent and secured-pilot audience selection remain separate.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
