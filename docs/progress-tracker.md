@@ -67,6 +67,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH4 | Generic OAuth registration execution | Implemented; live qualification outstanding | PKCE or exact versioned Key Vault secret using a matching private Azure identity and bounded HTTPS read; child-only secret environment, no secret in toolkit durable artifacts |
 | AUTH5 | Shared auth references for FCC/plugins | Local metadata/result import implemented; consumer execution unverified | Exact request/descriptor-bound created-unverified result import into preparation, then FCC; conflicts/stale approvals rejected. Plugin view remains mapping-required, not WIQD packaging |
 | AUTH6 | Windows-first isolation assessment | Native precheck rejected; WSL offline fallback checked | Same-user redirection retained the Windows principal and resolvable broker/keytar modules; credential-store access was not exercised. Twelve focused Linux checks passed; private pinned ATK help ran with network blocked and no account cache. Windows-to-WSL synthetic callback passed. Real sign-in/registration remains unverified |
+| AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -130,6 +131,17 @@ an explicitly released promise instead of a wall-clock timer, avoiding warning/
 event-loop timing interference observed on Linux Node 22. These checks are
 separate from the real ATK help and synthetic Windows-to-WSL callback probes.
 
+Subsequent Q1 check: the complete fresh packed-consumer test passed on Linux
+Node 22.23.3 and Windows. The first Linux attempt lacked cached npm packages;
+public runtime dependencies were fetched separately into a private cache with
+installation scripts disabled. The next attempt exceeded the unchanged
+180-second test timeout on the Windows-mounted fixture filesystem. Moving the
+disposable consumer fixture to the OS temporary directory resolved that
+bottleneck: Linux completed in about 103 seconds and Windows in about 67 seconds.
+The passing test still packs/installs offline and denies runtime networking and
+subprocesses. This is one complete packed-consumer test, not the full Linux test
+suite or live provider qualification.
+
 Final targeted auth milestone: 85 tests passed (38 auth, 35 FCC, 11 shared
 CLI/guidance/independence and one expanded fresh packed-consumer journey).
 The packed journey covers SSO reference import, OAuth PKCE, confidential-client
@@ -182,7 +194,7 @@ See [the proposal](wiqd-handoff.md) for acceptance criteria and ownership.
 | H5 | P1 | Address Cowork-specific metadata/validation gaps upstream | WIQD | Proposed | Confirm each gap against current behavior before proposing fixes |
 | H6 | P1 | Verify one MCP Toolkit -> WIQD -> Cowork journey | Explicitly authorized operator | Not started | H2, H3, H4 and applicable H5; fresh purpose/approvals, bounded cost, separate layer results |
 | H7 | P2 | Decide whether a thin deterministic WIQD adapter/extension is justified | Joint | Deferred | H4/H6 experience; no duplicated infrastructure/auth engine |
-| Q1 | P2 | Linux/offline packed portability run | MCP Toolkit | Partial Linux isolation checks only; packed run not done | Twelve focused WSL checks passed, including real tmpfs permissions/cleanup and synthetic phase handoff. Real ATK startup and synthetic callback forwarding checked separately. Full Linux packed run and live authentication remain separate |
+| Q1 | P2 | Linux/offline packed portability run | MCP Toolkit | Complete for the packed-consumer test | Full fresh packed-consumer test passed on Linux Node 22.23.3 with offline installation and denied runtime networking/subprocesses; Windows counterpart also passed. Twelve focused Linux checks are separate prior evidence. Full Linux suite and live authentication are not claimed |
 | Q2 | P2 | Resolve provider invalid-key rejection uncertainty | Separate provider-specific investigation | Inconclusive | New justified purpose, exact approvals and cost bounds; never replay consumed checks |
 | R1 | Later | Archive the frozen Cowork repository | Repository owner | Deferred | Account for remaining consumer handoff needs and obtain explicit archive decision |
 

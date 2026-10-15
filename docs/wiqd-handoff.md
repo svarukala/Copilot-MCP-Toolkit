@@ -11,6 +11,16 @@ invoke WIQD. A separate Linux-only public ATK execution adapter now implements
 reviewed SSO/OAuth registration and unverified result import. Real
 Linux/provider qualification and package/runtime compatibility remain unverified.
 
+Subsequent Windows investigation: WIQD 0.18.0 Core offers an account picker and
+browser-authentication switch without ATK's unconditional interactive logout.
+Its fixed Credential Manager encryption-key namespace is not isolated by HOME
+redirection. A supported project-private credential boundary and bounded
+registration interface remain prerequisites for a native replacement; no WIQD
+cache/token transfer is approved. See
+[the investigation](auth-registration.md#native-windows-wiqd-investigation).
+The toolkit's Linux fresh packed-consumer test now passes; this is package
+portability evidence, not WIQD consumer or live-authentication compatibility.
+
 ## Boundary
 
 MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explicit

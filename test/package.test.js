@@ -5,11 +5,11 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, copyFile } from 'node
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
 test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 180000 }, async t => {
-  await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
-  const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'fresh-package-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
   const pack = JSON.parse(execFileSync(process.execPath,

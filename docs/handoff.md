@@ -256,6 +256,37 @@ released promise. This is not the full Linux packed-consumer suite or live auth.
 Private Node/ATK tooling is retained; download/cache scratch files and all probe
 runtime/server processes are cleaned up.
 
+### Native WIQD alternative and completed package portability check
+
+The user requested a WIQD-style native Windows experience rather than making
+WSL the intended workflow. Inspection of installed WIQD 0.18.0 Core confirmed
+account selection, a supported browser-authentication switch and no unconditional
+sign-out at the start of interactive login. This differs from the pinned ATK
+adapter; it does not qualify reuse of WIQD's authentication cache.
+
+Core still uses a fixed `wiqd` / `appStudio` Credential Manager encryption-key
+entry, independent of its home-relative token files. The inspected code can
+fall back to unencrypted content when no encryption key is available. No
+private key-namespace override was found. No WIQD authentication/status command,
+credential-store access, settings change or token transfer was performed.
+Native Windows registration remains unimplemented: qualify a supported private
+credential boundary and registration-only interface before replacing the
+executor. See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
+
+Q1 is now complete for the fresh packed-consumer test. A missing private npm
+cache was populated separately with public dependencies, without installation
+scripts. A subsequent timeout on the Windows-mounted fixture was resolved by
+placing the disposable consumer in the OS temporary directory, without raising
+the 180-second timeout or weakening assertions. The full packed test passed on
+Linux Node 22.23.3 (about 103 seconds) and Windows (about 67 seconds), including
+offline installation and denied runtime networking/subprocesses. This does not
+claim a full Linux test-suite run or live authentication.
+
+The requested live SSO work remains paused pending selection of a real secured
+MCP endpoint and intended M365 app ID, followed by separate phase reviews. The
+anonymous Microsoft Learn pilot cannot validate SSO, and its historical
+consumed evidence must not be replayed.
+
 ## Broader WIQD integration
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine

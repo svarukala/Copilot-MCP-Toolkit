@@ -221,6 +221,38 @@ The toolkit therefore keeps its Windows execution guard and the explicit Linux
 fallback. It does not silently start WSL, install tooling, copy credentials or
 retry a registration on another platform.
 
+### Native Windows WIQD investigation
+
+The installed WIQD 0.18.0 Core backend demonstrates a Windows alternative to
+ATK's sign-in behavior: interactive sign-in requests `select_account` and does
+not begin with ATK's unconditional sign-out. Its supported
+`disableBrokeredAuth` setting selects browser authentication instead of the
+native broker. This is evidence for a simpler native Windows user experience,
+not evidence that our ATK executor can reuse a WIQD session.
+
+Read-only inspection of the installed Core implementation also found that
+tokens live under the provider's home-relative `.wiqd/account` directory, but
+the encryption key is retrieved or created through the fixed Credential Manager
+service `wiqd`, account `appStudio`. Redirecting HOME and disabling the broker
+does not independently scope that key lookup/write. The inspected key-storage
+failure path can fall back to unencrypted cache content. No configurable
+credential-key namespace was found in that implementation. No credential store
+was accessed to make these observations.
+
+Consequently, neither an account picker nor the browser setting alone qualifies
+a project-isolated WIQD execution adapter. Do not change the user's shared WIQD
+settings, invoke its aggregate login/status/logout, extract its refresh token,
+or copy its cache to ATK as a workaround. WIQD status can silently acquire and
+persist tokens; it is not an offline isolation probe.
+
+The native adapter remains unimplemented pending a supported private credential
+boundary and a reviewed registration-only interface covering both MicrosoftEntra
+SSO and Custom OAuth. An independent browser/MSAL implementation is another
+possible approach, but it still needs supported registration integration; a
+successful login alone would not close that gap. Keep existing ATK platform
+guards and phase approvals until a replacement is actually qualified. Do not
+advertise a native Windows registration capability from this source inspection.
+
 ### Linux execution prerequisites and phases
 
 Use a trusted Linux host with Node.js 22+, an existing ATK **1.1.17** installation,
