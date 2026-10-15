@@ -9,8 +9,10 @@ It contains public engineering context only, not credentials or execution author
   discarded the explicit tenant, despite successful browser sign-in. The
   adapter now passes ATK `--interactive false` with interactive process I/O.
   This preserves the supplied tenant without disabling human browser sign-in.
-  Do not weaken tenant verification or promote historical failed attempts;
-  a fresh reviewed session is required for live validation of this correction.
+  An explicitly requested fresh private retry subsequently passed the public
+  account/selected-tenant checks. This is not token-issuer attestation or
+  registration qualification. Operator identity confirmation and registration
+  remain separate gates; do not promote the historical failed attempts.
 - Latest approved ATK direction (2026-10-15): the user confirmed no existing
   SSO registration and agreed to tenant-only / Any Teams app from the start.
   The separate executor now has a narrowly scoped
