@@ -70,6 +70,23 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
 | AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
 
+FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
+requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
+official portal supports direct SSO registration without creating an agent.
+FCC copy/paste output and shipped skill guidance now distinguish the existing
+resource app from a consumer app and forbid dummy-agent creation. Broader portal
+app restrictions still need explicit owner review. The mistaken private local
+agent scaffold was stopped; no cloud agent was provisioned and no new secured
+FCC registration or consumer result is claimed. The current live dependency is
+the endpoint owner's nonsecret resource authentication metadata and actual
+registration reference, plus legal/rollout review, not a new WIQD project.
+
+FCC-only correction validation: 82 targeted Windows tests passed (36 FCC,
+45 shared auth/WIQD handoff and one fresh offline packed consumer), plus
+syntax/types. The new regression verifies direct SSO preparation without a
+WIQD project or consumer app ID, explicit restriction review, retained missing
+references/captures and no project creation. This is not live registration.
+
 AUTH8 validation: 53 targeted Windows tests passed (45 shared registration/
 handoff, four CLI feedback, three independence and one fresh packed consumer),
 plus syntax/types. Eight Linux Node 22.23.3 checks passed (seven handoff cases

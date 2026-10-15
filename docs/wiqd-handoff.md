@@ -29,6 +29,12 @@ project-isolated authentication. Whole-app provisioning requires separate
 operator review. Reference return uses the existing unverified preparation/FCC
 path. This does not implement a native automatic registration adapter.
 
+FCC-only clarification (2026-10-15): this optional app/plugin handoff is not a
+prerequisite for custom FCC onboarding. Do not create a WIQD agent or app package
+to satisfy the ATK action's app-ID requirement. The direct Teams Developer Portal
+auth-registration flow and manual FCC form are the current route; see
+[FCC-only onboarding](federated-connectors.md#fcc-only-route-no-agent-project).
+
 ## Boundary
 
 MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explicit

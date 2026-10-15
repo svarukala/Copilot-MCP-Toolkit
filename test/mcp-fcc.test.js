@@ -144,6 +144,34 @@ test('FCC stale capture stays historical, and crossing expiry invalidates prior 
   assert.ok(!(await readdir(f.root)).includes('onboarding.json'));
 });
 
+test('FCC-only SSO preparation needs no WIQD project or consumer app ID and retains missing inputs', async t => {
+  const f = await fixture(t, { auth: 'entra', capture: false, tools: [] });
+  delete f.config.authentication.registrationId;
+  delete f.config.authentication.applicationIdUri;
+  await f.save();
+  const before = (await readdir(f.root)).sort();
+  const plan = await planFccBundle(f.options);
+  const setup = plan.bundle.manualSetup;
+  assert.ok(setup.instructions.some(instruction => instruction.includes('does not require a WIQD project')));
+  assert.ok(setup.authenticationRegistration.steps.some(step =>
+    step.id === 'sso-config' && step.instruction.includes('existing resource application client ID')));
+  const restrictions = setup.authenticationRegistration.steps.find(step => step.id === 'sso-restrictions');
+  assert.ok(restrictions.instruction.includes('Any Teams app'));
+  assert.ok(restrictions.instruction.includes('requires separate owner approval'));
+  assert.ok(restrictions.instruction.includes('not an FCC prerequisite'));
+  assert.equal(setup.authenticationRegistration.fields.some(field => field.label === 'M365 app ID'), false);
+  assert.deepEqual(plan.bundle.readiness.gaps.map(gap => gap.code).sort(),
+    ['CAPTURE_MISSING', 'SSO_AUDIENCE_MISSING', 'SSO_REGISTRATION_MISSING']);
+  assert.deepEqual(plan.bundle.tools, []);
+  assert.equal(plan.bundle.readiness.status, 'blocked');
+  assert.deepEqual(setup.formFields.at(-1),
+    { label: 'SSO registration ID', value: null, status: 'missing' });
+  assert.deepEqual((await readdir(f.root)).sort(), before);
+  await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+  assert.deepEqual(JSON.parse(await readFile(f.options.output)), plan.bundle);
+  assert.deepEqual((await readdir(f.root)).sort(), [...before, path.basename(f.options.output)].sort());
+});
+
 test('FCC reports SSO registration, audience and allowed-client gaps without changing the endpoint', async t => {
   const f = await fixture(t, { auth: 'entra', allowed: false });
   delete f.config.authentication.registrationId;

@@ -99,7 +99,9 @@ const checklist = [
 ];
 const ssoChecklist = [
   { id: 'sso-config', status: 'manual-checkpoint',
-    instruction: 'Register Microsoft Entra SSO in Teams Developer Portal with the exact endpoint and resource app. Confirm organization/app restrictions and retain the registration ID and generated Application ID URI privately.' },
+    instruction: 'In Teams Developer Portal > Tools > Microsoft Entra SSO client ID registration, register the exact endpoint and existing resource application client ID with the required scope. Confirm organization/app restrictions and retain the registration ID and generated Application ID URI privately. No WIQD agent or app package is required for this manual FCC route.' },
+  { id: 'sso-restrictions', status: 'manual-checkpoint',
+    instruction: 'Review organization and app restrictions separately. The documented portal option Any Teams app permits registration without a final Teams app ID, but its broader app scope requires separate owner approval; never select it automatically. The reviewed ATK oauth/register action requires an app ID; that tooling requirement is not an FCC prerequisite. Do not create a dummy app to satisfy it.' },
   { id: 'sso-app', status: 'manual-checkpoint',
     instruction: 'With separate owner approval, preserve existing identifierUris, add the registration Application ID URI and the Web redirect https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect, and preauthorize the Microsoft Enterprise token-store client for the required delegated scope.' },
   { id: 'sso-endpoint', status: 'manual-checkpoint',
@@ -151,6 +153,7 @@ function manualSetup(input, descriptor) {
       steps: isSso ? ssoChecklist : auth.type === 'oauth' ? oauthChecklist : [],
     },
     instructions: [
+      'FCC onboarding does not require a WIQD project, declarative agent or Microsoft 365 app package. Use the direct authentication-registration portal when needed, then the Microsoft 365 admin-center FCC form; do not scaffold or provision an agent for this purpose.',
       'Copy only provided values into the matching form fields. Missing values are null, not placeholders to submit. UI labels may vary.',
       'Review reserved-word/name validation, legal notices, authentication and the exact audience yourself before saving. No legal consent or rollout choice is inferred.',
       'A registration reference is caller-supplied, not verified by this bundle. Do not substitute an app/client ID, invent an ID or include credentials.',

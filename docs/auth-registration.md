@@ -12,6 +12,25 @@ This is not the universal H1 endpoint/tool export or a WIQD integration. WIQD
 still owns plugin composition, packaging, validation and distribution. Custom
 FCC submission remains a human operation in the Microsoft 365 admin center.
 
+## FCC without an agent
+
+For an FCC-only request, use the direct manual SSO/OAuth registration portal and
+the FCC copy/paste handoff. No WIQD project, declarative agent or app package is
+required. Do not scaffold an agent to obtain a consumer app ID.
+
+The existing Entra resource application's client ID is distinct from a
+Teams/M365 consumer app ID and from the opaque SSO registration ID. The
+[documented SSO portal](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/plugin-authentication-entra-sso#use-the-teams-developer-portal)
+supports `Any Teams app` without a final Teams app ID, subject to explicit review
+of the broader app restriction. This is not permission to broaden an existing
+registration or create a new one without approval.
+
+The reviewed ATK action still requires an app ID. Its `APP_ID_MISSING` gap and
+the version-1 preparation content remain unchanged for compatibility; they
+describe that action, not the direct portal/FCC prerequisites. A direct
+`mcp-fcc-plan` can use the actual SSO reference and Application ID URI without a
+shared preparation bundle, WIQD project or consumer app ID.
+
 ## Local workflow
 
 Use an existing private workspace containing a toolkit-generated or referenced
@@ -130,7 +149,8 @@ unsupported; a registration reference cannot remove that gap.
 
 ### User-managed WIQD Windows handoff
 
-This is the simpler native Windows route: MCP Toolkit prepares nonsecret
+This optional route is for a separately requested existing WIQD app/plugin
+workflow, not FCC-only onboarding. MCP Toolkit prepares nonsecret
 registration data; the operator runs WIQD's normal sign-in and provisioning
 workflow, then returns only the registration reference. WIQD owns its normal
 user-profile credentials. The toolkit neither reads those credentials nor claims

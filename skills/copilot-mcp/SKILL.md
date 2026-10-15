@@ -61,6 +61,15 @@ replan to a new output; never invent IDs or export secrets. OAuth preparation is
 reference-only and remains blocked by unsupported discovery/import, even with a
 registration ID. It is not a claim of secretless third-party OAuth.
 
+FCC-only requests do not require a WIQD project, declarative agent or app
+package. Do not route an FCC request to `wiqd agent create` or provision a dummy
+app to obtain an ID. For manual Entra SSO registration, use Teams Developer
+Portal > Tools > Microsoft Entra SSO client ID registration with the existing
+resource app's client ID, endpoint and scope. The documented `Any Teams app`
+option does not require a final Teams app ID; review its broader restriction
+with the owner rather than choosing it automatically. The reviewed ATK action's
+app-ID requirement is not a prerequisite for this manual FCC path.
+
 For shared SSO/OAuth settings, read `docs/auth-registration.md` and use
 `mcp-auth-registration-schema`, `mcp-auth-registration-plan` and the separately
 approved `mcp-auth-registration-bundle`. Require explicit tenant/operator,
@@ -95,7 +104,7 @@ successful `created-unverified` result through preparation's
 `source.registrationResultFile`, never as readiness or publication authority.
 
 FCC may import the saved preparation through `source.authenticationBundleFile`.
-For the user-managed Windows alternative, use `mcp-auth-wiqd-schema`,
+Only for a separately requested existing WIQD app/plugin workflow, use `mcp-auth-wiqd-schema`,
 `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` with a private registration input,
 existing WIQD project directory and explicit environment. This writes only a
 review handoff; it never invokes WIQD, edits that project or transfers credentials.

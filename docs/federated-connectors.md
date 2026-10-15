@@ -18,6 +18,34 @@ outstanding. They return unverified references for a newly reviewed preparation
 bundle. This distinguishes programmable auth configuration from the
 still-unqualified direct FCC creation API.
 
+## FCC-only route: no agent project
+
+A custom FCC does not require a WIQD project, declarative agent, plugin package,
+or agent provisioning. An existing Entra-secured MCP endpoint already has a
+resource app; obtain its actual nonsecret client ID, tenant, scope, Application
+ID URI and allowed-client settings from its owner instead of creating another app.
+
+For manual secretless SSO registration, use Teams Developer Portal > Tools >
+Microsoft Entra SSO client ID registration. Enter the endpoint, existing resource
+client ID and scope, and explicitly review organization/app restrictions. The
+documented `Any Teams app` option permits registration without a final Teams app
+ID. Its broader app scope needs owner approval; this toolkit does not select it
+or claim that a particular restriction has been qualified for FCC.
+
+The reviewed ATK `oauth/register` action requires a real app ID even for `AnyApp`.
+That is a limitation of that execution path, not an FCC requirement. Do not
+create a dummy app to satisfy it. The optional WIQD handoff serves a separately
+requested app/plugin workflow; it is not the default FCC authentication route.
+
+Copy the portal's actual SSO registration ID and generated Application ID URI,
+review the separately approved Entra/APIM audience and allowed-client changes,
+then supply the reference to the FCC form. Auth registration, endpoint
+configuration, connector creation and consumer verification remain distinct.
+Never infer the resource client ID or scope from an MCP URL.
+
+This distinction was rechecked against the official custom FCC setup and Entra
+SSO guides on 2026-10-15. No portal mutation or endpoint request was performed.
+
 Start the presentation rehearsal with [the demo runbook](fcc-demo.md), using
 `examples/fcc/` for either an existing Entra MCP reference or synthetic REST/APIM
 generation. Both routes are covered by the offline packed-consumer test.

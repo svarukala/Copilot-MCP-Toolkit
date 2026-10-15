@@ -91,6 +91,9 @@ connector is registered or ready. Its `manualSetup` section provides human
 copy-and-paste form fields and OAuth/secretless SSO registration instructions
 and references. OAuth is reference-only, with discovery still unsupported.
 Microsoft 365 registration remains manual; no browser submission is automated.
+**FCC-only onboarding requires no WIQD agent, project or app package.** Use the
+direct Teams Developer Portal authentication-registration route and paste its
+reference into the FCC form. Do not create an agent just to obtain an app ID.
 
 `mcp-auth-registration-schema`, `mcp-auth-registration-plan` and
 `mcp-auth-registration-bundle` prepare shared SSO/custom OAuth settings, PKCE or
@@ -110,7 +113,7 @@ currently requires Linux; a container is not required. The Windows-first
 isolation precheck did not establish a safe same-user broker/credential-store
 boundary, so that guard remains in place.
 
-For a native Windows workflow using an existing WIQD project,
+For a separately requested native Windows app/plugin workflow using an existing WIQD project,
 `mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` export
 reviewed SSO/PKCE action data, PowerShell-safe operator commands and exact
 registration-ID return mappings. **You run WIQD yourself** with its normal

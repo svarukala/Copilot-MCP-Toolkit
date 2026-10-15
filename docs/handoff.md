@@ -5,6 +5,13 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest scope correction (2026-10-15): the current journey is FCC-only, not
+  WIQD agent authoring. Do not create or provision an agent to obtain an app ID.
+  Use the direct Teams Developer Portal auth-registration route and manual FCC
+  form. The reviewed ATK action's app-ID requirement is not an FCC prerequisite.
+  A mistaken private local agent scaffold was stopped without cloud
+  provisioning; it is not an FCC dependency or evidence. See
+  [the FCC-only route](federated-connectors.md#fcc-only-route-no-agent-project).
 - Work continues in [Copilot MCP Toolkit](https://github.com/svarukala/Copilot-MCP-Toolkit),
   an independent Node.js 22+ ESM CLI/library with an installable Copilot CLI skill.
 - Initial implementation is commit
@@ -289,8 +296,11 @@ Linux Node 22.23.3 (about 103 seconds) and Windows (about 67 seconds), including
 offline installation and denied runtime networking/subprocesses. This does not
 claim a full Linux test-suite run or live authentication.
 
-The requested live SSO work remains paused pending selection of a real secured
-MCP endpoint and intended M365 app ID, followed by separate phase reviews. The
+At that historical checkpoint, live ATK SSO work was paused pending selection
+of a secured MCP endpoint and intended M365 app ID, followed by phase reviews.
+The user subsequently supplied an endpoint privately and clarified FCC-only
+scope. The direct portal route needs its actual resource authentication
+metadata, not a newly created agent or consumer app ID. The
 anonymous Microsoft Learn pilot cannot validate SSO, and its historical
 consumed evidence must not be replayed.
 
