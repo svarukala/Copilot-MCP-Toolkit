@@ -18,7 +18,8 @@ const object = (properties, required = Object.keys(properties)) => ({
   type: 'object', additionalProperties: false, properties, required,
 });
 const https = { ...text(2048), pattern: '^https://[^\\s]+$' };
-const registrationId = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$' };
+const registrationId = { type: 'string', minLength: 1, maxLength: 200,
+  pattern: '^[A-Za-z0-9._:+/-]+={0,2}(?![\\s\\S])' };
 export const fccInputSchema = object({
   schemaVersion: { const: 1 },
   connector: object({

@@ -139,6 +139,9 @@ reference, OAuth drafts remain blocked by `CAPTURE_MISSING` and
 captures. Do not substitute an anonymous capture, fabricate tools or interpret
 form preparation as OAuth runtime support. An OAuth reference, SSO reference,
 resource app ID and provider client ID are different values.
+Registration IDs are opaque: preserve `+`, `/` and trailing `=` padding exactly.
+The input bounds them to 200 characters and rejects whitespace, control
+characters and embedded padding; do not trim or decode an ID.
 
 After a human obtains or changes a registration reference, update the private
 input, review a new plan and write to a new output. IDs are caller-supplied;

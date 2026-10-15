@@ -310,6 +310,30 @@ test('FCC auth reference input cannot carry provider credentials or arbitrary re
   await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_INPUT' });
 });
 
+test('FCC preserves opaque SSO and OAuth registration IDs including leading punctuation and padding', async t => {
+  for (const auth of ['entra', 'oauth']) {
+    const f = await fixture(t, { auth, capture: false });
+    const opaque = '/+synthetic.ID_with-padding:reference==';
+    f.config.authentication.registrationId = opaque; await f.save();
+    const plan = await planFccBundle(f.options);
+    assert.equal(plan.bundle.authentication.registrationId, opaque);
+    assert.equal(plan.bundle.manualSetup.formFields.at(-1).value, opaque);
+    await writeFccBundle({ ...f.options, approval: plan.approvalToken });
+    assert.equal(JSON.parse(await readFile(f.options.output)).authentication.registrationId, opaque);
+  }
+});
+
+test('FCC opaque ID validation retains bounds and rejects whitespace, controls and internal padding', async t => {
+  const f = await fixture(t, { auth: 'oauth', capture: false });
+  for (const value of ['', 'x'.repeat(201), ' synthetic', 'synthetic ', 'synthetic\n',
+    'synthetic\r\n', 'synthetic\0', 'synthetic=middle', 'synthetic===']) {
+    f.config.authentication.registrationId = value; await f.save();
+    await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_INPUT' });
+  }
+  f.config.authentication.registrationId = 'x'.repeat(198) + '=='; await f.save();
+  assert.equal((await planFccBundle(f.options)).bundle.authentication.registrationId.length, 200);
+});
+
 test('FCC rejects mismatched, tampered and future-dated captures', async t => {
   const f = await fixture(t);
   const capture = captureFor(f.descriptor);

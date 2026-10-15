@@ -61,6 +61,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
+| AUTH1 | Shared SSO and OAuth registration support | Approved implementation in progress | Port reviewed consumer-independent functionality from the frozen Cowork source; verify provider isolation, explicit app restrictions and secret references before live execution |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -72,6 +73,10 @@ including authentication registration and reference IDs. Live browser work was
 stopped. `manualSetup` now makes that handoff explicit; missing values stay null,
 credentials are rejected, and neither registration nor rollout is automated.
 The earlier live pilot remains historical evidence, not the product workflow.
+The subsequent user direction approved implementing shared auth registration
+for plugin and FCC consumers, while retaining manual FCC submission and separate
+live approvals. Opaque registration IDs now preserve Base64 characters and
+padding rather than rejecting valid provider references.
 The manual-handoff change passed 33 FCC tests plus the offline packed-consumer
 test, CLI syntax checking and strict TypeScript checking on Windows. This is a
 targeted result, not a rerun of the historical 607-test full-suite milestone.
