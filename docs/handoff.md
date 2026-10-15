@@ -5,6 +5,14 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest read-only settings review: private Azure sign-in and existing-app/APIM
+  inspection completed. The registration URI and Web consent redirect are
+  missing from the existing Entra app. The MCP gateway, REST wrapper and
+  controlled backend each need the new audience reviewed; existing token-store
+  preauthorization/allowlists are present. Preserve all three authorization
+  layers and the backend's matching user restriction. No cloud settings,
+  endpoint calls or consumed proofs were changed. Exact additive owner review
+  is the next gate, not another registration or an inferred execution approval.
 - Latest SSO outcome: after corrected sign-in and operator identity confirmation,
   one explicitly approved public ATK HomeTenant / AnyApp registration returned a
   strictly parsed private `created-unverified` receipt. The target reservation

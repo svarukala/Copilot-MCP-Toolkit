@@ -71,6 +71,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
 | AUTH9 | Explicit tenant-only SSO AnyApp validation compatibility | Implemented/offline verified; one live registration dispatch succeeded | Requested HomeTenant / AnyApp with the disclosed validation-only UUID; no app creation or later restriction switch. Service-side restriction readback and consumer compatibility remain unverified |
 | AUTH10 | Preserve explicit tenant during ATK browser sign-in | Implemented/offline verified; one corrected private sign-in passed | Argument-driven ATK mode with human terminal I/O; matching public account/selected-tenant record observed, not token-issuer attestation; registration remains separate |
+| AUTH11 | Existing Entra/APIM FCC settings review | One private read-only review completed; changes not applied | Fresh private Azure sign-in; existing-app inspection and selected ARM/Graph GETs. Missing registration URI/consent redirect and audience additions at three authorization layers identified; no endpoint execution |
 
 AUTH9 validation: 123 targeted Windows tests passed across execution, shared
 preparation/WIQD handoff, FCC, CLI feedback and fresh packed consumption, plus
@@ -121,6 +122,16 @@ service-side restriction readback, general provider support or FCC readiness.
 No Entra/APIM mutation, endpoint call, FCC submission or consumer execution was
 performed. Private identifiers stay outside this repository; runtime cleanup
 and downstream resource settings remain separately reviewed operations.
+
+The subsequent private resource review found that the token-store client is
+already preauthorized and allowed, while the generated registration URI and
+consent redirect are absent from the existing Entra app. The selected MCP API,
+its REST wrapper and controlled backend each have an audience validator; the
+new URI is absent from all three. The backend's extra user restriction matches
+the selected account and must remain intact. Resource/token-store principals
+exist and are enabled. This is management-plane observation only, not consent,
+runtime compatibility or permission to modify existing resources. The original
+controlled fixture and consumed proofs remain unchanged.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
