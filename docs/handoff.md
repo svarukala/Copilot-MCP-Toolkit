@@ -13,9 +13,12 @@ It contains public engineering context only, not credentials or execution author
   does not qualify token-store SSO, downstream runtime behavior or FCC consumer
   acceptance. The new reference preserves the old descriptor/registration
   receipt binding; do not import that old preparation into the new descriptor.
-  Approved developer/legal metadata is still missing and is required by the
-  FCC input schema, so a complete new onboarding bundle has not been written.
-  Human FCC submission, consent and secured-pilot audience review remain.
+  The owner subsequently supplied developer fields, and a new private FCC
+  onboarding draft was written and read back with the original SSO reference
+  and actual tool metadata intact. Its status is `manual-checkpoints-required`,
+  not execution-ready. The supplied privacy/terms pages are explicitly
+  placeholders, not finalized policies; supplied URLs do not resolve legal
+  review. Human FCC submission, consent and secured-pilot audience review remain.
 - Latest owner-approved settings outcome: the registration URI and Web consent
   redirect were added to the existing Entra app, and the new audience was added
   to the MCP gateway, REST wrapper and controlled backend. Fresh readback

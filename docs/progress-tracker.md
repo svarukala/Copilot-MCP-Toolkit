@@ -61,6 +61,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC3 | Entra SSO consumer compatibility | Registration/settings and fresh public-client metadata discovery observed; FCC SSO unverified | One controlled tool captured using the registration-URI-qualified scope; no tools/call. Token-store SSO, consent and FCC consumer execution remain separate |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
+| FCC6 | Fresh secured FCC onboarding handoff | One private local draft written and readback verified | Supplied developer fields, original SSO reference and one actual captured tool; manual-checkpoints-required, not execution-ready. Privacy/terms URLs resolve to placeholder pages; legal review, explicit audience, human submission and consumer verification remain |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
 | AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
 | AUTH3 | SSO registration execution adapter | Implemented; one private Linux/ATK SSO registration created | Public ATK 1.1.17 returned a strictly parsed created-unverified receipt after identity review; consumed reservation retained. Broader provider qualification, resource settings and FCC execution remain separate |
@@ -157,8 +158,14 @@ The attempt completed without retry and released its owned network lock.
 No tools/call, token-store consumer flow or FCC submission was performed.
 Capture freshness is limited to 24 hours; no historical timestamp, descriptor,
 registration receipt or consumed proof was rewritten. Developer/legal metadata
-is still missing, so the required FCC input cannot yet produce a complete new
-onboarding bundle. Consent and secured-pilot audience selection remain separate.
+was missing at that checkpoint. After the owner supplied the fields, a reviewed
+private onboarding draft was written and read back, retaining the exact original
+SSO reference, tools, schemas and capture timestamp. All nine form fields are
+supplied, but this is structural completeness, not legal or runtime approval:
+the linked privacy/terms pages explicitly describe themselves as placeholders.
+The bundle remains `manual-checkpoints-required`, with execution readiness and
+proof replay false. Final legal review, consent, human submission and
+secured-pilot audience selection remain separate.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
