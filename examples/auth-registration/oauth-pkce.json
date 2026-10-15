@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "source": { "descriptorFile": "server/mcp-server.json" },
+  "operator": {
+    "tenantId": "22222222-2222-4222-8222-222222222222",
+    "accountName": "operator@example.com"
+  },
+  "registration": {
+    "type": "oauth",
+    "name": "Synthetic literature OAuth",
+    "targetAudience": "HomeTenant",
+    "applicableToApps": "AnyApp",
+    "clientId": "synthetic-provider-client",
+    "authorizationUrl": "https://identity.example.com/authorize",
+    "tokenUrl": "https://identity.example.com/token",
+    "scopes": ["literature.read"],
+    "isPKCEEnabled": true,
+    "tokenExchangeMethodType": "PostRequestBody",
+    "credential": { "type": "none" }
+  },
+  "review": { "metadataApprovedForExport": true }
+}

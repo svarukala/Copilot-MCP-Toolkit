@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "source": { "descriptorFile": "server/mcp-server.json" },
+  "operator": {
+    "tenantId": "22222222-2222-4222-8222-222222222222",
+    "accountName": "operator@example.com"
+  },
+  "registration": {
+    "type": "entra-sso",
+    "name": "Synthetic literature SSO",
+    "targetAudience": "HomeTenant",
+    "applicableToApps": "SpecificApp"
+  },
+  "review": { "metadataApprovedForExport": true }
+}

@@ -61,6 +61,21 @@ replan to a new output; never invent IDs or export secrets. OAuth preparation is
 reference-only and remains blocked by unsupported discovery/import, even with a
 registration ID. It is not a claim of secretless third-party OAuth.
 
+For shared SSO/OAuth settings, read `docs/auth-registration.md` and use
+`mcp-auth-registration-schema`, `mcp-auth-registration-plan` and the separately
+approved `mcp-auth-registration-bundle`. Require explicit tenant/operator,
+endpoint descriptor, restrictions and OAuth endpoints/scopes/credential mode.
+Do not invent a M365 app ID. Secretless OAuth preparation requires explicit PKCE;
+confidential OAuth admits only a versioned Key Vault reference, never its value.
+This is local preparation, not login or registration. Provider isolation is
+unqualified; never invoke ATK against shared credentials as a shortcut.
+
+FCC may import the saved preparation through `source.authenticationBundleFile`.
+References remain `provided-unverified`, conflicts are rejected, and missing
+discovery or endpoint settings remain gaps. The plugin view is mapping guidance,
+not a WIQD input or permission to publish. Do not repeat creation when the owner
+supplies an existing registration reference.
+
 First-call Tavily result acceptance is the fixed profile on a FUTURE unused
 ordinary call only. Show the same-call credit caveat and exact approved arguments.
 Do not change profiles/captures or run dedicated qualification to replay consumed

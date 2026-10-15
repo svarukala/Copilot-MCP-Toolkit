@@ -69,6 +69,7 @@ declared, and declaration is not verification.
 ## Integrations and boundaries
 
 - [Custom federated connector onboarding and demo preparation](docs/federated-connectors.md)
+- [Shared SSO/OAuth registration preparation and consumer references](docs/auth-registration.md)
 - [FCC presentation rehearsal: synthetic offline and gated live tracks](docs/fcc-demo.md)
 - [Session handoff and next starting point](docs/handoff.md)
 - [Implementation and scenario tracking](docs/progress-tracker.md)
@@ -90,6 +91,13 @@ connector is registered or ready. Its `manualSetup` section provides human
 copy-and-paste form fields and OAuth/secretless SSO registration instructions
 and references. OAuth is reference-only, with discovery still unsupported.
 Microsoft 365 registration remains manual; no browser submission is automated.
+
+`mcp-auth-registration-schema`, `mcp-auth-registration-plan` and
+`mcp-auth-registration-bundle` prepare shared SSO/custom OAuth settings, PKCE or
+versioned Key Vault credential references, and FCC/plugin reference handoffs.
+FCC can import this exact descriptor-bound metadata. **Live auth registration
+is not implemented**: isolated provider authentication remains a blocking gate.
+No ATK invocation, secret resolution, consent or plugin publication occurs.
 
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

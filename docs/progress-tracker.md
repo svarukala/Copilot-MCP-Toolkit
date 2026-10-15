@@ -61,7 +61,11 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC3 | Entra SSO consumer compatibility | Documentation reviewed; runtime unverified | Registration URI, redirect, token-store client and endpoint requirements checked against official guidance; actual tenant still needed |
 | FCC4 | Staged Microsoft 365 demo acceptance | In progress: anonymous MCP registration and rollout verified | 2026-10-15: toolkit discovered three read-only tools, wrote reviewed private bundle; admin confirmed custom connector Ready/enabled/visible to everyone under explicit user direction. Attributed Copilot execution remains unverified |
 | FCC5 | Human copy/paste handoff instead of browser automation | Implemented | User-directed boundary: labeled FCC form fields, secretless SSO setup fields/steps and actual supplied registration references; OAuth reference preparation remains blocked with discovery/import unsupported |
-| AUTH1 | Shared SSO and OAuth registration support | ID fix complete; provider isolation decision required | `2ffcda8`: 35 FCC tests plus packed test. ATK 1.1.17 uses OS credential storage/native broker; select isolated execution environment before adapting live creation. No auth registration was executed |
+| AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
+| AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
+| AUTH3 | SSO registration execution adapter | Blocked on provider isolation choice/qualification | ATK 1.1.17 uses OS credential storage/native broker; home redirection alone is insufficient evidence. User unavailable for environment choice; no Docker startup/shared login |
+| AUTH4 | Generic OAuth registration execution | Not implemented | Explicit local action mapping exists; execution needs AUTH3 plus secure private Key Vault secret delivery for confidential clients |
+| AUTH5 | Shared auth references for FCC/plugins | Local metadata implemented; consumer execution unverified | Descriptor/integrity-bound FCC import rejects conflicts and stale approvals. Plugin view remains mapping-required, not WIQD input or packaging |
 
 The FCC schema is a consumer-specific first implementation, not completion of H1
 or H3's general WIQD handoff. It preserves the ownership split and does not
@@ -77,6 +81,15 @@ The subsequent user direction approved implementing shared auth registration
 for plugin and FCC consumers, while retaining manual FCC submission and separate
 live approvals. Opaque registration IDs now preserve Base64 characters and
 padding rather than rejecting valid provider references.
+The local shared module now produces complete registration settings and explicit
+execution gaps. Supplied IDs remain `provided-unverified`; no provider result or
+settings review is fabricated. See [auth registration](auth-registration.md).
+The selected operator is approval-bound but excluded from consumer exports.
+Final targeted auth milestone: 85 tests passed (38 auth, 35 FCC, 11 shared
+CLI/guidance/independence and one expanded fresh packed-consumer journey).
+The packed journey covers SSO reference import, OAuth PKCE, confidential-client
+reference blocking and effect-flag rejection with runtime networking/subprocesses
+denied. Syntax and strict types passed. This is not a full-suite or live result.
 The manual-handoff change passed 33 FCC tests plus the offline packed-consumer
 test, CLI syntax checking and strict TypeScript checking on Windows. This is a
 targeted result, not a rerun of the historical 607-test full-suite milestone.
@@ -118,7 +131,7 @@ See [the proposal](wiqd-handoff.md) for acceptance criteria and ownership.
 | ID | Priority | Work | Owner | Status | Depends on / completion gate |
 | --- | --- | --- | --- | --- | --- |
 | H1 | P0 | Define versioned consumer-neutral handoff and privacy/freshness rules | MCP Toolkit | Proposed | Review current contracts; agree bounded schema before implementation |
-| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Joint investigation; WIQD owns consumer registration | Unverified | Current official docs + installed-version inspection; no automatic registration |
+| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Shared auth preparation here; WIQD owns consumer mapping | Provider contract inspected; consumer compatibility unverified | AUTH2/AUTH5 are narrow local metadata, not live auth or end-to-end compatibility; AUTH3 remains blocked |
 | H3 | P1 | Implement reviewed local handoff export and offline contract tests | MCP Toolkit | Not started | H1; no login, discovery, proof replay or evidence renewal during export |
 | H4 | P1 | Document synthetic WIQD consumption with existing skills | WIQD workflow guidance + MCP docs | Not started | H1, H2; observed tools mapped to required package artifact, not invented |
 | H5 | P1 | Address Cowork-specific metadata/validation gaps upstream | WIQD | Proposed | Confirm each gap against current behavior before proposing fixes |

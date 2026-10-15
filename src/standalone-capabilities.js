@@ -1,9 +1,20 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+authRegistration: {
+      contractVersion: 1, commands: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
+      status: 'local-preparation-only', authentication: ['entra-sso', 'oauth-pkce-public-client', 'oauth-key-vault-reference'],
+      provider: '@microsoft/m365agentstoolkit-cli', reviewedVersion: '1.1.17',
+      identity: 'explicit-tenant-account-not-authenticated', executionBlocker: 'provider-isolation-unqualified',
+      consumers: ['fcc-manual-fields', 'plugin-reference-mapping-required'], referenceStatus: 'provided-unverified',
+      secrets: 'versioned-Key-Vault-reference-only-no-resolution', appRestrictions: 'explicit-no-broadening',
+      publicLibrary: false, registration: false, login: false, networkCalls: false, subprocesses: false,
+      cloudExecution: false, consent: false, proofReplayAuthorized: false,
+    },
 federatedConnectors: {
       contractVersion: 1, commands: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
       status: 'local-onboarding-only', authentication: ['none-public-data', 'entra-sso', 'oauth-reference-only'],
       manualSetup: 'human-copy-paste-form-and-auth-registration-fields', oauthDiscovery: false,
+      authenticationBundle: 'descriptor-bound-local-preparation-reference-not-verification',
       transport: 'streamable-http', readOnly: 'explicit-all-tool-review-not-enforcement',
       tools: 'observed-capture-only-no-schema-rewriting', captureFreshnessHours: 24,
       missingOrStaleCapture: 'blocked-draft-not-renewed', approval: 'inputs-build-freshness-destination-bound',

@@ -64,6 +64,23 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'].includes(command)) {
+      const schema = command === 'mcp-auth-registration-schema';
+      const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json',
+        ...(command === 'mcp-auth-registration-plan' ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!options.config || !options.output || !workspaceRoot)) {
+        throw new Error('Registration schema accepts only --json. Plan/bundle requires --workspace-root, --config and new --output; bundle also needs exact --approve. Preparation only: no login or registration execution.');
+      }
+      const registration = await import('../src/mcp-auth-registration.js');
+      if (schema) print(registration.authRegistrationInputSchema, true);
+      else {
+        const selected = { config: options.config, output: options.output, workspaceRoot, approval: options.approve };
+        print(await (command === 'mcp-auth-registration-plan'
+          ? registration.planAuthRegistrationBundle : registration.writeAuthRegistrationBundle)(selected), true);
+      }
+      return 0;
+    }
     if (['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'].includes(command)) {
       const schema = command === 'mcp-fcc-schema';
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json',

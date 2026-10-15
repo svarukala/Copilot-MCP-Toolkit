@@ -11,6 +11,7 @@
 | Existing MCP reference | Anonymous or explicit Entra | Provider-owned | Descriptor/reference only; separately approved observed tools/list and eligible single-call proof |
 | Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor and local FCC form/reference draft only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
 | Custom federated connector onboarding | Matching Entra SSO, anonymous public-data declaration or OAuth reference | Existing toolkit descriptor | Local human copy/paste form/auth fields; OAuth reference drafts stay blocked with discovery/import unsupported; not tenant registration or consumer verification |
+| Shared authentication registration preparation | Matching Entra or OAuth descriptor | Resource/provider-owned | Local explicit SSO/OAuth settings, PKCE or versioned Key Vault reference, and FCC/plugin metadata; no provider execution or secret resolution |
 
 Anonymous **backend** does not make generated inbound anonymous. Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator

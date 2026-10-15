@@ -1,7 +1,6 @@
 import Ajv from 'ajv';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { lstat, readFile, open, link, unlink } from 'node:fs/promises';
+import { lstat, readFile } from 'node:fs/promises';
 import { assertProjectPath, withCliWorkspace } from './config.js';
 import { boundedSnapshot, metadataDigest, normalizeAnonymousEndpoint, savedJson } from './anonymous-metadata.js';
 import { validateMcpServerDescriptor } from './mcp-server.js';
@@ -9,6 +8,8 @@ import { mcpCaptureFreshness } from './mcp-discovery.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { secretIssues } from './validation.js';
 import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
+import { readAuthRegistrationBundle, registrationIdSchema, validApplicationIdUri } from './mcp-auth-registration.js';
+import { writeNewJsonBundle } from './mcp-bundle-write.js';
 
 export const fccTokenStoreClientId = RESTRICTED_DISCOVERY_CLIENT_ID;
 const maximumBytes = 1048576;
@@ -18,15 +19,15 @@ const object = (properties, required = Object.keys(properties)) => ({
   type: 'object', additionalProperties: false, properties, required,
 });
 const https = { ...text(2048), pattern: '^https://[^\\s]+$' };
-const registrationId = { type: 'string', minLength: 1, maxLength: 200,
-  pattern: '^[A-Za-z0-9._:+/-]+={0,2}(?![\\s\\S])' };
+const registrationId = registrationIdSchema;
 export const fccInputSchema = object({
   schemaVersion: { const: 1 },
   connector: object({
     displayName: text(100), description: text(1000),
     developer: object({ name: text(100), websiteUrl: https, privacyPolicyUrl: https, termsOfUseUrl: https }),
   }),
-  source: object({ descriptorFile: text(2048), captureFile: text(2048) }, ['descriptorFile']),
+  source: object({ descriptorFile: text(2048), captureFile: text(2048),
+    authenticationBundleFile: text(2048) }, ['descriptorFile']),
   authentication: { oneOf: [
     object({ type: { const: 'none' } }),
     object({ type: { const: 'entra-sso' }, registrationId, applicationIdUri: text(2048) }, ['type']),
@@ -75,11 +76,7 @@ function checkedInput(value) {
     normalizeAnonymousEndpoint(value.connector.developer[key]);
   }
   if (value.authentication.applicationIdUri !== undefined) {
-    let uri;
-    try { uri = new URL(value.authentication.applicationIdUri); }
-    catch { requireFcc(false, 'INPUT', 'SSO Application ID URI must be an explicit api:// or https:// identifier.'); }
-    requireFcc(['api:', 'https:'].includes(uri.protocol) && uri.hostname && !uri.username && !uri.password
-      && !uri.search && !uri.hash && !/[\s\\%]/.test(value.authentication.applicationIdUri),
+    requireFcc(validApplicationIdUri(value.authentication.applicationIdUri),
     'INPUT', 'SSO Application ID URI must be an explicit nonsecret identifier without query or fragment.');
   }
   requireFcc(new Set(value.review.tools.map(tool => tool.name)).size === value.review.tools.length,
@@ -176,9 +173,22 @@ async function prepare(options) {
     'INPUT', 'FCC plan/bundle requires --config and a new --output JSON file.');
   const configFile = await assertProjectPath(path.resolve(options.config));
   const input = checkedInput(await readJson(configFile));
+  const inputDigest = digest(input);
   const descriptorFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.descriptorFile));
   const descriptor = validateMcpServerDescriptor(await readJson(descriptorFile));
   normalizeAnonymousEndpoint(descriptor.endpoint);
+  let authenticationBundle, authenticationBundleFile;
+  if (input.source.authenticationBundleFile !== undefined) {
+    authenticationBundleFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.authenticationBundleFile));
+    authenticationBundle = await readAuthRegistrationBundle(authenticationBundleFile, descriptor);
+    const imported = authenticationBundle.consumers.fcc.authentication;
+    requireFcc(imported.type === input.authentication.type, 'AUTH_MISMATCH', 'The selected authentication preparation must match the FCC authentication type.');
+    for (const key of ['registrationId', 'applicationIdUri']) {
+      requireFcc(input.authentication[key] === undefined || input.authentication[key] === imported[key],
+        'AUTH_MISMATCH', 'Explicit authentication fields conflict with the imported preparation. Existing references are never replaced silently.');
+    }
+    input.authentication = { ...imported };
+  }
   requireFcc({ anonymous: 'none', entra: 'entra-sso', oauth: 'oauth' }[descriptor.inbound.type] === input.authentication.type,
     'AUTH_MISMATCH', 'FCC authentication must match the endpoint descriptor. Authentication downgrade is not allowed.');
   requireFcc(descriptor.inbound.type !== 'oauth' || input.source.captureFile === undefined, 'AUTH_UNSUPPORTED',
@@ -232,7 +242,11 @@ async function prepare(options) {
         endpointApplicationIdUri: descriptor.inbound.applicationIdUri, scope: descriptor.inbound.scope,
         tokenStoreClientId: fccTokenStoreClientId },
     } : {}) },
-    manualSetup: manualSetup(input, descriptor),
+    manualSetup: { ...manualSetup(input, descriptor), ...(authenticationBundle ? {
+      sharedRegistration: { contentDigest: authenticationBundle.contentDigest,
+        referenceStatus: authenticationBundle.registrationReference.status,
+        fields: authenticationBundle.manualSetup.fields, evidence: authenticationBundle.evidence },
+    } : {}) },
     review: input.review, tools,
     evidence: { discovery, configuration: 'not-verified', protocolProof: 'not-assessed',
       consumerExecution: 'not-verified', executionReadiness: false, proofReplayAuthorized: false },
@@ -252,7 +266,9 @@ async function prepare(options) {
   try { await lstat(outputPath); requireFcc(false, 'OUTPUT_EXISTS', 'FCC destination exists. Choose a new file; no overwrite is supported.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const binding = { configFile, descriptorFile, captureFile: captureFile ?? null, outputPath,
-    inputDigest: digest(input), descriptorDigest: digest(descriptor),
+    authenticationBundleFile: authenticationBundleFile ?? null,
+    authenticationBundleDigest: authenticationBundle?.contentDigest ?? null,
+    inputDigest, descriptorDigest: digest(descriptor),
     captureDigest: capture ? digest(capture) : null, contentDigest: bundle.contentDigest };
   return { action: 'mcp-fcc-onboarding-write', status: 'planned', outputPath,
     approvalToken: `mcp-fcc/${digest(binding)}`, bundle };
@@ -266,23 +282,5 @@ export async function planFccBundle(options) {
   return inWorkspace(options, () => prepare(options));
 }
 export async function writeFccBundle(options) {
-  return inWorkspace(options, async () => {
-    const plan = await prepare(options);
-    requireFcc(options.approval === plan.approvalToken, 'APPROVAL_REQUIRED',
-      'FCC write requires the exact current plan approvalToken for these inputs, build, freshness and destination.');
-    const staging = await assertProjectPath(path.join(path.dirname(plan.outputPath), `.fcc-${randomUUID()}.pending`));
-    const file = await open(staging, 'wx', 0o600);
-    try {
-      try { await file.writeFile(savedJson(plan.bundle)); await file.sync(); }
-      finally { await file.close(); }
-      const fresh = await prepare(options);
-      requireFcc(fresh.approvalToken === plan.approvalToken, 'INPUT_CHANGED',
-        'FCC inputs, build or freshness changed during writing. Review a new plan; no publication was authorized.');
-      await link(staging, plan.outputPath);
-      requireFcc((await readFile(plan.outputPath, 'utf8')) === savedJson(plan.bundle),
-        'READBACK', 'FCC output readback differs. Preserve the destination and investigate; do not overwrite it.');
-      return { status: 'written', outputPath: plan.outputPath, contentDigest: plan.bundle.contentDigest,
-        readiness: plan.bundle.readiness, executionReadiness: false, consumerExecution: 'not-verified' };
-    } finally { await unlink(staging); }
-  });
+  return inWorkspace(options, () => writeNewJsonBundle(options, prepare, requireFcc));
 }

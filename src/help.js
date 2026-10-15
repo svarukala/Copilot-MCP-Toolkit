@@ -10,6 +10,7 @@ export const commandFamilies = {
   journey: ['mcp-status', 'mcp-resume', 'mcp-diagnose'],
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
   federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
+  registration: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
 };
 
 export const HELP = `Copilot MCP Toolkit (Node.js 22+)
@@ -63,5 +64,12 @@ the exact --approve token. Output is a private onboarding draft, not a Microsoft
 manifest or registered connector. manualSetup contains human copy/paste fields and
 auth registration instructions. OAuth is reference-only; no login/exchange/discovery.
 Missing/stale metadata remains explicitly blocked. No browser submission is performed.
+Auth registration: mcp-auth-registration-schema describes explicit SSO/custom OAuth
+preparation. Plan/bundle takes --workspace-root, --config, --output NEW.json and,
+for bundle, exact --approve. Plan supports --summary. Exports form values, reviewed
+provider action data and FCC/plugin references, not an executed registration.
+Live registration is blocked pending isolated provider authentication. No secret
+resolution, ATK invocation or provider OAuth exchange occurs. FCC can select the
+output via source.authenticationBundleFile; imported references remain unverified.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.
 `;

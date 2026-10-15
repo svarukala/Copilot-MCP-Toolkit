@@ -4,12 +4,20 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+2026-10-15 approved scope addition: [shared auth preparation](auth-registration.md)
+now exports explicit SSO/OAuth settings and nonsecret FCC/plugin reference data.
+This narrow implementation is not H1/H3's endpoint/tool contract and does not
+invoke WIQD. Provider registration execution remains blocked by unqualified
+authentication isolation; package/runtime compatibility is still unverified.
+
 ## Boundary
 
 MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explicit
 Entra setup, and guarded discovery/proof/evidence. WIQD owns composing the
-endpoint into a Cowork/M365 app package, consumer credential references,
-package validation, provisioning and distribution.
+endpoint into a Cowork/M365 app package, mapping consumer credential references,
+package validation, provisioning and distribution. Shared auth configuration
+preparation now belongs here; future approved registration execution must retain
+its own provider identity, no-replay and phase-review boundary.
 
 The integration should be a versioned data contract, not a dependency on a private
 MCP module, a copied infrastructure engine, or a revival of Cowork Plugin Toolkit.

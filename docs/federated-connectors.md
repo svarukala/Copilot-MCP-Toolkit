@@ -9,6 +9,12 @@ copy-and-paste handoff. Browser automation is not a substitute API or a toolkit
 feature. A human performs authentication registration, consent, FCC form entry
 and rollout in the respective portals.
 
+The [shared authentication preparation module](auth-registration.md) now supplies
+explicit SSO/custom OAuth registration settings and consumer references. Its
+public ATK action data is not execution; isolated provider login and registration
+remain unimplemented. This distinguishes programmable auth configuration from
+the still-unqualified direct FCC creation API.
+
 Start the presentation rehearsal with [the demo runbook](fcc-demo.md), using
 `examples/fcc/` for either an existing Entra MCP reference or synthetic REST/APIM
 generation. Both routes are covered by the offline packed-consumer test.
@@ -66,6 +72,7 @@ output privately; nonsecret metadata may still be sensitive.
 | `authenticationRegistration.fields` | For SSO: endpoint, tenant, resource app, delegated scope, endpoint/registration Application ID URIs, consent redirect, token-store client and SSO reference. For OAuth: redirect URI and supplied OAuth reference |
 | `authenticationRegistration.steps` | Manual portal/app setup instructions, including prerequisites that cannot be inferred from the descriptor |
 | `instructions` | Field use, missing-value handling, legal/audience review, reference-ID distinctions and replan requirements |
+| `sharedRegistration` (optional) | Imported auth preparation fields and `provided-unverified`/missing reference status, bound to the exact descriptor and artifact digest |
 
 Each field has `label`, `value` and `status`. `provided` means supplied or derived
 from reviewed configuration, **not live verified**. Missing values are `null`
@@ -87,6 +94,14 @@ $bundle.manualSetup.authenticationRegistration.steps | Format-List id, instructi
 not JSON quoting or formatting. Do not publish this output or treat it as a
 Microsoft-uploadable manifest. Existing commands and exact write approvals
 apply; no browser, network or portal call is made.
+
+To reuse reviewed auth metadata, set `source.authenticationBundleFile` to a saved
+`mcp-auth-registration-bundle` output relative to the FCC config. Existing
+explicit references must agree exactly. The toolkit validates the full imported
+content and source descriptor, includes the reference in the form fields and
+retains the additional registration settings in `manualSetup.sharedRegistration`.
+It does not convert an unverified reference into verified settings or readiness.
+Selecting another file or changing its metadata requires a new FCC approval.
 
 ## Tools and evidence
 

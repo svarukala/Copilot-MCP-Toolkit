@@ -138,7 +138,26 @@ and generic OAuth must use reviewed credential references rather than raw
 secrets in toolkit arguments/configuration. Manual registration remains valid.
 
 The ID milestone passed 35 FCC tests and the offline packed-consumer test.
-SSO/OAuth execution and the shared registration module are not implemented yet.
+The shared local module is now implemented:
+`mcp-auth-registration-schema`, `mcp-auth-registration-plan` and
+`mcp-auth-registration-bundle` prepare SSO/custom OAuth settings, including
+explicit restrictions, PKCE or versioned Key Vault references. They invoke no
+provider. FCC can import the resulting exact descriptor-bound data through
+`source.authenticationBundleFile`; a plugin reference view is mapping guidance
+only. Supplied IDs remain `provided-unverified`. See
+[auth-registration](auth-registration.md) for synthetic examples and the exact
+execution gaps. The targeted milestone passed 85 tests: 38 auth, 35 FCC,
+11 shared CLI/guidance/independence and one expanded fresh packed journey with
+runtime networking/processes denied. Syntax/types also passed. This is offline
+evidence only, not a new full-suite or live result.
+
+The user was unavailable for the isolated provider environment choice. Safe local
+work continued without changing shared auth or starting Docker. SSO/OAuth
+execution, immutable provider-attempt journaling, live output receipts, secure
+secret resolution and actual consumer verification are still outstanding.
+Prioritize those approved AUTH3/AUTH4 items when the environment choice is resolved.
+
+## Broader WIQD integration
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing

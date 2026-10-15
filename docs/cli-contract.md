@@ -26,6 +26,7 @@ dependency directory. Never use a filesystem root.
 | Local journey | `mcp-status`, `mcp-resume`, `mcp-diagnose` with `--project DIR` | Resume may delegate ONE phase only after exact current `next.approval` and `next.requiredFlags` |
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
 | Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
+| Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
@@ -42,6 +43,12 @@ reference only and remains blocked without supported discovery; no credentials,
 browser automation or tenant writes are admitted.
 `--summary` is supported on `mcp-fcc-plan`. See
 [FCC onboarding](federated-connectors.md) for the complete boundary.
+
+Auth-registration preparation uses the same explicit workspace, JSON stdout,
+`--summary` on plans and new-destination-only policy. It rejects effect flags.
+See [shared auth preparation](auth-registration.md). FCC may select its output
+via `source.authenticationBundleFile`; this is an integrity/descriptor-bound
+reference import, not a consumer-readiness assertion or execution receipt.
 
 ## Output and approvals
 
