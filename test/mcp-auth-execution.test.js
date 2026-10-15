@@ -385,10 +385,24 @@ test('identity changes are rejected before target reservation or registration', 
 test('incorrect login identity creates no usable session or registration', async t => {
   const f = await fixture(t); await f.run('initialize');
   f.provider.login = async () => ({ accountName: 'operator@example.com', tenantId: client });
-  await assert.rejects(f.run('login'));
+  await assert.rejects(f.run('login'), /Account or selected-tenant verification failed/);
   assert.equal((await readAuthExecutionStatus(f.options)).status, 'login-unknown');
   await assert.rejects(f.run('register'));
   await assert.rejects(f.run('login'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+});
+
+test('provider identity errors explain the failed check without disclosing raw errors or enabling replay', async t => {
+  const f = await fixture(t); await f.run('initialize');
+  f.provider.login = async () => { throw Object.assign(new Error('synthetic-private-provider-detail'), { code: 'ATK_IDENTITY' }); };
+  await assert.rejects(f.run('login'), error => {
+    assert.equal(error.code, 'MCP_AUTH_EXECUTION_FAILED');
+    assert.match(error.message, /Account or selected-tenant verification failed/);
+    assert.doesNotMatch(error.message, /synthetic-private-provider-detail/);
+    return true;
+  });
+  assert.equal((await readAuthExecutionStatus(f.options)).status, 'login-unknown');
+  await assert.rejects(f.run('login'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  await assert.rejects(f.run('register'));
 });
 
 test('input/provider changes and expired login review invalidate execution', async t => {
@@ -513,6 +527,51 @@ test('provider runner refuses nonterminal login and already-cancelled work befor
   await assert.rejects(runAtkProcess({}, [], { ...options, signal: AbortSignal.abort() }, dependencies), { code: 'ATK_ABORTED' });
   assert.equal(called, false);
 });
+
+for (const selectedTenant of [tenant, '', client]) {
+  test(`ATK browser login preserves explicit tenant arguments and checks retained selection: ${selectedTenant || 'empty'}`, async t => {
+    const f = await fixture(t), runtime = path.join(f.root, 'adapter-runtime');
+    const cache = path.join(runtime, 'home', '.fx', 'account');
+    await mkdir(cache, { recursive: true });
+    const calls = [], validations = [], operator = f.input.operator;
+    const owner = { epoch: randomUUID(), project: f.options.project, workspaceRoot: f.root };
+    const installation = { node: process.execPath, entry: '/synthetic/cli.js' };
+    const signal = new AbortController().signal;
+    const provider = {
+      ...atkProvider,
+      validate: async (actualRuntime, actualOwner) => {
+        assert.equal(actualRuntime, runtime); assert.deepEqual(actualOwner, owner);
+        validations.push(actualRuntime);
+      },
+      run: async (actualInstallation, args, options) => {
+        assert.deepEqual(actualInstallation, installation);
+        assert.equal(options.runtime, runtime); assert.equal(options.signal, signal);
+        calls.push(args);
+        if (args[1] === 'login') {
+          assert.deepEqual(args, ['auth', 'login', 'm365', '--tenant', tenant, '--interactive', 'false']);
+          assert.equal(options.interactive, true);
+          await writeFile(path.join(cache, 'tenantId.cache.appStudio'), selectedTenant);
+          return '';
+        }
+        assert.deepEqual(args, ['auth', 'list', 'm365', '--interactive', 'false']);
+        assert.notEqual(options.interactive, true);
+        return `Your Microsoft 365 account is: ${operator.accountName}(Synthetic organization).\n`;
+      },
+    };
+    const login = provider.login(installation, runtime, owner, operator, { signal });
+    if (selectedTenant === tenant) {
+      const identity = await login;
+      assert.equal(identity.tenantId, tenant);
+      assert.equal(identity.accountName, operator.accountName);
+      assert.equal(identity.tenantDisplayName, 'Synthetic organization');
+    } else {
+      await assert.rejects(login, { code: 'ATK_IDENTITY' });
+    }
+    assert.equal(calls.length, 2);
+    assert.equal(validations.length, 2);
+    assert.equal(await readFile(path.join(cache, 'tenantId.cache.appStudio'), 'utf8'), selectedTenant);
+  });
+}
 
 test('strict ATK output parsing preserves opaque padding and rejects unexpected/duplicate/secret output', () => {
   const text = `TEAMSFX_ENV=reg\nAPP_NAME_SUFFIX=reg\nMCP_AUTH_REGISTRATION_ID="${registrationId}"\nMCP_AUTH_APPLICATION_ID_URI='${opaqueUri}'\n`;

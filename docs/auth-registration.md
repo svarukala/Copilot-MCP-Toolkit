@@ -439,6 +439,23 @@ its `status` must be `planned`, not `blocked`.
 | Confidential `register` | All registration flags plus `--allow-cloud` | Use the selected private Azure identity to retrieve the exact versioned Key Vault secret |
 | `close` | `--allow-provider` | Remove only the owned runtime; retain durable receipts, attempts and reservations; config is unnecessary |
 
+The toolkit's login `--interactive` flag requires a human terminal and remains
+mandatory. It is different from ATK's guided-command option: the adapter passes
+`atk auth login m365 --tenant TENANT --interactive false` while retaining
+interactive process I/O. In pinned ATK 1.1.17, guided mode (`true`) removes
+non-reserved command options, including `tenant`, before the login handler.
+Argument-driven mode (`false`) preserves the explicit tenant and still uses
+browser authentication when no account/password environment variables are set.
+The adapter excludes those variables and does not switch to password or CI auth.
+
+This distinction was found after ATK printed a successful browser sign-in but
+left tenant selection empty. The toolkit correctly refused verification.
+The corrected invocation retains the strict selected-tenant check; identity
+failures now report the failed account/tenant verification without raw provider
+errors. Previous failed login journals stay consumed and cannot be promoted to
+success by editing a cache or receipt. A fresh reviewed session is necessary;
+the correction alone is not live sign-in or registration qualification.
+
 After login, review the displayed account and organization against the selected
 tenant. The public account output and ATK tenant-selection file are **not token
 issuer attestation**. `--confirm-identity` is the operator's separate confirmation,

@@ -173,30 +173,32 @@ export const atkProvider = {
   inspect: inspectAtkProvider,
   open: createRuntime,
   validate: validateRuntime,
+  run: runAtkProcess,
   async login(provider, runtime, owner, operator, options) {
-    await validateRuntime(runtime, owner);
-    await runAtkProcess(provider, ['auth', 'login', 'm365', '--tenant', operator.tenantId, '--interactive', 'true'],
+    await this.validate(runtime, owner);
+    // ATK's guided mode discards --tenant; argument mode still performs browser authentication.
+    await this.run(provider, ['auth', 'login', 'm365', '--tenant', operator.tenantId, '--interactive', 'false'],
       { runtime, interactive: true, signal: options.signal });
     return this.account(provider, runtime, owner, operator, options);
   },
   async account(provider, runtime, owner, operator, options) {
-    await validateRuntime(runtime, owner);
-    const output = await runAtkProcess(provider, ['auth', 'list', 'm365', '--interactive', 'false'], { runtime, signal: options.signal });
+    await this.validate(runtime, owner);
+    const output = await this.run(provider, ['auth', 'list', 'm365', '--interactive', 'false'], { runtime, signal: options.signal });
     const selected = (await boundedFile(path.join(runtime, 'home', '.fx', 'account', 'tenantId.cache.appStudio'), 128)).toString('utf8').trim();
     requireProvider(selected.toLowerCase() === operator.tenantId.toLowerCase(), 'IDENTITY', 'ATK selected tenant changed. No registration is permitted.');
     return parseAtkAccount(output, operator);
   },
   async register(provider, runtime, owner, action, type, options) {
-    await validateRuntime(runtime, owner);
+    await this.validate(runtime, owner);
     const job = path.join(runtime, 'job');
     await mkdir(path.join(job, 'env'), { mode: 0o700 });
     await writeFile(path.join(job, 'm365agents.yml'), JSON.stringify({
       version: 'v1.13', environmentFolderPath: './env', provision: [action],
     }), { flag: 'wx', mode: 0o600 });
     await writeFile(path.join(job, 'env', '.env.reg'), 'TEAMSFX_ENV=reg\nAPP_NAME_SUFFIX=reg\n', { flag: 'wx', mode: 0o600 });
-    await runAtkProcess(provider, ['provision', '--folder', job, '--env', 'reg', '--interactive', 'false'],
+    await this.run(provider, ['provision', '--folder', job, '--env', 'reg', '--interactive', 'false'],
       { runtime, secret: options.secret, signal: options.signal });
-    await validateRuntime(runtime, owner);
+    await this.validate(runtime, owner);
     return parseAtkRegistrationEnv((await boundedFile(path.join(job, 'env', '.env.reg'), 16384)).toString('utf8'), type);
   },
   async close(runtime, owner) {

@@ -396,7 +396,9 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
       }
       throw Object.assign(new Error(retainLock
         ? 'Provider termination is unconfirmed. Preserve the lock/runtime and reconcile the owned process; no retry or cleanup is authorized.'
-        : 'Authentication phase failed. Read local status and preserve attempts; provider output and secrets are not logged. Registration dispatches remain consumed.'),
+        : ['ATK_IDENTITY', 'MCP_AUTH_EXECUTION_IDENTITY'].includes(error.code)
+          ? 'Account or selected-tenant verification failed. Browser sign-in success alone is not verified identity. Preserve this attempt; registration dispatches remain consumed.'
+          : 'Authentication phase failed. Read local status and preserve attempts; provider output and secrets are not logged. Registration dispatches remain consumed.'),
       { code: retainLock ? error.code : 'MCP_AUTH_EXECUTION_FAILED' });
     } finally { await lock.close(); if (!retainLock) await unlink(lockPath); }
   });

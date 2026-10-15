@@ -5,6 +5,12 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Latest authentication correction: ATK's guided `--interactive true` mode
+  discarded the explicit tenant, despite successful browser sign-in. The
+  adapter now passes ATK `--interactive false` with interactive process I/O.
+  This preserves the supplied tenant without disabling human browser sign-in.
+  Do not weaken tenant verification or promote historical failed attempts;
+  a fresh reviewed session is required for live validation of this correction.
 - Latest approved ATK direction (2026-10-15): the user confirmed no existing
   SSO registration and agreed to tenant-only / Any Teams app from the start.
   The separate executor now has a narrowly scoped

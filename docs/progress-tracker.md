@@ -70,6 +70,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH7 | WIQD-style native Windows authentication | Source investigation complete; replacement adapter not implemented | WIQD 0.18.0 Core has account selection, no unconditional interactive logout and a browser switch. Its fixed Credential Manager encryption-key namespace is not scoped by redirected HOME. Private credential isolation and registration-only integration remain unqualified |
 | AUTH8 | User-managed WIQD Windows handoff | Implemented; live operator journey unverified | Local schema/plan/bundle exports SSO/PKCE review actions, quoted operator commands and exact return mappings. No provider invocation, project edits, credential transfer or Linux requirement. WIQD owns its normal profile; whole-lifecycle review remains mandatory |
 | AUTH9 | Explicit tenant-only SSO AnyApp validation compatibility | Implemented/offline verified; live acceptance unverified | Config-only opt-in for pinned ATK, disclosed unused UUID and unchanged request/target semantics; no app creation, no later restriction switch, no native Windows execution or live registration claim |
+| AUTH10 | Preserve explicit tenant during ATK browser sign-in | Implemented/offline verified; corrected live sign-in outstanding | Argument-driven ATK mode with human terminal I/O; unchanged strict tenant verification and no-replay gates; safe identity-check failure explanation |
 
 AUTH9 validation: 123 targeted Windows tests passed across execution, shared
 preparation/WIQD handoff, FCC, CLI feedback and fresh packed consumption, plus
@@ -87,6 +88,23 @@ sign-in. No authentication or registration was dispatched. Keep a visible WSL
 terminal open throughout the private-session journey; durable initialized
 metadata alone does not establish runtime availability. Never restore a cache
 or reopen a consumed registration to recover from a stopped distribution.
+
+ATK tenant-selection correction: the provider reported successful browser
+sign-in, but the selected-tenant metadata remained empty and toolkit verification
+failed. Source inspection identified ATK 1.1.17's guided mode discarding the
+explicit `--tenant` option. The adapter now uses ATK argument-driven mode while
+keeping the human terminal/browser flow, and preserves the strict tenant check.
+The failure message now distinguishes account/tenant verification from a
+generic authentication failure. Historical failed attempts remain consumed;
+fresh live validation and registration are still outstanding.
+
+AUTH10 validation: 46 Windows tests passed (41 execution tests, four CLI
+feedback tests and one fresh offline packed consumer), plus syntax/types.
+Seven focused Linux checks passed, including the actual tmpfs runtime check.
+Synthetic adapter regressions cover the exact login arguments, retained human
+terminal mode, correct/empty/wrong tenant selection and no cache repair.
+Failure regressions preserve consumed login attempts and suppress raw errors.
+No provider or cloud service was contacted by these checks.
 
 FCC-only scope correction (2026-10-15): AUTH8 is optional for a separately
 requested existing WIQD app/plugin workflow, not an FCC prerequisite. The
