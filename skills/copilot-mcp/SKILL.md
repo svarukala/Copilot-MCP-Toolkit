@@ -18,7 +18,13 @@ For New, ask source type (REST API or existing MCP) and then source authenticati
 For REST, a fixed query-free GET can be described without an existing OpenAPI
 file; otherwise collect local OpenAPI 3.0.x JSON and explicit operation IDs.
 Collect only scenario-relevant metadata, keeping backend authentication separate
-from Entra caller authentication. API-key sources use Key Vault references;
+from caller authentication. For anonymous REST, explicitly ask Entra (default)
+or public anonymous APIM. Public accepts only fixed parameter-free GETs and
+requires public-data/read-only declarations plus aggregate rate limits. Use
+`examples/mcp/public-rates.json` and the public profile in `docs/scenarios.md`.
+Do not ask for resource app IDs, scopes, caller allowlists or a discovery client
+for that choice; explicit Azure tenant/subscription/account is still required
+for management, and public MCP discovery selection is `{}`. API-key sources use Key Vault references;
 generic third-party REST OAuth is unsupported and existing OAuth MCP is
 reference-only. Do not silently choose experimental proxy v3.
 
@@ -52,7 +58,10 @@ for every ordinary setup.
    relay into persistent chat artifacts, log or JSON any device code/token.
 
 Never collect keys or client secrets. Backend keys are versionless Key Vault
-references; APIM managed identity reads them. Never downgrade inbound Entra.
+references; APIM managed identity reads them. Never downgrade an existing Entra
+project. Public anonymous requires a new uniquely owned native REST project,
+not an edit to protected artifacts or a reused provisioning receipt. FCC uses
+No Auth for that descriptor, with separate public-data/metadata review.
 No default grant, provider OAuth exchange, consumer registration or runtime federation
 is supported. Generated infrastructure and an observed protocol result are not
 business correctness or host acceptance.

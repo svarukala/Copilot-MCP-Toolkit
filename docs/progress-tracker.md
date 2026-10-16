@@ -29,6 +29,7 @@ later edits have been tested.
 | F11 | Cowork project feature freeze | Published | Separate README/AGENTS notices on both Cowork branches; repo not archived |
 | F12 | Interactive CLI welcome banner | Implemented/offline verified | ASCII-only welcome before the guided review notice/menu; terminal stderr only. Regression coverage preserves banner-free explicit commands, help, version, JSON and noninteractive errors; no execution or approval changes |
 | F13 | User-oriented New / Resume setup | Implemented/offline verified | 49 focused tests including terminal CLI and fresh packed-consumer rehearsals; syntax/types pass. Source/auth questionnaire, fixed GET or selected OpenAPI import, shared resource selection and confirmed local generation. Resume/Advanced remain review-only; OAuth limits, Key Vault-only keys, no-overwrite/cancellation and JSON guards retained. No live operations or runtime qualification |
+| F14 | Explicit public anonymous APIM | Implemented/offline verified | Native anonymous-backend fixed GET only; public/read-only declarations and bounded aggregate throttles on MCP + REST. Entra default, management identity, staging/inheritance/ownership and proof consumption preserved. No Entra resource-app or discovery-client requirement; FCC No Auth. Full offline suite: 770 passed; final public-mode rerun: 36 passed; syntax/types pass. Live qualification pending |
 
 ## Scenario and runtime qualification
 
@@ -38,6 +39,7 @@ Implementation details and all unsupported cases remain in
 | Scenario | Independent toolkit implementation | Runtime / consumer status |
 | --- | --- | --- |
 | Native APIM REST, anonymous backend | Generation and narrow fixed-GET proof supported | Offline verified; no independent live requalification recorded here |
+| Public anonymous native APIM REST | Explicit public fixed-GET profile, rate controls, guarded lifecycle/discovery/proof and FCC No Auth | Offline verified only; no new live Azure/APIM deployment, Copilot execution or recording |
 | Native APIM REST, Key Vault API key | Header/query generation; narrower mapped query-key proof | Offline verified; generic/header-key native proof is not supported |
 | Native APIM REST, Entra delegated | Same-resource token passthrough; controlled fixture proof | Offline verified; not generic OBO or arbitrary delegated APIs |
 | Native APIM REST, system managed identity | Existing APIM principal and exact role prerequisites; fixed Graph profile | Offline verified; no independent live requalification recorded here |

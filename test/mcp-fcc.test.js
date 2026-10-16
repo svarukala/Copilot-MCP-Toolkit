@@ -90,6 +90,23 @@ test('FCC missing capture produces an explicitly blocked draft with no fabricate
   await writeFccBundle({ ...f.options, approval: plan.approvalToken });
 });
 
+test('public native APIM exports No Auth without SSO registration or invented read-only annotations', async t => {
+  const tools = [{ name: 'getEurUsdReferenceRate', description: 'Retrieve a synthetic public rate',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false } }];
+  const f = await fixture(t, { tools });
+  const input = JSON.parse(await readFile(new URL('../examples/mcp/public-rates.json', import.meta.url)));
+  const descriptor = (await prepareMcpServer(input)).descriptor;
+  await writeFile(path.join(f.root, 'descriptor.json'), savedJson(descriptor));
+  await writeFile(path.join(f.root, 'capture.json'), savedJson(captureFor(descriptor, tools)));
+  const plan = await planFccBundle(f.options);
+  assert.equal(plan.bundle.authentication.type, 'none');
+  assert.equal(plan.bundle.authentication.requirements, undefined);
+  assert.equal(plan.bundle.authentication.registrationId, undefined);
+  assert.deepEqual(plan.bundle.tools, tools);
+  assert.equal(plan.bundle.tools[0].annotations, undefined);
+  assert.equal(plan.bundle.evidence.proofReplayAuthorized, false);
+});
+
 test('FCC permits incomplete developer metadata only as a blocked, faithfully missing draft', async t => {
   for (const developer of [undefined, {}, { name: 'Example Developer' },
     { websiteUrl: 'https://example.com/docs', privacyPolicyUrl: 'https://example.com/privacy',

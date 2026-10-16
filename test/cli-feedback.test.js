@@ -4,6 +4,23 @@ import assert from 'node:assert/strict';
 
 import { withCliFeedback, configureCliFeedback, cliStage, cliInspectionStep, cliPlanSummary } from '../src/cli-feedback.js';
 
+test('public generation summary puts exposure and aggregate rate limits on stderr without changing the plan', async t => {
+  const output = [];
+  t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });
+  const plan = { evidence: 'local-generation-review', reviewDigest: `sha256:${'a'.repeat(64)}`,
+    descriptor: { kind: 'native-apim-mcp', endpoint: 'https://synthetic-apim.azure-api.net/mcp',
+      status: 'generated-not-deployed', inbound: { type: 'anonymous', rateLimit: { calls: 60, renewalPeriod: 60 } } } };
+  const before = JSON.stringify(plan);
+  await withCliFeedback(async () => {
+    configureCliFeedback('mcp-server-plan', { summary: true });
+    cliPlanSummary(plan); return 0;
+  });
+  assert.equal(JSON.stringify(plan), before);
+  assert.match(output[0], /anyone can call/);
+  assert.match(output[0], /60 requests \/ 60 seconds; approximate, not a cost ceiling/);
+  assert.match(output.join(''), /EXACT reviewDigest/);
+});
+
 test('CLI progress is opt-in, throttled, scoped and cleaned up after failure', async t => {
   const output = [];
   t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });

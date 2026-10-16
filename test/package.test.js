@@ -311,6 +311,16 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
     '--output', path.join(fccWorkspace, 'rest-prepared.json')]).result;
   assert.equal(restFccPlan.bundle.endpoint.sourceKind, 'native-apim-mcp');
   assert.equal(restFccPlan.bundle.endpoint.sourceStatus, 'generated-not-deployed');
+  const publicDefinition = path.join(fccWorkspace, 'public.json'), publicProject = path.join(fccWorkspace, 'public-server');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'public-rates.json'), publicDefinition);
+  const publicPlan = invoke(['mcp-server-plan', ...fccBase, '--config', publicDefinition]).result;
+  assert.equal(publicPlan.descriptor.inbound.type, 'anonymous');
+  assert.equal(publicPlan.descriptor.inbound.publicData, true);
+  assert.equal(cap.mcpServer.publicAnonymous.liveQualified, false);
+  invoke(['mcp-server-create', ...fccBase, '--config', publicDefinition, '--output', publicProject, '--approve', publicPlan.reviewDigest]);
+  const publicResume = invoke(['mcp-resume', ...fccBase, '--project', publicProject], [2]).result;
+  assert.equal(publicResume.next.code, 'AZURE_IDENTITY_REQUIRED');
+  assert.equal(publicResume.replayAuthorized, false);
   const selection = path.join(workspace, 'selection.json');
   await writeFile(selection, '{}');
   const resume = invoke(['mcp-resume', ...base, '--project', project, '--config', selection, '--summary'], [0, 2]).result;

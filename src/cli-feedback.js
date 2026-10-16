@@ -113,6 +113,10 @@ export function cliPlanSummary(plan) {
   const state = context.getStore();
   if (!state?.summary || state.closed || !plan || typeof plan !== 'object') return;
   if (state.command === 'mcp-server-plan' && plan.evidence === 'local-generation-review') {
+    if (plan.descriptor.kind === 'native-apim-mcp' && plan.descriptor.inbound.type === 'anonymous') {
+      const rate = plan.descriptor.inbound.rateLimit;
+      writeFeedback(state, `[public exposure]\nMCP and backing REST routes: anyone can call without a token or subscription key.\nDeclared public data and read-only GETs; not independently verified.\nAggregate limit per API per gateway/region: ${safe(String(rate.calls))} requests / ${safe(String(rate.renewalPeriod))} seconds; approximate, not a cost ceiling.\nNo Entra resource app or discovery client; Azure management identity and separate deployment approval remain required.\n`);
+    }
     writeFeedback(state, `[generation summary]\nOperation: local standalone bundle creation only\nEndpoint: ${safe(plan.descriptor.endpoint)}\nStatus: ${safe(plan.descriptor.status)}\nCalls: zero; no login, deployment or provider readiness implied.\nEXACT reviewDigest: ${safe(plan.reviewDigest)}\nUse mcp-server-create with a NEW --output and this --approve. Full review remains on stdout.\n`);
     return;
   }

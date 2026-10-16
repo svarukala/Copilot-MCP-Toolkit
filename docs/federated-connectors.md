@@ -236,6 +236,13 @@ only for Entra descriptors, and `oauth` only for OAuth reference descriptors.
 It refuses every cross-method mismatch instead of downgrading authentication.
 OAuth support is local form/reference preparation only, not discovery or login.
 
+The [public native APIM profile](scenarios.md#public-anonymous-apim) also maps to
+`none` / No Auth. It needs no Entra resource app, discovery-client registration
+or SSO registration ID. Azure deployment identity is a separate management
+requirement. The FCC public-data/tool review, actual capture, legal metadata
+and human tenant onboarding still apply. Anonymous access does not add missing
+native APIM tool annotations or prove consumer execution.
+
 An SSO registration ID and Application ID URI may be omitted during preparation;
 they produce blocking gaps. The module checks the declared registration URI
 against the descriptor URI and checks the Enterprise token-store client allowlist.

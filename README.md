@@ -60,6 +60,14 @@ The reference is **not verified**. For REST generation, review and adapt
 backend. Other examples cover Key Vault upstream MCP, delegated fixtures and
 system-managed-identity application access. Never put API keys or tokens in JSON.
 
+For a deliberately **public anonymous APIM endpoint**, choose REST > anonymous
+backend > fixed GET > public anonymous caller access in the wizard, or adapt
+`examples/mcp/public-rates.json`. This skips Entra resource-app/discovery-client
+setup but still requires Azure management identity. Explicit public-data/read-only
+review and rate limits are mandatory; MCP and backing REST routes are public.
+See [scope and safeguards](docs/scenarios.md#public-anonymous-apim). No live
+public APIM/FCC end-to-end qualification is claimed.
+
 ### Continue safely
 
 `mcp-resume` presents completed/stale/pending/blocked layers and one supported next

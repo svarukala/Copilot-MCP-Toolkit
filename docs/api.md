@@ -22,6 +22,13 @@ and refuses overwrite/path escapes; host approval UX is the host's responsibilit
 Descriptor/schema validation, bounded GET/query authoring and conservative REST/
 capture comparison are exposed without plugin packaging.
 
+`McpPublicServerInput` / `McpPublicServerDescriptor` describe the opt-in anonymous
+native REST profile. `McpPublicInboundAuthorization` requires public-data/read-only
+declarations and rate limits; only an anonymous backend is admitted. Runtime
+validation further restricts operations to fixed parameter-free GETs. Existing
+`McpServerInput`, Entra proxy types and bare anonymous reference types retain their
+original contracts; transport injection remains internal.
+
 The root also exposes `planMcpDiscovery`, `discoverMcpTools`,
 `validateMcpObservedCapture`, `planMcpReadOnlyProof`, `runMcpReadOnlyProof`,
 their contract versions, `anonymousMcpLimits`, and `McpToolkitError`. Network

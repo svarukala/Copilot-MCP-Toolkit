@@ -47,7 +47,8 @@ const key = location => [
   c(location), a(location === 'headerName' ? 'X-API-Key' : 'api_key'),
 ];
 const get = () => [c('get'), a('https://rates.example.com/v2/latest'), a('getRates'), a('Read synthetic reference rates')];
-const target = ({ keyed = false, apimMode = 'existing', groupMode = 'existing', vaultMode = 'existing' } = {}) => [
+const target = ({ keyed = false, auth = keyed ? 'api-key' : 'anonymous', apimMode = 'existing', groupMode = 'existing', vaultMode = 'existing' } = {}) => [
+  ...(auth === 'anonymous' ? [c('entra')] : []),
   a(tenant), a(subscription), ...caller(),
   c(groupMode), a(group), c(apimMode), a(apim),
   ...(keyed ? [c(vaultMode), a(vault)] : []),
@@ -90,7 +91,7 @@ for (const auth of ['anonymous', 'entra', 'api-key', 'managed-identity']) test(`
   const p = scripted([c('new'), c('rest'), c(auth), a('Synthetic rates'), ...get(),
     ...(auth === 'api-key' ? key('headerName') : []),
     ...(auth === 'managed-identity' ? [a(uuid(6)), a(uuid(7)), a(uuid(8)), a(uuid(9)), a('Read.All')] : []),
-    ...target({ keyed: auth === 'api-key' }), ...confirmation(project)]);
+    ...target({ keyed: auth === 'api-key', auth }), ...confirmation(project)]);
   await guidedArguments(p, { 'workspace-root': root });
   p.done();
   const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
@@ -107,6 +108,29 @@ for (const auth of ['anonymous', 'entra', 'api-key', 'managed-identity']) test(`
   const resume = await withCliWorkspace(root, () => planMcpResume(project));
   assert.equal(resume.next.code, 'AZURE_IDENTITY_REQUIRED');
   assert.equal(resume.replayAuthorized, false);
+});
+
+test('New public GET requires declarations and rate limits, omits Entra app questions and still needs Azure identity', async t => {
+  const root = await workspace(t), project = path.join(root, 'public');
+  const p = scripted([c('new'), c('rest'), c('anonymous'), a('Public rates'), ...get(),
+    c('public'), c('declare'), a('60'), a('60'), a(tenant), a(subscription),
+    c('existing'), a(group), c('existing'), a(apim), ...confirmation(project)]);
+  await guidedArguments(p, { 'workspace-root': root });
+  p.done();
+  const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
+  assert.deepEqual(definition.inbound, { type: 'anonymous', publicData: true, readOnly: true,
+    rateLimit: { calls: 60, renewalPeriod: 60 } });
+  assert.match(p.text, /PUBLIC EXPOSURE/);
+  assert.doesNotMatch(p.text, /"allowedClientIds"|"applicationIdUri"/);
+  assert.equal((await withCliWorkspace(root, () => planMcpResume(project))).next.code, 'AZURE_IDENTITY_REQUIRED');
+});
+
+test('Declining public-data/read-only declaration writes nothing', async t => {
+  const root = await workspace(t);
+  const p = scripted([c('new'), c('rest'), c('anonymous'), a('Public rates'), ...get(), c('public'), c('cancel')]);
+  assert.equal(await guidedArguments(p, { 'workspace-root': root }), undefined);
+  p.done();
+  assert.deepEqual(await readdir(root), []);
 });
 
 for (const source of ['rest', 'mcp']) for (const location of ['headerName', 'queryParameterName']) {
@@ -166,7 +190,8 @@ test('unsupported REST OAuth and cancellation at each menu write nothing', async
     [c('new'), c('rest'), c('oauth')],
     [c('new'), c('rest'), c('anonymous'), a('Cancelled'), c('cancel')],
     [c('new'), c('rest'), c('api-key'), a('Cancelled'), ...get(), a('https://synthetic-vault.vault.azure.net/secrets/key'), c('cancel')],
-    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), a(tenant), a(subscription), ...caller(), c('cancel')],
+    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('cancel')],
+    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('entra'), a(tenant), a(subscription), ...caller(), c('cancel')],
     [c('new'), c('mcp'), c('anonymous'), a('Cancelled'), a('https://example.com/mcp'), ...confirmation(path.join(root, 'cancelled'), 'cancel')],
     [c('advanced'), c('exit')],
   ]) {

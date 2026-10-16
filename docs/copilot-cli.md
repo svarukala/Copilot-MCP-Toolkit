@@ -65,14 +65,19 @@ OpenAPI definition; generation does not imply eligibility for native proof.
 
 Use an existing private workspace **outside the toolkit checkout** and a new
 project directory beneath it. APIM scenarios collect explicit tenant/subscription,
-reviewed caller/resource-app metadata, and full resource IDs for new/reused
+reviewed caller/resource-app metadata when Entra is selected, and full resource IDs for new/reused
 resource groups, APIM and applicable Key Vault. No resource inventory or identity
 lookup runs. New APIM also asks for region, publisher and SKU; cost is not quoted.
-If app IDs or permissions are unknown, cancel and complete the separately
+For Entra, if app IDs or permissions are unknown, cancel and complete the separately
 reviewed app-setup/owner steps rather than inventing values.
 
-Anonymous backend access does not make an APIM endpoint anonymous: generated
-inbound authentication stays Entra. API-key prompts accept a versionless Key
+An anonymous REST backend gets a separate **caller access** question: Entra
+(the default) or public anonymous. Public requires explicit public-data/read-only
+declarations and a request budget/window, skips all Entra app/client questions,
+and accepts only fixed parameter-free GETs. Both MCP and backing REST routes
+are public; Azure identity remains required for management. See
+[public APIM limits](scenarios.md#public-anonymous-apim).
+API-key prompts accept a versionless Key
 Vault reference and header/query name, never a key value. Managed identity
 requires an existing APIM system principal and exact backend role metadata;
 the wizard does not grant that role.

@@ -5,6 +5,17 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Public anonymous native APIM support is implemented for explicitly reviewed
+  public, fixed read-only GETs against an anonymous backend. The wizard keeps
+  Entra first and offers public access separately, requiring declarations/rate
+  limits while skipping resource-app and discovery-client fields. Both API
+  layers are throttled; inherited policies and Azure management identity remain
+  required. Public target bindings refuse protected receipt reuse. Discovery,
+  fixed-GET proof and FCC No Auth retain their separate approvals/evidence gates.
+  See [scope and limits](scenarios.md#public-anonymous-apim). Coverage is synthetic/
+  offline only: no Azure deployment, Frankfurter call, FCC rollout, recording or
+  consumer qualification was performed for this change. Existing installed skill
+  copies are not automatically updated; this repository's shipped skill is updated.
 - The terminal CLI now starts with New / Resume / Advanced. New collects source
   and authentication details, authors a fixed GET or imports selected OpenAPI
   operations, and uses the existing engine to create a new local bundle only

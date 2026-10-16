@@ -83,6 +83,24 @@ export interface McpServerDescriptor {
   descriptorDigest: string;
 }
 
+export interface McpPublicInboundAuthorization {
+  type: 'anonymous';
+  publicData: true;
+  readOnly: true;
+  /** Aggregate limit per API: calls 1-10000, renewalPeriod 1-300 seconds. Not a cost ceiling. */
+  rateLimit: { calls: number; renewalPeriod: number };
+}
+
+/** Native REST only; runtime validation restricts selected operations to literal, parameter-free GETs. */
+export interface McpPublicServerInput extends Omit<McpServerInput, 'inbound' | 'backend'> {
+  inbound: McpPublicInboundAuthorization;
+  backend: Extract<McpBackendAuthorization, { auth: 'anonymous' }>;
+}
+
+export interface McpPublicServerDescriptor extends Omit<McpServerDescriptor, 'inbound'> {
+  inbound: McpPublicInboundAuthorization;
+}
+
 export interface McpProxyInput {
   /** New reviews normalize v1 proxy input to v2 with an explicit upstream message endpoint. */
   schemaVersion: 1 | 2;
@@ -123,9 +141,9 @@ export interface McpExistingDescriptor {
   descriptorDigest: string;
 }
 
-export type McpServerSourceInput = McpServerInput | McpProxyInput | McpExistingInput | McpExperimentalProxyInput;
+export type McpServerSourceInput = McpServerInput | McpPublicServerInput | McpProxyInput | McpExistingInput | McpExperimentalProxyInput;
 
-export type McpEndpointDescriptor = McpServerDescriptor | McpProxyDescriptor | McpExistingDescriptor;
+export type McpEndpointDescriptor = McpServerDescriptor | McpPublicServerDescriptor | McpProxyDescriptor | McpExistingDescriptor;
 
 export type McpSourceReview<I = McpServerSourceInput, D = McpEndpointDescriptor> =
   Omit<McpServerReview, 'input' | 'descriptor'> & { input: I; descriptor: D };
@@ -157,6 +175,8 @@ export interface McpServerProjectResult {
 
 /** Local compilation only. No login, network, deployment, consumer files or tools/list synthesis. */
 export function prepareMcpServer(input: McpServerInput): Promise<McpServerReview>;
+
+export function prepareMcpServer(input: McpPublicServerInput): Promise<McpSourceReview<McpPublicServerInput, McpPublicServerDescriptor>>;
 
 export function prepareMcpServer(input: McpProxyInput): Promise<McpSourceReview<McpProxyInput, McpProxyDescriptor>>;
 

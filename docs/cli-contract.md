@@ -16,6 +16,14 @@ remain review-only. See [guided setup](copilot-cli.md#interactive-new--resume-se
 `init --json` and nonterminal invocation remain rejected; automation uses the
 explicit commands below.
 
+Anonymous REST supports an additional explicit public caller-access choice.
+The native input's `inbound` carries `type: "anonymous"`, `publicData: true`,
+`readOnly: true` and `rateLimit` (`calls`: 1-10000; `renewalPeriod`: 1-300 seconds).
+This is not the bare anonymous existing-MCP reference shape. Only public fixed
+GETs qualify; Entra remains the default for other APIM journeys. See
+[public APIM](scenarios.md#public-anonymous-apim). Deployment still requires
+private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Auth.
+
 | Family | Plan/local view | Explicit continuation |
 | --- | --- | --- |
 | Generate | `mcp-server-plan --config definition.json` | `mcp-server-create --config definition.json --output NEW --approve reviewDigest` |

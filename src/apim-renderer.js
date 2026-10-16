@@ -5,6 +5,7 @@ import { needsGateway, apimMode, keyVaultMode, createsVault, gatewayApiId, inbou
 import { backendMappingPolicy } from './rest-authoring.js';
 import { OWNER_TAG, ownerId, ownerDescription, managedApis, proxyBackendProperties } from './apim-safety.js';
 import { checkManagedIdentityConfig } from './apim-managed-identity.js';
+import { publicAnonymous } from './apim-public.js';
 
 export const MCP_API_VERSION = '2025-09-01-preview';
 
@@ -105,6 +106,19 @@ export function buildPolicy(config, c, { backend = true, routing = '' } = {}) {
     routing = `<set-backend-service backend-id="${xml(proxyBackendId(config, c))}" /><rewrite-uri template="/mcp/" copy-unmatched-params="false" />`;
   }
   const inbound = inboundAuthorization(config, c);
+  if (publicAnonymous(config)) {
+    const inherited = apimMode(config) === 'existing' ? '<base />' : '';
+    const bucket = `${gatewayApiId(config, c)}-public-${backend ? 'rest' : 'mcp'}`;
+    const { calls, renewalPeriod } = inbound.rateLimit;
+    const rateLimit = `<rate-limit-by-key calls="${calls}" renewal-period="${renewalPeriod}" counter-key="${bucket}" />`;
+    const stripCredentials = ['Authorization', 'Cookie', 'Proxy-Authorization', 'Ocp-Apim-Subscription-Key', 'X-API-Key', 'Api-Key']
+      .map(name => `<set-header name="${name}" exists-action="delete" />`).join('');
+    const fixedGet = backend
+      ? '<choose><when condition="@(context.Request.Method != &quot;GET&quot; || context.Request.Url.Query.Count != 0 || context.Request.Body != null)"><return-response><set-status code="400" reason="Only fixed GET requests without query or body are supported" /></return-response></when></choose>'
+      : '';
+    const route = backend ? `<set-backend-service base-url="${xml(c.endpoint)}" />` : '';
+    return `<policies><inbound>${inherited}${rateLimit}${fixedGet}${stripCredentials}${route}</inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>`;
+  }
   if (!inbound?.tenantId || !inbound.applicationIdUri || !inbound.clientId || !inbound.allowedClientIds?.length) return DENY_POLICY;
   // Entra v2 access tokens use the resource client ID; v1 can use its URI or ID.
   const audiences = [inbound.applicationIdUri, inbound.clientId];

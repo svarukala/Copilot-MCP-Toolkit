@@ -11,6 +11,7 @@ import { readControl, writeControl, controlFailure } from './mcp-control.js';
 import { experimentalProxy } from './contract.js';
 import { configurationObserved, experimentalConfigurationStatus } from './mcp-configuration.js';
 import { recoveryBarrier, recoveryError } from './mcp-recovery.js';
+import { publicAnonymous, publicExposureWarnings } from './apim-public.js';
 
 function ensure(value, message) { if (!value) throw new Error(message); }
 async function readBounded(filename, limit) {
@@ -76,18 +77,23 @@ export async function planMcpServerProvision(projectDir, { phase = 'foundation' 
   const binding = { contractVersion: 1, action: 'standalone-mcp-provision', projectDir: project.projectDir,
     reviewDigest: project.review.reviewDigest, historyDigest: metadataDigest(history),
     prerequisites: {
-      existingResourceApplication: project.review.input.inbound,
-      applicationCreation: 'separate-mcp-app-workspace-create-or-reuse-before-generation',
-      delegatedConsent: 'manual-administrator-review-required',
+      existingResourceApplication: publicAnonymous(project.config) ? null : project.review.input.inbound,
+      applicationCreation: publicAnonymous(project.config) ? 'not-required-public-anonymous' : 'separate-mcp-app-workspace-create-or-reuse-before-generation',
+      delegatedConsent: publicAnonymous(project.config) ? 'not-required-public-anonymous' : 'manual-administrator-review-required',
       backend: project.review.input.backend,
       consumerRegistration: 'separate-consumer-adapter-workflow',
       secretPopulation: experimentalProxy(project.config) ? 'existing-secret-reference-no-writes'
         : project.review.input.backend.auth === 'api-key' ? 'manual-secure-key-vault-import' : 'not-required',
     }, resources: resourceChoices(project.config), plan };
   return { ...binding, approvalToken: plan.approvalToken ? `mcp-provision/${metadataDigest(binding)}` : null,
-    limitations: ['APIM resource lifecycle only; the resolved inbound Entra application is verified here. App setup has its own separately approved workspace.',
-      'Consumer registrations, delegated consent, backend permissions and real endpoint tests remain separate.',
-      'Failed/interrupted attempts block replay. Descriptor remains generation evidence, never deployment proof.'] };
+    limitations: [publicAnonymous(project.config)
+      ? 'Public anonymous APIM lifecycle; Azure management identity is required, but no Entra resource app, MCP discovery client or SSO registration is needed.'
+      : 'APIM resource lifecycle only; the resolved inbound Entra application is verified here. App setup has its own separately approved workspace.',
+      publicAnonymous(project.config)
+        ? 'Consumer/FCC registration and real endpoint tests remain separate; this profile needs no SSO registration or delegated consent.'
+        : 'Consumer registrations, delegated consent, backend permissions and real endpoint tests remain separate.',
+      'Failed/interrupted attempts block replay. Descriptor remains generation evidence, never deployment proof.',
+      ...(publicAnonymous(project.config) ? publicExposureWarnings : [])] };
 }
 export async function planMcpServerAccount(projectDir, requested, options = {}) {
   const project = await deployable(projectDir);
@@ -164,7 +170,9 @@ export async function planMcpServerCapture(projectDir) {
       : descriptor.kind === 'existing-mcp' ? 'not-required' : gatewayVerified ? 'completed-not-runtime-tested' : 'not-verified',
     requirements: ['Obtain real bounded tools/list results from this exact endpoint using its declared authorization.',
       'Preserve the original capture timestamp; import through the reviewed consumer adapter. Never synthesize tool schemas.',
-      ...(descriptor.inbound.type === 'anonymous' ? ['Anonymous discovery needs no Azure login.']
+      ...(descriptor.inbound.type === 'anonymous' ? [descriptor.kind === 'existing-mcp'
+        ? 'Anonymous discovery needs no Azure login.'
+        : 'Anonymous MCP discovery needs no caller sign-in. Azure deployment and native proof readback still require a separately selected management identity.']
         : descriptor.inbound.type === 'oauth' ? ['Use the provider-supported OAuth flow externally; no provider login or token exchange is performed here.']
           : ['Use an explicitly authorized delegated client; resource scope, tenant and audience must match. Consumer registration and consent are separate.']),
       'Negative authorization tests and selected tool execution require separate explicit approval; this plan performs neither.'] };

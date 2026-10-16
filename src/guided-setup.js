@@ -10,11 +10,12 @@ import { mcpServerInputSchema, prepareMcpServer, createMcpServerProject } from '
 import { promptMcpResourceSelection, prepareResourceSelection } from './mcp-resources.js';
 import { managedIdentitySchema } from './apim-managed-identity.js';
 import { secretIssues } from './validation.js';
+import { publicInboundSchema, publicExposureWarnings } from './apim-public.js';
 
 const ajv = new Ajv();
 addFormats(ajv);
 const restSchema = mcpServerInputSchema.oneOf[0].properties;
-const inboundSchema = restSchema.inbound.properties;
+const inboundSchema = restSchema.inbound.oneOf[0].properties;
 const text = { type: 'string', minLength: 1, maxLength: 100 };
 const cancelled = { value: 'cancel', label: 'Cancel without writing' };
 const json = value => JSON.stringify(value, null, 2)
@@ -99,11 +100,28 @@ async function restDefinition(p, input) {
 }
 
 async function azureTarget(p, input) {
+  const access = input.backend.auth === 'anonymous' ? await p.choose('How should callers access the APIM MCP endpoint?', [
+    { value: 'entra', label: 'Entra authentication (recommended default; separate from backend authentication)' },
+    { value: 'public', label: 'Public anonymous - anyone can call; fixed public read-only GETs only' }, cancelled,
+  ]) : 'entra';
+  if (access === 'cancel') return;
+  if (access === 'public') {
+    p.output.write(`${publicExposureWarnings.join('\n')}\n`);
+    const declaration = await p.choose('Declare that every selected GET returns intentionally public data and has no side effects?', [
+      cancelled, { value: 'declare', label: 'I reviewed all selected GETs: public data and read-only behavior' },
+    ]);
+    if (declaration !== 'declare') return;
+    const rate = publicInboundSchema.properties.rateLimit.properties;
+    input.inbound = { type: 'anonymous', publicData: true, readOnly: true, rateLimit: {
+      calls: await field(p, 'Aggregate request limit per API (1-10000, shared by all callers)', rate.calls, Number),
+      renewalPeriod: await field(p, 'Rate-limit renewal period in seconds (1-300)', rate.renewalPeriod, Number),
+    } };
+  }
   input.azure = {
     tenantId: await field(p, 'Azure deployment tenant ID (UUID)', azureSchema.properties.tenantId),
     subscriptionId: await field(p, 'Azure subscription ID (UUID)', azureSchema.properties.subscriptionId),
   };
-  input.inbound = await inbound(p, input.azure.tenantId);
+  if (access === 'entra') input.inbound = await inbound(p, input.azure.tenantId);
   const selection = await promptMcpResourceSelection(input, p);
   if (selection.status === 'cancelled') return;
   if (Object.values(selection).some(choice => choice.mode === 'new')) {

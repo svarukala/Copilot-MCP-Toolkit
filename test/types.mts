@@ -31,6 +31,17 @@ void McpToolkitError;
 type Experiment = McpExperimentalProxyInput['experimentalProfile'];
 const profile: Experiment = 'owned-backend-routing-v1';
 void profile;
+async function publicConsumer(input: import('copilot-mcp-toolkit').McpPublicServerInput) {
+  const review = await prepareMcpServer(input);
+  const anonymous: 'anonymous' = review.descriptor.inbound.type;
+  await createMcpServerProject(review, { workspaceRoot: '/workspace', projectDir: '/workspace/public' });
+  // @ts-expect-error A public REST backend cannot be API-key authenticated.
+  input.backend = { auth: 'api-key', endpoint: 'https://example.com' };
+  // @ts-expect-error Public inbound does not widen Entra-only proxy descriptors.
+  const proxyInbound: import('copilot-mcp-toolkit').McpProxyDescriptor['inbound'] = input.inbound;
+  return { anonymous, proxyInbound };
+}
+void publicConsumer;
 // @ts-expect-error Arbitrary OAuth REST generation is not supported.
 const invalidBackend: import('copilot-mcp-toolkit').McpBackendAuthorization = { auth: 'oauth', endpoint: 'https://example.com' };
 void invalidBackend;

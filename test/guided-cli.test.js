@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
-for (const approve of [false, true]) test(`terminal New setup ${approve ? 'creates and resumes' : 'cancels'} through the CLI entry point`, { timeout: 30000 }, async t => {
+for (const [approve, publicMode] of [[false, false], [true, false], [false, true], [true, true]]) test(`terminal New ${publicMode ? 'public APIM' : 'reference'} setup ${approve ? 'creates and resumes' : 'cancels'} through the CLI entry point`, { timeout: 30000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-terminal-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const preload = path.join(root, 'terminal.cjs'), project = path.join(root, 'new project');
@@ -23,10 +23,22 @@ for (const [name, methods] of [
 ]) for (const method of methods) require(name)[method] = denied;
 require('node:module').syncBuiltinESMExports();
 `);
+  const tenant = '22222222-2222-4222-8222-222222222222', subscription = '33333333-3333-4333-8333-333333333333';
+  const group = `/subscriptions/${subscription}/resourceGroups/synthetic-rg`;
   const steps = [
-    ['Choice: ', '1'], ['Choice: ', '2'], ['Choice: ', '1'],
+    ['Choice: ', '1'], ['Choice: ', publicMode ? '1' : '2'], ['Choice: ', '1'],
     ['MCP setup name: ', 'Synthetic terminal demo'],
-    ['Existing MCP HTTPS message endpoint: ', 'https://mcp.example.com/mcp'],
+    ...(publicMode ? [
+      ['Choice: ', '1'], ['Full HTTPS GET endpoint: ', 'https://rates.example.com/v2/rate/eur/usd'],
+      ['Tool operation ID (letters, digits, dots, underscores or hyphens): ', 'getRate'],
+      ['Describe what this GET returns (nonsecret): ', 'Retrieve a synthetic public reference rate'],
+      ['Choice: ', '2'], ['Choice: ', '2'],
+      ['Aggregate request limit per API (1-10000, shared by all callers): ', '60'],
+      ['Rate-limit renewal period in seconds (1-300): ', '60'],
+      ['Azure deployment tenant ID (UUID): ', tenant], ['Azure subscription ID (UUID): ', subscription],
+      ['Choice: ', '2'], [`Resource group full resource ID in tenant ${tenant}, subscription ${subscription}: `, group],
+      ['Choice: ', '2'], [`API Management full resource ID in tenant ${tenant}, subscription ${subscription}: `, `${group}/providers/Microsoft.ApiManagement/service/synthetic-apim`],
+    ] : [['Existing MCP HTTPS message endpoint: ', 'https://mcp.example.com/mcp']]),
     ['NEW project directory inside the workspace (absolute path): ', project],
     ['Choice: ', approve ? '2' : '1'],
   ];
@@ -58,7 +70,13 @@ require('node:module').syncBuiltinESMExports();
   if (approve) {
     assert.equal(JSON.parse(stdout).action, 'standalone-mcp-resume');
     assert.equal(JSON.parse(stdout).replayAuthorized, false);
-    assert.equal(JSON.parse(await readFile(path.join(project, 'mcp-definition.json'))).endpoint, 'https://mcp.example.com/mcp');
+    const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
+    if (publicMode) {
+      assert.equal(definition.inbound.type, 'anonymous');
+      assert.equal(definition.inbound.publicData, true);
+      assert.equal(JSON.parse(stdout).next.code, 'AZURE_IDENTITY_REQUIRED');
+      assert.doesNotMatch(stderr, /Resource application client ID|Allowed caller application IDs/);
+    } else assert.equal(definition.endpoint, 'https://mcp.example.com/mcp');
     assert.match(stderr, /Local bundle created/);
   } else {
     assert.equal(stdout, '');

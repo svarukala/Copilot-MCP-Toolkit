@@ -13,6 +13,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { needsGateway, needsSso, apimMode, keyVaultMode, createsVault, gatewayApiId, approvalToken, experimentalProxy, upstreamMcpMapping } from './contract.js';
+import { publicAnonymous, publicExposureWarnings } from './apim-public.js';
 
 import { readAzureIdentity, azureIdentityGuard, AzureIdentityError } from './azure-identity.js';
 
@@ -244,15 +245,17 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
   }
   checkConfig(config);
   if (!['foundation', 'finalize', 'gateway'].includes(phase)) throw new Error('Phase must be foundation, finalize, or gateway.');
-  const sso = (config.connectors ?? []).filter(needsSso);
+  const sso = publicAnonymous(config) ? [] : (config.connectors ?? []).filter(needsSso);
   if (!sso.length && config.connectors.some(c => c.auth === 'oauth')) {
     throw new Error('Direct third-party OAuth needs no Azure provisioning. Record the reviewed portal reference and import external tools/list metadata.');
   }
   const gateway = (config.connectors ?? []).filter(needsGateway);
+  const managementIdentityRequired = sso.length > 0 || gateway.length > 0;
   const a = config.azure;
   const steps = [];
   const warnings = ['Azure CLI login is a separate user action. No secrets are requested, logged, or written by this workflow.',
     'Approval authorizes only this phase. Portal registrations, consent, backend authorization, and live endpoint validation remain manual.'];
+  if (publicAnonymous(config)) warnings.push(...publicExposureWarnings);
   if (phase === 'foundation') {
     const incomplete = sso.filter(c => !tenant(config, c) || (c.auth === 'entra' && !c.entra?.clientId));
     if (incomplete.length) {
@@ -265,6 +268,8 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
   if (sso.length) {
     const tenants = new Set(sso.map(c => requireUuid(tenant(config, c), `${c.id} tenantId`)));
     if (tenants.size !== 1 || (gateway.length && !tenants.has(a.tenantId))) throw new Error('All SSO connectors must use the signed-in Azure tenant for this deployment.');
+  }
+  if (managementIdentityRequired) {
     steps.push(command('check-account', 'Verify the active Azure identity, subscription, and tenant',
       ['account', 'show', ...(a?.subscriptionId ? ['--subscription', requireUuid(a.subscriptionId, 'subscriptionId')] : []),
         '--query', '{tenantId:tenantId,id:id}']));
@@ -285,7 +290,9 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
     }
     if (gateway.length) {
       if (apimMode(config) === 'new') {
-        warnings.push('BILLABLE: APIM and Key Vault incur Azure charges. Developer is non-production. Provisioning can take an hour. New mode creates a dedicated service and refuses unrelated existing APIM/vault resources.');
+        warnings.push(publicAnonymous(config)
+          ? 'BILLABLE: APIM and public traffic incur Azure charges. Developer is non-production. Provisioning can take an hour. New mode creates a dedicated service and refuses unrelated existing resources; this anonymous backend needs no Key Vault.'
+          : 'BILLABLE: APIM and Key Vault incur Azure charges. Developer is non-production. Provisioning can take an hour. New mode creates a dedicated service and refuses unrelated existing APIM/vault resources.');
         steps.push(command('create-group', 'Create the resource group only if missing', ['group', 'create', '--subscription', a.subscriptionId,
           '--name', a.resourceGroup, '--location', a.location]));
       } else {
@@ -305,7 +312,7 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
     }
   } else {
     if (!gateway.length) steps.push(manual('direct-connectors', 'No gateway is required', 'Anonymous and Entra MCP connect directly. Complete Entra registration/finalize, backend token validation, consent, and live testing where applicable.'));
-    for (const c of gateway) {
+    for (const c of gateway.filter(() => !publicAnonymous(config))) {
       requireUuid(c.entra?.clientId, `${c.id} clientId`);
       if (!c.entra.applicationIdUri) throw new Error(`${c.id}: complete registration and finalize before gateway deployment.`);
       steps.push(command(`check-app-${c.id}`, `Verify finalized resource application for ${c.displayName}`,
@@ -313,7 +320,9 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
     }
     if (gateway.length) {
       apimPreflight(config, steps);
-      warnings.push('Gateway approval confirms portal secrets exist, backend audience/consent are ready, and the generated API/policy changes were reviewed. This toolkit does not read secret values.');
+      warnings.push(publicAnonymous(config)
+        ? 'Gateway approval confirms intentional public exposure, public-data/read-only declarations, aggregate rate limits and the generated owned API/policy changes. No secret, Entra application or delegated consent is required.'
+        : 'Gateway approval confirms portal secrets exist, backend audience/consent are ready, and the generated API/policy changes were reviewed. This toolkit does not read secret values.');
       const base = `https://management.azure.com${serviceResourceId(config)}`;
       steps.push(command('snapshot-unrelated-policies', 'Hash unrelated API-level policies for a preservation check (read-only)',
         ['rest', '--method', 'GET', '--url', `${base}/apis?api-version=${MCP_API_VERSION}`]));
@@ -341,7 +350,9 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
       steps.push(command('verify-preservation', 'Check global policy and unrelated APIs/policies remain unchanged',
         ['rest', '--method', 'GET', '--url', `${base}/apis?api-version=${MCP_API_VERSION}`]));
       steps.push(manual('test-endpoints', 'Validate live endpoints before packaging or distribution',
-        experimentalProxy(config)
+        publicAnonymous(config)
+          ? 'Separately verify anonymous MCP discovery and the selected fixed GET tools, rate-limit behavior, backing REST method/query restrictions and credential stripping. No bearer-rejection gate applies. No live test or backend request is authorized by this deployment.'
+          : experimentalProxy(config)
           ? 'Experimental configuration readback is not forwarding proof. Review metadata discovery separately; this gateway approval does not authorize tools/call. No live test or backend request has been performed by this toolkit phase.'
           : 'Verify unauthenticated, wrong tenant/audience/client, and missing-scope tokens fail on BOTH /<id>/mcp and backing /<id>-rest routes. Exercise every selected tool with delegated SSO. Confirm no incoming bearer reaches anonymous/API-key backends, key rotation works, and response-body diagnostics are disabled (0 bytes). No live testing has been performed by this tool.'));
     }
@@ -373,7 +384,7 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
   if (a?.subscriptionId) for (const step of steps) {
     if (step.kind === 'command' && step.args[0] === 'rest') step.args.push('--subscription', a.subscriptionId);
   }
-  const azureIdentity = sso.length ? await readAzureIdentity(config, identityProjectDir) : null;
+  const azureIdentity = managementIdentityRequired ? await readAzureIdentity(config, identityProjectDir) : null;
   const inspectedSteps = inspectOnly ? steps.filter(s => s.kind === 'command'
     && (['check-account', 'check-new-resources', 'check-group', 'check-service', 'check-vault', 'check-diagnostics',
       'check-shared-policy', 'check-default-deny', 'check-api-collisions', 'check-named-value-collisions',
@@ -394,11 +405,11 @@ export async function planProvisioning(config, projectDir, { phase = 'foundation
       requests: steps.filter(step => step.id === 'check-service' || step.id.startsWith('check-backend-')),
     } } : {}),
     ...(inspectOnly ? { inspectOnly: true, inspectionBudget } : {}) };
-  if (sso.length && !azureIdentity) warnings.push('BLOCKED: Select an explicit Azure account, tenant and subscription with mcp-account-plan / mcp-account-switch. Ambient login is never used.');
+  if (managementIdentityRequired && !azureIdentity) warnings.push('BLOCKED: Select an explicit Azure account, tenant and subscription with mcp-account-plan / mcp-account-switch. Ambient login is never used.');
   const sources = await Promise.all(config.connectors.filter(c => c.rest).map(async c => ({
     id: c.id, digest: createHash('sha256').update(c.rest.document ? JSON.stringify(c.rest.document) : await readFile(c.rest.openApiPath)).digest('hex'),
   })));
-  return { ...plan, approvalToken: sso.length && !azureIdentity ? null
+  return { ...plan, approvalToken: managementIdentityRequired && !azureIdentity ? null
     : `${approvalToken(config, phase)}/${fingerprint({ config, projectDir, sources, plan })}` };
 }
 
