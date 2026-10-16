@@ -5,6 +5,14 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- The terminal CLI now starts with New / Resume / Advanced. New collects source
+  and authentication details, authors a fixed GET or imports selected OpenAPI
+  operations, and uses the existing engine to create a new local bundle only
+  after definition/destination/digest confirmation. It then shows local Resume
+  status. Resource choices reuse the existing selector; no cloud calls, new
+  OAuth support, automatic deployment or proof replay were added. The skill
+  guides the same intake through explicit JSON commands for Copilot CLI.
+  See [guided setup](copilot-cli.md#interactive-new--resume-setup).
 - Latest owner-reported FCC outcome: the secured connector was added, and the
   supplied tools screenshot shows the expected single fixture tool. Its UI
   type is **Write**, despite the read-only description. The retained original

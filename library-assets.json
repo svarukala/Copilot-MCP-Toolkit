@@ -52,6 +52,7 @@
     "src/deployment-diagnostic.js",
     "src/entra-discovery.js",
     "src/entra-metadata.js",
+    "src/guided-setup.js",
     "src/guided.js",
     "src/help.js",
     "src/inspection-budget.js",

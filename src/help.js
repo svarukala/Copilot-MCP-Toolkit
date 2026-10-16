@@ -20,7 +20,9 @@ export const HELP = `Copilot MCP Toolkit (Node.js 22+)
 copilot-mcp <command> [options]
 node bin/copilot-mcp.js <command> [options]
 
-No command / init: terminal-only guided LOCAL review, never automatic execution.
+No command / init: terminal-only New / Resume / Advanced setup.
+New: source/authentication questions, reviewed local generation after confirmation.
+Resume: local report only. No automatic login, deployment, discovery or tool calls.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
 
 ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands.join(', ')}`).join('\n')}

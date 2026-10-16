@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
 test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 180000 }, async t => {
@@ -66,6 +67,38 @@ syncBuiltinESMExports();
   };
   const cap = invoke(['capabilities']).result;
   assert.equal(cap.toolkit.name, 'copilot-mcp-toolkit');
+  assert.equal(cap.guidedSetup.cloudExecution, false);
+  assert.equal(cap.guidedSetup.existingMcpOAuth, 'reference-only');
+  const guidedProject = path.join(workspace, 'guided-reference');
+  const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
+  await writeFile(rehearsal, `
+import { guidedArguments } from ${JSON.stringify(pathToFileURL(path.join(installed, 'src', 'guided.js')).href)};
+import { main } from ${JSON.stringify(pathToFileURL(cli).href)};
+const choices = ['new', 'mcp', 'anonymous', 'create'];
+const answers = ['Synthetic packed setup', 'https://mcp.example.com/mcp', ${JSON.stringify(guidedProject)}];
+const prompt = {
+  output: process.stderr,
+  async choose(label, items) {
+    const value = choices.shift();
+    if (!items.some(item => item.value === value)) throw Error('Unexpected wizard choice');
+    return value;
+  },
+  async ask(label, options) {
+    const answer = answers.shift();
+    if (options?.check) await options.check(answer);
+    return answer;
+  },
+};
+const args = await guidedArguments(prompt, { 'workspace-root': ${JSON.stringify(workspace)} });
+if (choices.length || answers.length || args[0] !== 'mcp-resume') throw Error('Wizard did not finish');
+if (await main(args) !== 2) throw Error('Expected a blocked local Resume report, not execution');
+`);
+  const guided = spawnSync(process.execPath, ['--require', preload, rehearsal],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(guided.status, 0, guided.stderr);
+  assert.doesNotMatch(guided.stdout + guided.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  assert.equal(JSON.parse(guided.stdout).action, 'standalone-mcp-resume');
+  assert.equal(JSON.parse(await readFile(path.join(guidedProject, 'mcp-server.json'))).status, 'referenced-not-verified');
   assert.ok(cap.commands.includes('mcp-diagnose'));
   assert.ok(cap.commands.includes('mcp-fcc-plan'));
   assert.equal(cap.federatedConnectors.registration, false);

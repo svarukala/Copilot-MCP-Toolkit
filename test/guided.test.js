@@ -12,8 +12,8 @@ test('guided review welcomes the user once before its safety notice and menu', a
     choose: async () => {
       assert.equal(output.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
       assert.match(output, /REST APIs -> MCP tools -> Copilot/);
-      assert.match(output, /Local guided review only\. Never enter credentials/);
-      const banner = output.slice(0, output.indexOf('Local guided review only.'));
+      assert.match(output, /Local guided setup only\. Never enter credentials/);
+      const banner = output.slice(0, output.indexOf('Local guided setup only.'));
       assert.ok(banner.includes(' |  \\/  |/ ___|  _ \\'));
       assert.match(banner, /^[\x20-\x7e\n]+$/);
       assert.ok(banner.split('\n').every(line => line.length <= 60));
@@ -52,7 +52,11 @@ test('guided review produces only local plan arguments and never forwards an app
     const questions = [];
     const prompt = {
       output: { write() {} },
-      choose: async () => action,
+      choose: async (label, choices) => {
+        const value = label === 'How would you like to start?' && action !== 'resume' ? 'advanced' : action;
+        assert.ok(choices.some(choice => choice.value === value));
+        return value;
+      },
       ask: async question => { questions.push(question); return '/synthetic/path'; },
     };
     const args = await guidedArguments(prompt);
@@ -65,6 +69,26 @@ test('guided review produces only local plan arguments and never forwards an app
   const prompt = { output: { write() {} }, choose: async () => 'exit', ask: () => assert.fail('Exit must not ask for a path') };
   assert.equal(await guidedArguments(prompt), undefined);
   await assert.rejects(guidedArguments(prompt, { approve: 'never-forward' }), /never accepts execution approvals/);
+});
+
+test('guided prompting rejects credentials and explains invalid field input without echoing it', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  const p = createPrompter(input, output);
+  const answer = p.ask('Identifier', { check: value => {
+    if (value !== 'valid') throw new Error('PRIVATE_VALIDATION_DETAIL');
+  }, hint: 'Enter a valid identifier.' });
+  input.write('api_key=PRIVATE_VALUE\n');
+  await new Promise(resolve => setImmediate(resolve));
+  const rejected = output.read().toString();
+  assert.match(rejected, /Possible credential rejected/);
+  assert.doesNotMatch(rejected, /PRIVATE_VALUE/);
+  input.write('invalid\n');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(output.read().toString(), 'Enter a valid identifier.\nIdentifier: ');
+  input.write('valid\n');
+  assert.equal(await answer, 'valid');
+  p.close();
+  assert.equal(p.signal.aborted, true);
 });
 
 test('guided prompting refuses control characters and closed prompts cancel rather than fabricate a choice', async () => {

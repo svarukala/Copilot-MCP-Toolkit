@@ -28,6 +28,7 @@ later edits have been tested.
 | F10 | Public extraction hygiene/provenance | Completed at baseline | 108 tracked paths screened; original license and 85 source hashes checked |
 | F11 | Cowork project feature freeze | Published | Separate README/AGENTS notices on both Cowork branches; repo not archived |
 | F12 | Interactive CLI welcome banner | Implemented/offline verified | ASCII-only welcome before the guided review notice/menu; terminal stderr only. Regression coverage preserves banner-free explicit commands, help, version, JSON and noninteractive errors; no execution or approval changes |
+| F13 | User-oriented New / Resume setup | Implemented/offline verified | 49 focused tests including terminal CLI and fresh packed-consumer rehearsals; syntax/types pass. Source/auth questionnaire, fixed GET or selected OpenAPI import, shared resource selection and confirmed local generation. Resume/Advanced remain review-only; OAuth limits, Key Vault-only keys, no-overwrite/cancellation and JSON guards retained. No live operations or runtime qualification |
 
 ## Scenario and runtime qualification
 

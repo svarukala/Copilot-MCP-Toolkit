@@ -67,7 +67,7 @@ export async function prepareResourceSelection(value) {
     resources: resourceChoices(mcpRuntimeConfig(review.input)), compatibility: 'not-cloud-verified', reviewDigest: review.reviewDigest };
   return { ...plan, approvalToken: `mcp-resources/${metadataDigest(plan)}` };
 }
-export async function chooseMcpResources(definition, prompt) {
+export async function promptMcpResourceSelection(definition, prompt) {
   ensure(definition.kind !== 'existing-mcp', 'Direct MCP references need no Azure resource selection.');
   prompt.output.write('Local resource choice only: no Azure inventory or compatibility is claimed. Reuse can be entered by exact resource ID even if inventory is denied. Account login, inventory and provisioning each need separate review.\n');
   const selection = {};
@@ -82,7 +82,11 @@ export async function chooseMcpResources(definition, prompt) {
     const resourceId = await prompt.ask(`${label} full resource ID in tenant ${definition.azure.tenantId}, subscription ${definition.azure.subscriptionId}`);
     selection[key] = { mode, resourceId };
   }
-  return prepareResourceSelection({ definition, selection });
+  return selection;
+}
+export async function chooseMcpResources(definition, prompt) {
+  const selection = await promptMcpResourceSelection(definition, prompt);
+  return selection.status === 'cancelled' ? selection : prepareResourceSelection({ definition, selection });
 }
 export async function planResourceInventory(projectDir) {
   const { readMcpServerProject } = await import('./mcp-lifecycle.js');

@@ -1,5 +1,16 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+guidedSetup: {
+      command: 'init', terminalOnly: true, publicLibrary: false,
+      journeys: ['new', 'resume-review', 'advanced-definition-resource-review'],
+      restAuthoring: ['fixed-get-no-arguments', 'local-openapi-3.0-json-selected-operations'],
+      sources: ['rest', 'existing-mcp-reference', 'api-key-mcp-proxy-v2'],
+      localGeneration: 'explicit-confirmation-of-definition-digest-and-new-destination',
+      continuation: 'local-resume-report-only',
+      thirdPartyRestOAuth: false, existingMcpOAuth: 'reference-only',
+      credentials: 'never-collect-key-vault-reference-only',
+      networkCalls: false, cloudExecution: false, automaticRetry: false,
+    },
 authWiqdHandoff: {
       contractVersion: 1, commands: ['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'],
       status: 'local-handoff-for-user-managed-WIQD', guidanceVersion: '0.18.0',

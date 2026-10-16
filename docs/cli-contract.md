@@ -8,6 +8,14 @@ dependency directory. Never use a filesystem root.
 
 ## Command families
 
+No command / `init` opens the terminal-only New / Resume / Advanced menu.
+New can author a definition from source/authentication answers and generate a
+new local bundle after explicit digest/destination review and confirmation.
+It then returns a local Resume report, not a live execution. Resume and Advanced
+remain review-only. See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+`init --json` and nonterminal invocation remain rejected; automation uses the
+explicit commands below.
+
 | Family | Plan/local view | Explicit continuation |
 | --- | --- | --- |
 | Generate | `mcp-server-plan --config definition.json` | `mcp-server-create --config definition.json --output NEW --approve reviewDigest` |

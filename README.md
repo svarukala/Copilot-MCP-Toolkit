@@ -21,15 +21,22 @@ node .\bin\copilot-mcp.js
 ```
 
 The last command (or `node .\bin\copilot-mcp.js init`) shows an ASCII welcome
-banner and opens a terminal-only guided **review**: generation, explicit
-resource choices, or resume. The banner and prompts use stderr; explicit commands,
-help, version and JSON output stay banner-free. It never automatically approves
-login or execution.
+banner and opens the terminal-only **New / Resume / Advanced** menu.
+New asks for source and authentication details, supports a fixed GET endpoint
+without an OpenAPI file or a local OpenAPI import, and writes a new local bundle
+only after showing the definition, destination and digest for confirmation.
+Resume reads retained state without executing a live phase. Advanced preserves
+the existing definition/resource-review flows. The banner and prompts use stderr;
+explicit commands, help, version and JSON output stay banner-free.
+No login, deployment, discovery, tool call or FCC registration is automatic.
 Use explicit commands with `--json` in automation. `copilot-mcp` is also the package
 bin after a local package installation; npm publication and global installation
 are unnecessary. Offline installation requires the locked tarballs in the local
 cache. Otherwise obtain approval for the configured feed; never bypass TLS, proxy
 or network policy. See [development](docs/development.md).
+See [guided setup](docs/copilot-cli.md#interactive-new--resume-setup) for the
+supported paths and the distinction between the terminal wizard and Copilot's
+noninteractive use of the same engine.
 
 ### First local bundle (no network)
 

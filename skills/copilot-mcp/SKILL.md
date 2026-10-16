@@ -11,6 +11,24 @@ install globally, download a runtime or search private directories. Use the same
 engine for all operations. First read `--help` and `capabilities --json` from that
 installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
 
+## New or resume
+
+Start with the user's intent: a new setup or resuming an existing private project.
+For New, ask source type (REST API or existing MCP) and then source authentication.
+For REST, a fixed query-free GET can be described without an existing OpenAPI
+file; otherwise collect local OpenAPI 3.0.x JSON and explicit operation IDs.
+Collect only scenario-relevant metadata, keeping backend authentication separate
+from Entra caller authentication. API-key sources use Key Vault references;
+generic third-party REST OAuth is unsupported and existing OAuth MCP is
+reference-only. Do not silently choose experimental proxy v3.
+
+The human terminal CLI now has a New / Resume / Advanced wizard with explicit
+local-generation confirmation. Do not run its interactive prompts inside a
+noninteractive agent tool. Collect inputs conversationally and use the same
+explicit JSON plan/create/resume commands below. Read `docs/copilot-cli.md` for
+the wizard's supported paths; repository development handoffs are not required
+for every ordinary setup.
+
 ## Review before effects
 
 1. Confirm the scenario, explicit trusted workspace and intended local output.
