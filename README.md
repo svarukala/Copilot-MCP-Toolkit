@@ -20,8 +20,11 @@ node .\bin\copilot-mcp.js capabilities --json
 node .\bin\copilot-mcp.js
 ```
 
-The last command opens a terminal-only guided **review**: generation, explicit
-resource choices, or resume. It never automatically approves login or execution.
+The last command (or `node .\bin\copilot-mcp.js init`) shows an ASCII welcome
+banner and opens a terminal-only guided **review**: generation, explicit
+resource choices, or resume. The banner and prompts use stderr; explicit commands,
+help, version and JSON output stay banner-free. It never automatically approves
+login or execution.
 Use explicit commands with `--json` in automation. `copilot-mcp` is also the package
 bin after a local package installation; npm publication and global installation
 are unnecessary. Offline installation requires the locked tarballs in the local

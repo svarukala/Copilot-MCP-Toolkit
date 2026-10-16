@@ -1,7 +1,51 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { guidedArguments, createPrompter } from '../src/guided.js';
+
+test('guided review welcomes the user once before its safety notice and menu', async () => {
+  let output = '';
+  const prompt = {
+    output: { write: value => { output += value; } },
+    choose: async () => {
+      assert.equal(output.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
+      assert.match(output, /REST APIs -> MCP tools -> Copilot/);
+      assert.match(output, /Local guided review only\. Never enter credentials/);
+      const banner = output.slice(0, output.indexOf('Local guided review only.'));
+      assert.ok(banner.includes(' |  \\/  |/ ___|  _ \\'));
+      assert.match(banner, /^[\x20-\x7e\n]+$/);
+      assert.ok(banner.split('\n').every(line => line.length <= 60));
+      return 'exit';
+    },
+    ask: () => assert.fail('Exit must not ask for a path'),
+  };
+  assert.equal(await guidedArguments(prompt), undefined);
+  output = '';
+  await assert.rejects(guidedArguments(prompt, { approve: 'never-forward' }), /never accepts execution approvals/);
+  assert.equal(output, '');
+});
+
+test('CLI welcome never appears in noninteractive, help, version or JSON output', () => {
+  const cli = fileURLToPath(new URL('../bin/copilot-mcp.js', import.meta.url));
+  for (const [args, status] of [
+    [[], 1], [['init'], 1], [['--json'], 1], [['init', '--json'], 1],
+    [['--help'], 0], [['--help', '--json'], 0],
+    [['--version'], 0], [['--version', '--json'], 0],
+    [['capabilities', '--json'], 0],
+  ]) {
+    const result = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8', timeout: 30000 });
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, status, result.stderr);
+    assert.doesNotMatch(result.stdout + result.stderr, /Welcome to Copilot MCP Toolkit|REST APIs -> MCP tools/);
+    if (args.includes('--json')) {
+      assert.equal(typeof JSON.parse(result.stdout), 'object');
+      assert.equal(result.stderr, '');
+    }
+    if (status === 1) assert.match(result.stdout + result.stderr, /Guided review requires a terminal/);
+  }
+});
 
 test('guided review produces only local plan arguments and never forwards an approval', async () => {
   for (const [action, command] of [['generate', 'mcp-server-plan'], ['resources', 'mcp-resources-choose'], ['resume', 'mcp-resume']]) {

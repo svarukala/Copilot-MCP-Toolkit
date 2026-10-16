@@ -1,5 +1,17 @@
 import { createInterface } from 'node:readline/promises';
 
+const WELCOME = String.raw`
+  __  __  ____ ____
+ |  \/  |/ ___|  _ \
+ | |\/| | |   | |_) |
+ | |  | | |___|  __/
+ |_|  |_|\____|_|
+
+ Welcome to Copilot MCP Toolkit
+ REST APIs -> MCP tools -> Copilot
+
+`;
+
 export function createPrompter(input = process.stdin, output = process.stderr) {
   const rl = createInterface({ input, output });
   const controller = new AbortController();
@@ -44,6 +56,7 @@ export async function guidedArguments(p, options = {}) {
   if (Object.keys(options).some(key => !['workspace-root', 'config', 'project'].includes(key))) {
     throw new Error('Guided review accepts only --workspace-root, --config and --project; it never accepts execution approvals.');
   }
+  p.output.write(WELCOME);
   p.output.write('Local guided review only. Never enter credentials. The resulting plan is not approval to sign in, deploy or call a tool.\n');
   const action = await p.choose('Choose a standalone journey', [
     { value: 'generate', label: 'Review an existing MCP definition for a NEW bundle' },

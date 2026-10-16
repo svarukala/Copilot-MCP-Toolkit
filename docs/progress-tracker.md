@@ -27,6 +27,7 @@ later edits have been tested.
 | F9 | Local retained-evidence diagnosis | Implemented/offline verified | No network, login or auth-cache reads; unknown root cause stays unknown |
 | F10 | Public extraction hygiene/provenance | Completed at baseline | 108 tracked paths screened; original license and 85 source hashes checked |
 | F11 | Cowork project feature freeze | Published | Separate README/AGENTS notices on both Cowork branches; repo not archived |
+| F12 | Interactive CLI welcome banner | Implemented/offline verified | ASCII-only welcome before the guided review notice/menu; terminal stderr only. Regression coverage preserves banner-free explicit commands, help, version, JSON and noninteractive errors; no execution or approval changes |
 
 ## Scenario and runtime qualification
 
