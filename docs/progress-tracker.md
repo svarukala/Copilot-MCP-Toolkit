@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-15.
+Last updated: 2026-10-16.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -30,6 +30,7 @@ later edits have been tested.
 | F12 | Interactive CLI welcome banner | Implemented/offline verified | ASCII-only welcome before the guided review notice/menu; terminal stderr only. Regression coverage preserves banner-free explicit commands, help, version, JSON and noninteractive errors; no execution or approval changes |
 | F13 | User-oriented New / Resume setup | Implemented/offline verified | 49 focused tests including terminal CLI and fresh packed-consumer rehearsals; syntax/types pass. Source/auth questionnaire, fixed GET or selected OpenAPI import, shared resource selection and confirmed local generation. Resume/Advanced remain review-only; OAuth limits, Key Vault-only keys, no-overwrite/cancellation and JSON guards retained. No live operations or runtime qualification |
 | F14 | Explicit public anonymous APIM | Implemented/offline verified | Native anonymous-backend fixed GET only; public/read-only declarations and bounded aggregate throttles on MCP + REST. Entra default, management identity, staging/inheritance/ownership and proof consumption preserved. No Entra resource-app or discovery-client requirement; FCC No Auth. Full offline suite: 770 passed; final public-mode rerun: 36 passed; syntax/types pass. Live qualification pending |
+| F15 | Plain-language setup and visible next steps | Implemented/offline verified | Existing/new APIM and applicable Key Vault choices before IDs; names for new resources, exact IDs for existing resources. Short save question with full approval reference retained. Skill directs one-question intake and next-action offers without automatic deployment or bypassing local-only limits. 57 focused offline checks, including fresh packed consumer, passed; syntax/types pass. Installed skill copies unchanged; conversational/live behavior not yet requalified |
 
 ## Scenario and runtime qualification
 

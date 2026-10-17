@@ -33,11 +33,12 @@ require('node:module').syncBuiltinESMExports();
       ['Tool operation ID (letters, digits, dots, underscores or hyphens): ', 'getRate'],
       ['Describe what this GET returns (nonsecret): ', 'Retrieve a synthetic public reference rate'],
       ['Choice: ', '2'], ['Choice: ', '2'],
-      ['Aggregate request limit per API (1-10000, shared by all callers): ', '60'],
-      ['Rate-limit renewal period in seconds (1-300): ', '60'],
-      ['Azure deployment tenant ID (UUID): ', tenant], ['Azure subscription ID (UUID): ', subscription],
-      ['Choice: ', '2'], [`Resource group full resource ID in tenant ${tenant}, subscription ${subscription}: `, group],
-      ['Choice: ', '2'], [`API Management full resource ID in tenant ${tenant}, subscription ${subscription}: `, `${group}/providers/Microsoft.ApiManagement/service/synthetic-apim`],
+      ['Choice: ', '2'], ['Choice: ', '2'],
+      ['Maximum requests in each time window (1-10000, shared by all callers): ', '60'],
+      ['Time window in seconds (1-300; for example 60): ', '60'],
+      ['Azure tenant ID: ', tenant], ['Azure subscription ID: ', subscription],
+      ['Resource ID of the existing resource group: ', group],
+      ['Resource ID of the existing APIM service: ', `${group}/providers/Microsoft.ApiManagement/service/synthetic-apim`],
     ] : [['Existing MCP HTTPS message endpoint: ', 'https://mcp.example.com/mcp']]),
     ['NEW project directory inside the workspace (absolute path): ', project],
     ['Choice: ', approve ? '2' : '1'],
@@ -77,10 +78,12 @@ require('node:module').syncBuiltinESMExports();
       assert.equal(JSON.parse(stdout).next.code, 'AZURE_IDENTITY_REQUIRED');
       assert.doesNotMatch(stderr, /Resource application client ID|Allowed caller application IDs/);
     } else assert.equal(definition.endpoint, 'https://mcp.example.com/mcp');
-    assert.match(stderr, /Local bundle created/);
+    assert.match(stderr, /Setup files saved/);
+    assert.match(stderr, /Save these setup files to the folder shown above\?/);
+    assert.doesNotMatch(stderr, /Create the local bundle approved by/);
   } else {
     assert.equal(stdout, '');
     assert.deepEqual(await readdir(root), ['terminal.cjs']);
-    assert.doesNotMatch(stderr, /Local bundle created/);
+    assert.doesNotMatch(stderr, /Setup files saved/);
   }
 });

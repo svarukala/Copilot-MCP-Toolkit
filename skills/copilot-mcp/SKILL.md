@@ -35,6 +35,85 @@ explicit JSON plan/create/resume commands below. Read `docs/copilot-cli.md` for
 the wizard's supported paths; repository development handoffs are not required
 for every ordinary setup.
 
+### Ask in plain language
+
+Ask one short question at a time. Put the choice or requested value in the
+question; use one or two supporting sentences for its purpose and where to find
+it. Reuse answers already supplied. Do not put a whole plan, several unrelated
+inputs or an approval hash in the question title.
+
+For an APIM setup, ask resource choices BEFORE collecting Azure IDs or backend
+credential references:
+
+1. "Use an existing APIM service or create a new one?" Choices: "Use existing",
+   "Create new", "Pause setup". Explain that creating Azure resources costs money.
+2. For an API-key backend only: "Use an existing Key Vault or create a new one?"
+   Skip this question for anonymous/delegated/managed-identity backends; explain
+   that this setup needs no Key Vault.
+3. Ask whether to use an existing resource group or create a new one. Preserve
+   existing-only restrictions for managed-identity and experimental proxy setups.
+4. Ask "What is your Azure tenant ID?" and then "What is your Azure subscription ID?"
+   Explain where to copy each value. For existing resources request their full
+   Resource IDs (Azure portal > resource > JSON View), not guessed name matches.
+   For new resources request names, then show the full IDs constructed from the
+   user's selected subscription/group. New resources must stay in the supported
+   same-group/subscription topology. Ask region, publisher and pricing tier only
+   where required. Choosing resources is not permission to inspect or create them.
+
+Keep caller authentication separate from backend authentication. For public
+access, ask "Is this data safe for anyone to access, and do these GET requests
+only read data?" Then ask "How many requests should be allowed per time window?"
+and "How long is that window in seconds?" Explain that the budget is shared by
+all callers, applies separately to each API at each gateway/region, and is
+approximate, not a cost ceiling. Preserve the existing numeric limits.
+
+Do not ask "Intended Azure target or explicit placeholder-only draft". If real
+details are missing, name the missing field and offer to pause. Only discuss a
+fictional example when the user asks for one; explain that it cannot be used
+for deployment. Never silently fill missing identities/resource IDs with sample
+values or present fictional values as the user's selected Azure configuration.
+
+For local generation, ask "Save these setup files to this folder?" Choices:
+"Save files only", "Not now". First show the folder, selected resources, access
+mode, what files will be saved and that no sign-in, Azure changes, endpoint calls
+or FCC registration will occur. Present the exact current `reviewDigest` below
+that summary as an **approval reference**, along with the full review. The user
+does not need to type the hash; pass the unchanged value to the command only
+after explicit confirmation. Do not hide or weaken exact-plan binding.
+
+### Keep the next step visible
+
+After a successful step, use the local `mcp-resume` report to identify what comes
+next. State what finished, what has NOT happened, and ask about the next supported
+step instead of ending with only "separate approval required". Do not wait for
+the user to guess a phrase such as "let's deploy".
+
+Prepare the next local plan when allowed; ask for approval of its exact effects
+before executing it. Match the question to the actual plan, not just its phase
+name: existing-resource foundation/finalize checks may be read-only, while new
+resource creation and gateway activation change Azure. Examples:
+
+| Actual next action | Question | Scope to explain before approval |
+| --- | --- | --- |
+| Private Azure sign-in | "Sign in to Azure to continue?" | Selected account/tenant/subscription; no deployment |
+| Read-only resource checks | "Check your existing Azure setup?" | Exact resources read; no changes or endpoint calls |
+| New resource creation | "Create these Azure resources?" | Names, location, pricing tier, costs and exact writes |
+| Gateway activation | "Deploy the MCP endpoint to this APIM service?" | Owned APIs/policies changed, public access if selected; no tool calls or FCC registration |
+| Metadata discovery | "Check which tools the MCP endpoint exposes?" | Initialize/tools-list only; no tool execution |
+
+Use clear action choices and "Not now". After inspection succeeds, for example:
+"Your Azure setup passed the checks. Nothing has been deployed. The next step
+is [the actual next planned action]." Then present that plan's review and ask
+its matching question. Do not skip a prerequisite or assume inspection approves
+deployment. A vague "continue" or "let's deploy" without a current reviewed plan
+is intent to prepare that plan, not authority to execute arbitrary phases.
+
+Honor an explicit plan-only, local-only, pause or stop request. At that boundary,
+offer "Review the next step" or "Stop here" once; do not sign in, inspect Azure,
+deploy or call an endpoint. When blocked, request the one missing input or
+approval and wait. Never repeat a consumed operation, relaunch a pending sign-in,
+or treat a generic completion reminder as approval.
+
 ## Review before effects
 
 1. Confirm the scenario, explicit trusted workspace and intended local output.

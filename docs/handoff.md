@@ -1,10 +1,21 @@
 # Session handoff
 
-Last updated: 2026-10-15. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-16. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
+- Setup wording now separates simple questions from technical approval details.
+  New and Advanced resource intake choose existing/new APIM, applicable Key Vault,
+  and resource group before identifiers; new resources use names, existing ones
+  still require exact IDs. The save question refers to setup files, while the full
+  definition and exact digest remain visible and unchanged. The shipped Copilot
+  skill asks one question at a time and offers the next reviewed action after a
+  phase instead of waiting for "let's deploy". Local-only instructions, human
+  gates and separate live approvals remain enforced; no live operations were
+  performed and installed skill copies were not changed. Focused offline coverage
+  passed 57 checks including a fresh packed consumer; syntax/types pass. This
+  does not qualify a new live Copilot conversation or Azure deployment.
 - Public anonymous native APIM support is implemented for explicitly reviewed
   public, fixed read-only GETs against an anonymous backend. The wizard keeps
   Entra first and offers public access separately, requiring declarations/rate

@@ -7,6 +7,7 @@ import { guidedArguments } from '../src/guided.js';
 import { withCliWorkspace, TOOLKIT_ROOT } from '../src/config.js';
 import { planMcpResume } from '../src/mcp-resume.js';
 import { prepareMcpServer } from '../src/mcp-server.js';
+import { promptMcpResourceModes, promptMcpResourceSelection, prepareResourceSelection } from '../src/mcp-resources.js';
 
 const uuid = n => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
 const tenant = uuid(2), subscription = uuid(3);
@@ -16,7 +17,9 @@ const vault = `${group}/providers/Microsoft.KeyVault/vaults/synthetic-vault`;
 const a = value => ['ask', value], c = value => ['choose', value];
 function scripted(steps, signal) {
   let output = '';
+  const questions = [];
   const next = async (kind, label, choices, options) => {
+    questions.push({ kind, label, choices });
     const step = steps.shift();
     assert.ok(step, `Unexpected ${kind}: ${label}`);
     assert.equal(step[0], kind, label);
@@ -30,6 +33,7 @@ function scripted(steps, signal) {
     ask: (label, options) => next('ask', label, undefined, options),
     choose: (label, choices) => next('choose', label, choices),
     get text() { return output; },
+    questions,
     done: () => assert.equal(steps.length, 0, JSON.stringify(steps)),
   };
 }
@@ -48,22 +52,94 @@ const key = location => [
 ];
 const get = () => [c('get'), a('https://rates.example.com/v2/latest'), a('getRates'), a('Read synthetic reference rates')];
 const target = ({ keyed = false, auth = keyed ? 'api-key' : 'anonymous', apimMode = 'existing', groupMode = 'existing', vaultMode = 'existing' } = {}) => [
+  c(apimMode), ...(keyed ? [c(vaultMode)] : []), c(groupMode),
   ...(auth === 'anonymous' ? [c('entra')] : []),
   a(tenant), a(subscription), ...caller(),
-  c(groupMode), a(group), c(apimMode), a(apim),
-  ...(keyed ? [c(vaultMode), a(vault)] : []),
+  a(groupMode === 'new' ? 'synthetic-rg' : group), a(apimMode === 'new' ? 'synthetic-apim' : apim),
+  ...(keyed ? [a(vaultMode === 'new' ? 'synthetic-vault' : vault)] : []),
   ...(apimMode === 'new' || groupMode === 'new' || keyed && vaultMode === 'new' ? [a('eastus')] : []),
   ...(apimMode === 'new' ? [a('Synthetic publisher'), a('publisher@example.com'), c('Developer')] : []),
 ];
-const confirmation = (project, value = 'create') => [a(project), c((label, choices, output) => {
-  assert.match(label, /No sign-in, deployment, discovery or FCC registration/);
+const confirmation = (project, value = 'create') => [a(project), c(async (label, choices, output) => {
+  assert.equal(label, 'Save these setup files to the folder shown above?');
   assert.equal(choices[0].value, 'cancel');
   assert.match(output, /"reviewDigest": "sha256:[a-f0-9]{64}"/);
   assert.ok(output.includes(JSON.stringify(project)));
   assert.match(output, /"mcp-definition.json"/);
-  assert.match(choices[1].label, /sha256:[a-f0-9]{64}/);
+  assert.equal(choices[1].label, 'Yes, save the files only');
+  assert.match(output, /does not sign in, deploy to Azure, call the endpoint or register an FCC/);
+  const shown = JSON.parse(output.split('Full configuration and approval reference:\n').at(-1));
+  assert.equal(shown.projectDir, project);
+  assert.equal(shown.reviewDigest, (await prepareMcpServer(shown.definition)).reviewDigest);
   return value;
 })];
+
+test('resource intake collects all modes before IDs and constructs new IDs only from the selected target', async () => {
+  const definition = { backend: { auth: 'api-key' }, azure: { subscriptionId: subscription, resourceGroup: 'old-group' } };
+  for (const apimMode of ['existing', 'new']) for (const vaultMode of ['existing', 'new']) {
+    const p = scripted([c(apimMode), c(vaultMode), c('existing'), a(group),
+      a(apimMode === 'new' ? 'synthetic-apim' : apim), a(vaultMode === 'new' ? 'synthetic-vault' : vault)]);
+    assert.deepEqual(await promptMcpResourceSelection(definition, p), {
+      resourceGroup: { mode: 'existing', resourceId: group },
+      apim: { mode: apimMode, resourceId: apim },
+      keyVault: { mode: vaultMode, resourceId: vault },
+    });
+    p.done();
+    assert.deepEqual(p.questions.slice(0, 3).map(q => q.label), [
+      'Use an existing APIM service or create a new one?',
+      'Use an existing Key Vault or create a new one?',
+      'Use an existing resource group or create a new one?',
+    ]);
+    assert.deepEqual(p.questions.map(q => q.kind), ['choose', 'choose', 'choose', 'ask', 'ask', 'ask']);
+    assert.equal(definition.azure.resourceGroup, 'old-group');
+  }
+});
+
+test('resource modes need no Azure IDs and preserve existing-only and no-vault restrictions', async () => {
+  for (const [definition, keys] of [
+    [{ backend: { auth: 'managed-identity' } }, ['apim', 'resourceGroup']],
+    [{ schemaVersion: 3, backend: { auth: 'api-key' } }, ['apim', 'keyVault', 'resourceGroup']],
+  ]) {
+    const p = scripted(keys.map(() => c((label, choices) => {
+      assert.match(label, /^This setup requires an existing .+\. Continue\?$/);
+      assert.deepEqual(choices.map(choice => choice.value), ['cancel', 'existing']);
+      return 'existing';
+    })));
+    assert.deepEqual(await promptMcpResourceModes(definition, p), {
+      apim: 'existing', keyVault: keys.includes('keyVault') ? 'existing' : 'none', resourceGroup: 'existing',
+    });
+    p.done();
+  }
+});
+
+test('resource intake rejects unsupported modes, bad new names and never guesses an existing resource ID', async () => {
+  const definition = { backend: { auth: 'anonymous' }, azure: { subscriptionId: subscription } };
+  const noPrompts = { output: { write() {} }, ask: () => assert.fail('Invalid modes must not request an ID') };
+  for (const modes of [
+    { apim: 'unknown', resourceGroup: 'existing', keyVault: 'none' },
+    { apim: 'new', resourceGroup: 'existing', keyVault: 'existing' },
+    { apim: 'new', resourceGroup: 'existing' },
+  ]) await assert.rejects(promptMcpResourceSelection(definition, noPrompts, { modes }), /Unsupported resource choices/);
+  await assert.rejects(promptMcpResourceModes({ backend: { auth: 'managed-identity' } },
+    { ...noPrompts, choose: async () => 'new' }), /supported resource options/);
+
+  for (const name of ['not a name', apim, 'https://example.com/apim']) {
+    const p = scripted([a(group), a(name)]);
+    await assert.rejects(promptMcpResourceSelection(definition, p, {
+      modes: { resourceGroup: 'existing', apim: 'new', keyVault: 'none' },
+    }), /Invalid resource name/);
+    p.done();
+  }
+  const p = scripted([c('existing'), c('existing'), a(group), a('synthetic-apim')]);
+  const selection = await promptMcpResourceSelection(definition, p);
+  assert.equal(selection.apim.resourceId, 'synthetic-apim');
+  assert.equal(p.questions.at(-1).label, 'Resource ID of the existing APIM service');
+  await assert.rejects(prepareResourceSelection({ definition, selection }), /Cross-resource-group or cross-subscription/);
+  p.done();
+  const cancel = scripted([c('cancel')]);
+  assert.deepEqual(await promptMcpResourceSelection(definition, cancel), { status: 'cancelled' });
+  cancel.done();
+});
 
 for (const auth of ['anonymous', 'entra', 'oauth']) test(`New references existing ${auth} MCP without Azure settings or network`, async t => {
   const root = await workspace(t), project = path.join(root, 'reference');
@@ -89,9 +165,10 @@ for (const auth of ['anonymous', 'entra', 'oauth']) test(`New references existin
 for (const auth of ['anonymous', 'entra', 'api-key', 'managed-identity']) test(`New fixed GET supports ${auth} without changing inbound authentication`, async t => {
   const root = await workspace(t), project = path.join(root, 'rest');
   const p = scripted([c('new'), c('rest'), c(auth), a('Synthetic rates'), ...get(),
+    ...target({ keyed: auth === 'api-key', auth }),
     ...(auth === 'api-key' ? key('headerName') : []),
     ...(auth === 'managed-identity' ? [a(uuid(6)), a(uuid(7)), a(uuid(8)), a(uuid(9)), a('Read.All')] : []),
-    ...target({ keyed: auth === 'api-key', auth }), ...confirmation(project)]);
+    ...confirmation(project)]);
   await guidedArguments(p, { 'workspace-root': root });
   p.done();
   const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
@@ -113,8 +190,9 @@ for (const auth of ['anonymous', 'entra', 'api-key', 'managed-identity']) test(`
 test('New public GET requires declarations and rate limits, omits Entra app questions and still needs Azure identity', async t => {
   const root = await workspace(t), project = path.join(root, 'public');
   const p = scripted([c('new'), c('rest'), c('anonymous'), a('Public rates'), ...get(),
+    c('existing'), c('existing'),
     c('public'), c('declare'), a('60'), a('60'), a(tenant), a(subscription),
-    c('existing'), a(group), c('existing'), a(apim), ...confirmation(project)]);
+    a(group), a(apim), ...confirmation(project)]);
   await guidedArguments(p, { 'workspace-root': root });
   p.done();
   const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
@@ -122,12 +200,17 @@ test('New public GET requires declarations and rate limits, omits Entra app ques
     rateLimit: { calls: 60, renewalPeriod: 60 } });
   assert.match(p.text, /PUBLIC EXPOSURE/);
   assert.doesNotMatch(p.text, /"allowedClientIds"|"applicationIdUri"/);
+  const labels = p.questions.map(q => q.label);
+  assert.ok(labels.indexOf('Use an existing APIM service or create a new one?') < labels.indexOf('Azure tenant ID'));
+  assert.ok(!labels.some(label => /Key Vault/.test(label)));
+  assert.match(p.text, /This setup does not need Key Vault/);
   assert.equal((await withCliWorkspace(root, () => planMcpResume(project))).next.code, 'AZURE_IDENTITY_REQUIRED');
 });
 
 test('Declining public-data/read-only declaration writes nothing', async t => {
   const root = await workspace(t);
-  const p = scripted([c('new'), c('rest'), c('anonymous'), a('Public rates'), ...get(), c('public'), c('cancel')]);
+  const p = scripted([c('new'), c('rest'), c('anonymous'), a('Public rates'), ...get(),
+    c('existing'), c('existing'), c('public'), c('cancel')]);
   assert.equal(await guidedArguments(p, { 'workspace-root': root }), undefined);
   p.done();
   assert.deepEqual(await readdir(root), []);
@@ -138,7 +221,7 @@ for (const source of ['rest', 'mcp']) for (const location of ['headerName', 'que
     const root = await workspace(t), project = path.join(root, 'keyed');
     const p = scripted([c('new'), c(source), c('api-key'), a('Synthetic keyed setup'),
       ...(source === 'rest' ? get() : [a('https://mcp.example.com/provider/message')]),
-      ...key(location), ...target({ keyed: true, apimMode: 'new', groupMode: 'new', vaultMode: 'new' }),
+      ...target({ keyed: true, apimMode: 'new', groupMode: 'new', vaultMode: 'new' }), ...key(location),
       ...confirmation(project)]);
     await guidedArguments(p, { 'workspace-root': root });
     p.done();
@@ -149,6 +232,10 @@ for (const source of ['rest', 'mcp']) for (const location of ['headerName', 'que
     assert.equal(definition.backend.apiKey[location], location === 'headerName' ? 'X-API-Key' : 'api_key');
     assert.deepEqual(Object.keys(definition.backend.apiKey).sort(), [location, 'secretIdentifier'].sort());
     assert.equal(definition.inbound.type, 'entra');
+    const labels = p.questions.map(q => q.label);
+    assert.ok(labels.indexOf('Use an existing APIM service or create a new one?') < labels.indexOf('Azure tenant ID'));
+    assert.ok(labels.indexOf('Use an existing Key Vault or create a new one?') < labels.indexOf('Azure tenant ID'));
+    assert.ok(labels.indexOf('Name for the new Key Vault') < labels.findIndex(label => label.startsWith('Versionless Key Vault secret URL')));
     assert.match(p.text, /not-quoted/);
     if (source === 'mcp') {
       assert.equal(definition.schemaVersion, 2);
@@ -189,9 +276,10 @@ test('unsupported REST OAuth and cancellation at each menu write nothing', async
     [c('new'), c('rest'), c('cancel')],
     [c('new'), c('rest'), c('oauth')],
     [c('new'), c('rest'), c('anonymous'), a('Cancelled'), c('cancel')],
-    [c('new'), c('rest'), c('api-key'), a('Cancelled'), ...get(), a('https://synthetic-vault.vault.azure.net/secrets/key'), c('cancel')],
+    [c('new'), c('rest'), c('api-key'), a('Cancelled'), ...get(), ...target({ keyed: true }), a('https://synthetic-vault.vault.azure.net/secrets/key'), c('cancel')],
     [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('cancel')],
-    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('entra'), a(tenant), a(subscription), ...caller(), c('cancel')],
+    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('existing'), c('cancel')],
+    [c('new'), c('rest'), c('anonymous'), a('Cancelled'), ...get(), c('existing'), c('existing'), c('cancel')],
     [c('new'), c('mcp'), c('anonymous'), a('Cancelled'), a('https://example.com/mcp'), ...confirmation(path.join(root, 'cancelled'), 'cancel')],
     [c('advanced'), c('exit')],
   ]) {

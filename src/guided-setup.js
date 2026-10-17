@@ -7,10 +7,10 @@ import { assertProjectPath, isWithin, TOOLKIT_ROOT, withCliWorkspace, resolveWor
   safeHttpsUrl, validateOpenApiDocument, azureSchema, apiKeySchema } from './config.js';
 import { readControl } from './mcp-control.js';
 import { mcpServerInputSchema, prepareMcpServer, createMcpServerProject } from './mcp-server.js';
-import { promptMcpResourceSelection, prepareResourceSelection } from './mcp-resources.js';
+import { promptMcpResourceModes, promptMcpResourceSelection, prepareResourceSelection } from './mcp-resources.js';
 import { managedIdentitySchema } from './apim-managed-identity.js';
 import { secretIssues } from './validation.js';
-import { publicInboundSchema, publicExposureWarnings } from './apim-public.js';
+import { publicInboundSchema } from './apim-public.js';
 
 const ajv = new Ajv();
 addFormats(ajv);
@@ -25,7 +25,9 @@ async function field(p, label, schema, parse = value => value) {
   const validate = ajv.compile(schema);
   return parse(await p.ask(label, { check: value => {
     if (!validate(parse(value))) throw new Error('Invalid field.');
-  }, hint: `Enter a valid ${schema.format ?? schema.type} matching the requested field.` }));
+  }, hint: schema.format === 'uuid' ? 'Copy the complete ID, including its hyphens, from Azure.'
+    : schema.type === 'integer' ? `Enter a whole number from ${schema.minimum} to ${schema.maximum}.`
+      : 'Check the value and use the format shown in the question.' }));
 }
 
 async function endpoint(p, label) {
@@ -100,29 +102,32 @@ async function restDefinition(p, input) {
 }
 
 async function azureTarget(p, input) {
+  const modes = await promptMcpResourceModes(input, p);
+  if (modes.status === 'cancelled') return;
   const access = input.backend.auth === 'anonymous' ? await p.choose('How should callers access the APIM MCP endpoint?', [
     { value: 'entra', label: 'Entra authentication (recommended default; separate from backend authentication)' },
     { value: 'public', label: 'Public anonymous - anyone can call; fixed public read-only GETs only' }, cancelled,
   ]) : 'entra';
   if (access === 'cancel') return;
   if (access === 'public') {
-    p.output.write(`${publicExposureWarnings.join('\n')}\n`);
-    const declaration = await p.choose('Declare that every selected GET returns intentionally public data and has no side effects?', [
-      cancelled, { value: 'declare', label: 'I reviewed all selected GETs: public data and read-only behavior' },
+    p.output.write('Anyone who can reach this endpoint can call its MCP tools and backing REST routes without signing in. Use public, read-only data only.\nThe request budget is shared by all callers, separately for each API at each gateway/region. Limits are approximate, not a cost ceiling.\n');
+    const declaration = await p.choose('Is this data safe for anyone to access, and do these GET requests only read data?', [
+      cancelled, { value: 'declare', label: 'Yes, I reviewed this: public data, read-only requests' },
     ]);
     if (declaration !== 'declare') return;
     const rate = publicInboundSchema.properties.rateLimit.properties;
     input.inbound = { type: 'anonymous', publicData: true, readOnly: true, rateLimit: {
-      calls: await field(p, 'Aggregate request limit per API (1-10000, shared by all callers)', rate.calls, Number),
-      renewalPeriod: await field(p, 'Rate-limit renewal period in seconds (1-300)', rate.renewalPeriod, Number),
+      calls: await field(p, 'Maximum requests in each time window (1-10000, shared by all callers)', rate.calls, Number),
+      renewalPeriod: await field(p, 'Time window in seconds (1-300; for example 60)', rate.renewalPeriod, Number),
     } };
   }
+  p.output.write('Now identify where these resources belong. Find the tenant ID in Microsoft Entra ID > Overview and the subscription ID in Azure > Subscriptions. No sign-in or Azure changes happen here.\n');
   input.azure = {
-    tenantId: await field(p, 'Azure deployment tenant ID (UUID)', azureSchema.properties.tenantId),
-    subscriptionId: await field(p, 'Azure subscription ID (UUID)', azureSchema.properties.subscriptionId),
+    tenantId: await field(p, 'Azure tenant ID', azureSchema.properties.tenantId),
+    subscriptionId: await field(p, 'Azure subscription ID', azureSchema.properties.subscriptionId),
   };
   if (access === 'entra') input.inbound = await inbound(p, input.azure.tenantId);
-  const selection = await promptMcpResourceSelection(input, p);
+  const selection = await promptMcpResourceSelection(input, p, { modes });
   if (selection.status === 'cancelled') return;
   if (Object.values(selection).some(choice => choice.mode === 'new')) {
     input.azure.location = await field(p, 'Azure location code for new resources (for example eastus)', azureSchema.properties.location);
@@ -134,6 +139,22 @@ async function azureTarget(p, input) {
       ...azureSchema.properties.sku.enum.map(value => ({ value, label: value })), cancelled,
     ]);
     if (input.azure.sku === 'cancel') return;
+  }
+  if (input.backend.auth === 'api-key') {
+    input.backend.apiKey = await keyReference(p);
+    if (!input.backend.apiKey) return;
+  }
+  if (input.backend.auth === 'managed-identity') {
+    p.output.write('Use the existing APIM system identity and an existing exact backend application-role assignment. No identity enablement or role grant is performed.\n');
+    const identity = { type: 'system-assigned' };
+    for (const [key, label] of [
+      ['principalId', 'APIM system-assigned identity principal ID (UUID)'],
+      ['resource', 'Separate backend application client ID (UUID)'],
+      ['servicePrincipalId', 'Backend service principal object ID (UUID)'],
+      ['appRoleId', 'Backend application role ID (UUID)'],
+      ['appRole', 'Backend application role value'],
+    ]) identity[key] = await field(p, label, managedIdentitySchema.properties[key]);
+    input.backend.managedIdentity = identity;
   }
   return prepareResourceSelection({ definition: input, selection });
 }
@@ -177,22 +198,6 @@ export async function createGuidedSetup(p, options = {}) {
         input.backend.endpoint = await endpoint(p, 'Upstream MCP HTTPS message endpoint');
         p.output.write('API-key MCP proxy v2: provider transport compatibility is not guaranteed. Experimental v3 is not selected automatically; use advanced definition review for that explicit opt-in.\n');
       } else if (!await restDefinition(p, input)) return;
-      if (auth === 'api-key') {
-        input.backend.apiKey = await keyReference(p);
-        if (!input.backend.apiKey) return;
-      }
-      if (auth === 'managed-identity') {
-        p.output.write('Use the existing APIM system identity and an existing exact backend application-role assignment. No identity enablement or role grant is performed.\n');
-        const identity = { type: 'system-assigned' };
-        for (const [key, label] of [
-          ['principalId', 'APIM system-assigned identity principal ID (UUID)'],
-          ['resource', 'Separate backend application client ID (UUID)'],
-          ['servicePrincipalId', 'Backend service principal object ID (UUID)'],
-          ['appRoleId', 'Backend application role ID (UUID)'],
-          ['appRole', 'Backend application role value'],
-        ]) identity[key] = await field(p, label, managedIdentitySchema.properties[key]);
-        input.backend.managedIdentity = identity;
-      }
     }
     const resources = input.kind === 'existing-mcp' ? undefined : await azureTarget(p, input);
     if (input.kind !== 'existing-mcp' && !resources) return;
@@ -205,15 +210,15 @@ export async function createGuidedSetup(p, options = {}) {
       throw new Error('Destination already exists.');
     }, hint: 'Choose a new absolute directory inside the private workspace. Existing files, directories and symlinks will not be overwritten.' });
     const projectDir = await assertProjectPath(output);
-    p.output.write(`\nReview LOCAL generation only:\n${json({ projectDir, definition: review.input,
+    p.output.write(`\nReady to save the setup files in ${json(projectDir)}.\nThis only creates local files. It does not sign in, deploy to Azure, call the endpoint or register an FCC.\nFull configuration and approval reference:\n${json({ projectDir, definition: review.input,
       ...(resources ? { resources: resources.resources } : {}), files: Object.keys(review.files),
       reviewDigest: review.reviewDigest, limitations: review.limitations })}\n`);
-    const approval = await p.choose('Create exactly this reviewed local bundle? No sign-in, deployment, discovery or FCC registration.', [
-      cancelled, { value: 'create', label: `Create the local bundle approved by ${review.reviewDigest}` },
+    const approval = await p.choose('Save these setup files to the folder shown above?', [
+      cancelled, { value: 'create', label: 'Yes, save the files only' },
     ]);
     if (approval !== 'create') return;
     const result = await createMcpServerProject(review, { workspaceRoot: workspace, projectDir, signal: p.signal });
-    p.output.write(`Local bundle created: ${json(result.projectDir)}\nDefinition: mcp-definition.json; descriptor: mcp-server.json.\nNot deployed or runtime-verified. Showing the local Resume report next; each live phase still requires its own approval. FCC onboarding is optional and separate; see docs/federated-connectors.md.\n`);
+    p.output.write(`Setup files saved: ${json(result.projectDir)}\nDefinition: mcp-definition.json; descriptor: mcp-server.json.\nNext: the Resume report identifies what is needed to continue. Nothing has been deployed or tested. Review its next step before approving sign-in, an Azure change or an endpoint call. FCC onboarding is optional and separate; see docs/federated-connectors.md.\n`);
     return ['mcp-resume', '--workspace-root', workspace, '--project', result.projectDir, '--json', '--summary'];
   });
 }
