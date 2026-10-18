@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate standalone REST-to-MCP APIM bundles, prepare custom federated connector onboarding drafts, and safely resume, inspect or preserve MCP evidence with the local copilot-mcp CLI. Not plugin authoring or arbitrary OAuth/server generation.
+description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps server recipes, prepare custom federated connector onboarding drafts, and safely resume, inspect or preserve MCP evidence with the local copilot-mcp CLI. Not plugin authoring or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -12,6 +12,25 @@ engine for all operations. First read `--help` and `capabilities --json` from th
 installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
 
 ## New or resume
+
+When the user requests hosting without APIM, or needs server-owned tool
+annotations, first read `docs/container-apps-recipe.md` and
+`mcp-container-apps-schema --json`. Recipe 1 uses separate
+`mcp-container-apps-plan` / `mcp-container-apps-create` commands, an explicit
+private workspace and a new directory. It generates source and deployment files
+only. It is not yet part of the terminal wizard or APIM Resume journey.
+
+Explain the current boundary in plain language: Entra sign-in for callers,
+anonymous JSON backend, selected fixed GETs with no arguments, and existing
+Container Apps environment/registry/image-pull identity. Ask for actual resource
+choices and IDs, not fabricated placeholders. Require explicit read-only review;
+do not claim annotations independently prove backend behavior. Use the plan's
+exact `approvalToken` after approval to save files. Never substitute the APIM
+schema or lifecycle, create a compatibility descriptor, install dependencies,
+build/push an image, sign in, deploy or call the endpoint as part of generation.
+After generation, describe the manual prerequisite/image/deployment reviews in
+the recipe guide, not `mcp-resume`. APIM gateway + Container Apps is recipe 2
+in the backlog, not implemented behavior.
 
 Start with the user's intent: a new setup or resuming an existing private project.
 For New, ask source type (REST API or existing MCP) and then source authentication.

@@ -31,7 +31,8 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
   const require = createRequire(path.join(installed, 'package.json'));
   const pkg = JSON.parse(await readFile(path.join(installed, 'package.json')));
   for (const name of Object.keys(pkg.dependencies)) {
-    assert.ok(require.resolve(name).startsWith(path.join(consumer, 'node_modules') + path.sep), name);
+    const entry = name === '@modelcontextprotocol/sdk' ? `${name}/server/index.js` : name;
+    assert.ok(require.resolve(entry).startsWith(path.join(consumer, 'node_modules') + path.sep), name);
   }
   assert.equal(pkg.bin['copilot-mcp'], 'bin/copilot-mcp.js');
   const skill = await readFile(path.join(installed, 'skills', 'copilot-mcp', 'SKILL.md'), 'utf8');
@@ -69,6 +70,39 @@ syncBuiltinESMExports();
   assert.equal(cap.toolkit.name, 'copilot-mcp-toolkit');
   assert.equal(cap.guidedSetup.cloudExecution, false);
   assert.equal(cap.guidedSetup.existingMcpOAuth, 'reference-only');
+  assert.equal(cap.containerAppsRecipe.cloudExecution, false);
+  assert.equal(cap.containerAppsRecipe.gateway, 'none');
+  assert.equal(invoke(['mcp-container-apps-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
+  const containerInput = path.join(workspace, 'container-input.json');
+  const containerOutput = path.join(workspace, 'container-server');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'container-apps-direct.json'), containerInput);
+  const containerArgs = ['--workspace-root', workspace, '--config', containerInput, '--output', containerOutput];
+  const containerPlan = invoke(['mcp-container-apps-plan', ...containerArgs, '--summary']);
+  assert.ok(containerPlan.stderr.includes(containerPlan.result.approvalToken));
+  assert.equal(containerPlan.result.review.toolDefinitions[0].annotations.readOnlyHint, true);
+  invoke(['mcp-container-apps-create', ...containerArgs, '--approve', 'wrong'], [1]);
+  const containerWritten = invoke(['mcp-container-apps-create', ...containerArgs, '--approve', containerPlan.result.approvalToken]).result;
+  assert.equal(containerWritten.status, 'generated-not-deployed');
+  assert.ok(!containerWritten.files.includes('mcp-server.json'));
+  for (const [name, content] of Object.entries(containerPlan.result.files)) {
+    assert.equal(await readFile(path.join(containerOutput, name), 'utf8'), content);
+  }
+  execFileSync(process.execPath, [npm, 'ci', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev'],
+    { cwd: containerOutput, encoding: 'utf8', timeout: 60000 });
+  const runtimeSmoke = path.join(consumer, 'container-runtime-smoke.mjs');
+  await writeFile(runtimeSmoke, `
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { validateRuntimeConfig, toolDefinitions, createProtocolServer } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'runtime.js')).href)};
+const config = validateRuntimeConfig(JSON.parse(await readFile(${JSON.stringify(path.join(containerOutput, 'runtime-config.json'))})));
+assert.equal(toolDefinitions(config)[0].annotations.readOnlyHint, true);
+const server = createProtocolServer(config);
+await server.close();
+`);
+  const smoke = spawnSync(process.execPath, ['--require', preload, runtimeSmoke],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(smoke.status, 0, smoke.stderr);
+  assert.doesNotMatch(smoke.stdout + smoke.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
   const guidedProject = path.join(workspace, 'guided-reference');
   const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
   await writeFile(rehearsal, `

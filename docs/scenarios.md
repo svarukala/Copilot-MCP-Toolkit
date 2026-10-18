@@ -2,6 +2,7 @@
 
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
+| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous HTTPS JSON backend | Local SDK server/ARM generation only; selected owner-reviewed fixed GETs without arguments; existing environment/registry/pull identity; no APIM lifecycle/discovery/proof/FCC integration or live qualification |
 | Native APIM from REST | Explicit Entra tenant, resource, scope and client allowlist | Anonymous | OpenAPI 3.0.x JSON and explicit operation IDs |
 | Native APIM from REST | Same | API key | Versionless Key Vault reference; APIM system identity; dedicated header OR query parameter |
 | Native APIM from REST | Same | Entra delegated | Same-token passthrough; backend must accept that resource/audience and authorize the user |
@@ -24,6 +25,10 @@ identity PATCH, user-assigned identity, default-role fallback, app-role assignme
 mutation, OBO, backend client-secret flow or automatic consent is implemented.
 The separate auth-config executor registers confidential OAuth metadata; it does
 not add a backend token-exchange flow or OAuth MCP discovery/proof.
+
+For an SDK server rather than native APIM tool generation, see
+[Container Apps recipe 1](container-apps-recipe.md). Its generated annotations
+are not observed evidence and its direct endpoint is protected, not anonymous.
 
 ## Public anonymous APIM
 

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "recipe": "container-apps-direct-v1",
+  "name": "Synthetic public information",
+  "azure": {
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "subscriptionId": "22222222-2222-4222-8222-222222222222",
+    "resourceGroup": "rg-synthetic-mcp",
+    "location": "eastus",
+    "appName": "synthetic-mcp",
+    "environmentResourceId": "/subscriptions/22222222-2222-4222-8222-222222222222/resourceGroups/rg-synthetic-mcp/providers/Microsoft.App/managedEnvironments/synthetic-environment",
+    "registry": {
+      "server": "syntheticregistry.azurecr.io",
+      "pullIdentityResourceId": "/subscriptions/22222222-2222-4222-8222-222222222222/resourceGroups/rg-synthetic-mcp/providers/Microsoft.ManagedIdentity/userAssignedIdentities/synthetic-pull-identity"
+    }
+  },
+  "authentication": {
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "audience": "33333333-3333-4333-8333-333333333333",
+    "applicationIdUri": "api://33333333-3333-4333-8333-333333333333",
+    "scope": "access_as_user",
+    "allowedClientIds": ["44444444-4444-4444-8444-444444444444"]
+  },
+  "backend": { "origin": "https://public-data.example.com", "auth": "anonymous" },
+  "document": {
+    "openapi": "3.0.3",
+    "info": { "title": "Synthetic public information", "version": "1.0.0" },
+    "paths": {
+      "/information": {
+        "get": {
+          "operationId": "get_information",
+          "description": "Read the reviewed public information feed.",
+          "responses": { "200": { "description": "JSON information" } }
+        }
+      }
+    }
+  },
+  "operationIds": ["get_information"],
+  "review": { "readOnlyOperationIds": ["get_information"] },
+  "requestsPerMinute": 60
+}

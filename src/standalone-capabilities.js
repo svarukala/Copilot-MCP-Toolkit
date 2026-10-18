@@ -1,5 +1,17 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+containerAppsRecipe: {
+      contractVersion: 1, recipe: 'container-apps-direct-v1',
+      commands: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
+      status: 'local-source-generation', gateway: 'none', runtime: 'official-mcp-sdk-node',
+      callerAuthentication: 'entra-v2-delegated-tenant-audience-scope-client-allowlist',
+      backendAuthentication: 'anonymous', operations: 'owner-reviewed-fixed-GET-no-arguments-JSON-response',
+      annotations: 'generated-from-explicit-read-only-review-not-observed-evidence',
+      requiredExistingResources: ['resource-group', 'container-apps-environment', 'acr', 'user-assigned-pull-identity'],
+      approval: 'input-build-generated-bytes-destination-bound', publicLibrary: false,
+      installation: false, imageBuild: false, cloudExecution: false, networkCalls: false,
+      apimLifecycleCompatible: false, integratedDiscovery: false, integratedFccHandoff: false, liveQualified: false,
+    },
 guidedSetup: {
       command: 'init', terminalOnly: true, publicLibrary: false,
       journeys: ['new', 'resume-review', 'advanced-definition-resource-review'],

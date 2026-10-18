@@ -1,0 +1,188 @@
+# Recipe 1: an MCP server on Azure Container Apps
+
+**Status: local source generation; not live-qualified.** This recipe produces a
+small Node.js MCP server and Azure deployment files. It does not deploy them.
+APIM is not required. The separate APIM gateway recipe is next in the backlog.
+
+The server, not APIM, owns the tool definitions and read-only annotations.
+Changing the hosting service alone does not prove a tool is read-only or that
+Copilot will display it correctly.
+
+## What the first version supports
+
+| Area | Supported scope |
+| --- | --- |
+| Caller sign-in | Microsoft Entra v2 **delegated user** access tokens; exact tenant, resource audience, permission scope and client application allowlist |
+| Source data | One explicitly reviewed, anonymous HTTPS backend returning JSON |
+| Tools | Up to 30 selected OpenAPI 3.0.x fixed GETs, with no arguments, query strings, bodies, callbacks, alternate servers or custom mappings |
+| Read-only labels | Every selected operation must be explicitly reviewed as side-effect-free; tools emit `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: true` |
+| Hosting | A new app in an **existing** resource group and Container Apps environment; an existing Azure Container Registry and user-assigned image-pull identity |
+| Deployment | ARM files for human review; no automatic build, registry push, Azure login or deployment |
+
+Public caller access, backend API keys, delegated backend access, managed-identity
+backend calls, username/password, dynamic query arguments and writes are not in
+this first version. Caller tokens and headers are **never forwarded** to the
+backend. The image-pull identity is not a backend data-access identity.
+
+All allowed callers can access the selected public data. This version does not
+provide per-user filtering of private source data.
+
+## 1. Prepare the input
+
+From the toolkit checkout, inspect the separate schema:
+
+```powershell
+node .\bin\copilot-mcp.js mcp-container-apps-schema --json
+```
+
+Use `examples\mcp\container-apps-direct.json` as a **fictional format example**.
+Copy it into your private workspace and replace its sample values with your
+reviewed settings. Never deploy or call the synthetic example.
+
+For Entra, use an existing resource app configured to issue v2 access tokens,
+with the selected delegated scope exposed. `authentication.audience` is that
+resource app's client ID, not its Application ID URI or a consumer registration
+ID. `applicationIdUri` is the separately configured Application ID URI; it is
+used to advertise the full resource scope, not as the v2 token audience.
+`allowedClientIds` identifies the actual calling applications. Review
+preauthorization and consent separately; do not substitute a wildcard.
+
+Review both the backend's behavior and its data before listing an operation in
+`review.readOnlyOperationIds`. HTTP GET alone is not evidence of no side effects.
+Descriptions, responses and URLs must not include credentials or private data.
+
+## 2. Review the files, then save them
+
+Use your own existing private workspace and a **new** project directory:
+
+```powershell
+node .\bin\copilot-mcp.js mcp-container-apps-plan `
+  --workspace-root C:\McpProjects `
+  --config C:\McpProjects\container-input.json `
+  --output C:\McpProjects\information-server `
+  --summary --json
+```
+
+Review the returned `review`, all `files`, and the exact `approvalToken`. After
+approving only this local write, run:
+
+```powershell
+node .\bin\copilot-mcp.js mcp-container-apps-create `
+  --workspace-root C:\McpProjects `
+  --config C:\McpProjects\container-input.json `
+  --output C:\McpProjects\information-server `
+  --approve '<exact approvalToken from the current plan>' --json
+```
+
+The folder contains editable server code, a pinned dependency lock, a Dockerfile,
+the runtime settings, the original recipe input, a local review record, this
+guide, and `infra\container-app.json`. It is not an APIM project and intentionally
+does not contain an APIM-compatible `mcp-server.json`.
+
+Existing output is never overwritten. If writing is interrupted, preserve the
+partial directory, inspect it, then review a new output destination.
+
+## 3. Run locally only when you intend to
+
+In the generated project, dependency installation is a separate, explicit action:
+
+```powershell
+npm ci --ignore-scripts --no-audit --fund=false
+$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'
+npm start
+```
+
+The generated lock uses public npm URLs with the original integrity hashes.
+Your organization's registry/network policy still applies. Stop on package,
+integrity or TLS errors; do not remove integrity hashes or disable TLS checks.
+
+`GET /health` returns only a basic liveness result. It does **not** check Entra,
+the backend, deployment readiness or the consumer.
+
+All `/mcp` requests require a valid Entra token, including local requests.
+There is no development authentication bypass. A protected-resource metadata
+endpoint is available at `/.well-known/oauth-protected-resource`; this does not
+register arbitrary OAuth clients automatically. Configure an approved client
+and resource scope separately. Never put a bearer token into a checked-in file,
+command argument, sample or log.
+
+Starting the server does not call the backend. Authenticated MCP requests can
+fetch Microsoft's signing keys; a `tools/call` can contact the configured
+backend. Those are live operations, not offline checks.
+
+## 4. Review the Azure prerequisites and deployment separately
+
+Before any Azure operation, select an explicit tenant, subscription and account
+using project-private authentication. Do not change a shared Azure CLI account
+or copy credentials. This recipe has no automatic Azure executor yet.
+
+An operator must separately review:
+
+- The exact resource group, region and Container Apps environment, including
+  internet reachability from the intended Copilot service and outbound access
+  to Entra and the reviewed backend.
+- A unique, absent Container App name. ARM can update an existing resource:
+  **the template itself is not a no-overwrite or ownership guard**.
+- The existing image registry and the least-privilege user-assigned identity
+  allowed to pull this image. Confirm the registry's supported managed-identity
+  configuration and role assignments; this recipe creates no roles or grants.
+- The server and dependency sources, dependency licenses, image scanning and
+  base-image hardening. Pin an approved base-image digest for production.
+- The complete cost and exposure: HTTPS ingress is externally reachable, but
+  the MCP route requires Entra sign-in. One warm replica is configured to avoid
+  cold starts; it has a continuing cost.
+
+Build and push only after a separate review. Supply the resulting immutable
+`registry/repository@sha256:digest` as the ARM `containerImage` parameter. The
+template has no default image and does not build or publish one. Confirm that
+the image belongs to the selected registry before deployment.
+
+Deploy only after reviewing the exact template, parameter, identity and target
+scope. The template creates one Container App referencing existing resources.
+It creates no APIM, Key Vault, Entra app, environment, registry or role assignment.
+The `mcpEndpoint` output uses the environment's default domain. Custom domains,
+private consumer connectivity and sovereign clouds are not qualified here.
+
+Do not invoke the existing toolkit APIM provisioning/resume commands on this
+project. They cannot inspect, deploy or recover this new hosting contract.
+
+## 5. Check the endpoint and consumer separately
+
+After an approved deployment, independently verify authentication rejection,
+authorized `initialize` and `tools/list`, the actual annotations, and one
+separately approved tool call. Generated `recipe-review.json` is a source review,
+**not captured endpoint evidence**.
+
+FCC and Cowork still need their own authentication registration and rollout.
+The new recipe does not yet connect to the toolkit's observed-discovery, proof
+or FCC export flows. Do not fabricate an existing-MCP descriptor or edit old
+captures to make the new project appear qualified.
+
+Confirm the actual Read/Write labels in the target Copilot experience. Neither
+source annotations nor a successful tool call alone proves the final UI behavior.
+
+## Limits and troubleshooting
+
+- **401:** missing, expired or invalid token; verify the resource app issues v2
+  tokens. Do not remove authentication.
+- **403:** tenant/scope/client restrictions or HTTP Host/Origin mismatch; review
+  the actual intended settings rather than broadening the allowlist.
+- **503:** token validation is unavailable, including signing-key access failure.
+- **429:** per-process request or concurrency limit. The request budget includes
+  rejected sign-in attempts. Counters reset on restart; revisions/replicas do
+  not share a counter. This is not a billing limit or DDoS defense.
+- **405:** the stateless `/mcp` endpoint accepts POST, not a persistent SSE GET.
+  It returns JSON through the SDK's Streamable HTTP transport.
+- **Tool error:** the backend request failed, redirected, timed out, exceeded
+  1 MiB or did not return valid JSON. Requests have a 10-second backend timeout,
+  and are never automatically retried. Failure does not prove nonexecution.
+- MCP requests are capped at 64 KiB and 20 concurrent requests per process.
+  Logs contain fixed event names and tool identifiers, not tokens or bodies.
+  Review platform diagnostics separately; application redaction cannot control
+  every hosting or network log.
+- Review DNS and egress rules for the chosen backend. A fixed configured URL is
+  not a guarantee about future DNS resolution or upstream behavior.
+
+Customer ownership, maintenance and the repository's MIT/as-is terms still
+apply to generated source. Keep real configurations, generated projects and
+operational evidence out of the public toolkit repository.

@@ -3,7 +3,8 @@
 **Turn supported REST API operations into tools that AI assistants can use.**
 Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
 Management (APIM), and check them in separately approved steps. You can also
-connect to an existing Model Context Protocol (MCP) server.
+connect to an existing Model Context Protocol (MCP) server, or generate an
+[MCP server for Azure Container Apps](docs/container-apps-recipe.md) without APIM.
 
 MCP is a standard way for AI assistants to discover and call tools. For a financial
 services demo, those tools might retrieve public exchange rates or access an
@@ -12,8 +13,9 @@ or investment advice.
 
 Use the guided terminal setup or work conversationally with **GitHub Copilot
 CLI**. This is an experimental developer toolkit, not a turnkey production
-product. It creates APIM deployment files, not a standalone Node.js or Python
-MCP server. **Saving files does not deploy an endpoint or make it available in
+product. The guided setup creates APIM deployment files. The separate Container
+Apps recipe generates a Node.js MCP server and deployment review files, with a
+narrower initial feature set. **Saving files does not deploy an endpoint or make it available in
 Microsoft 365 Copilot.**
 
 [Quick start](#quick-start) |
@@ -199,6 +201,8 @@ selected values for your environment.
 | Scenario | Current boundary |
 | --- | --- |
 | REST API through APIM | Selected operations with supported anonymous, Key Vault API-key or limited Entra authentication patterns. Not every API can be converted. |
+| MCP server on Container Apps, without APIM | Generate Node.js server source and deployment files. Entra sign-in; reviewed fixed GETs against an anonymous JSON backend. No automated deployment or live qualification yet. [Recipe 1](docs/container-apps-recipe.md). |
+| Container Apps behind APIM | Recipe 2 in the backlog; not implemented. App Service and Functions follow. |
 | Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
 | Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
 | Username/password MCP | Backlog only; not implemented. |
@@ -216,6 +220,7 @@ Testing support is narrower than generation support. Read the
 | Goal | Guide |
 | --- | --- |
 | Follow the guided setup or use Copilot CLI | [Copilot CLI guide](docs/copilot-cli.md) |
+| Generate an MCP server without APIM | [Container Apps recipe 1](docs/container-apps-recipe.md) |
 | Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
 | Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
 | Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |

@@ -225,6 +225,13 @@ authorization and deployment review. Preserve the user restriction and old
 proofs; verify any approved change through a new discovery and consumer metadata
 refresh. No such change, tool execution or fresh endpoint request occurred here.
 
+2026-10-18 follow-up: [Container Apps recipe 1](container-apps-recipe.md) now
+generates a bounded SDK-based server with reviewed read-only annotations and
+direct Entra-protected hosting files. This is local source/runtime coverage,
+not a deployed correction or consumer-label qualification. Container Apps behind
+an APIM gateway is explicitly recipe 2 in the [hosting backlog](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes).
+The new recipe does not yet feed this module's descriptor/capture workflow.
+
 Proof and consumer outcomes are not imported or inferred. This module never
 reads or modifies the project's locks or proof journal. Consumed/unknown calls
 remain consumed even when the bundle or destination changes.

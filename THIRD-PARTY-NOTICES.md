@@ -12,8 +12,10 @@ disabled (private: true); public GitHub source is not a license grant for servic
 
 ## Installed production dependencies
 
-The following versions, license identifiers and file names were read from the
-locked installed packages. The toolkit npm tarball does not embed their
+The following baseline versions, license identifiers and file names were read
+from the locked installed packages. This table predates the additional SDK
+transitives described below; it is not the complete current dependency tree.
+The toolkit npm tarball does not embed their
 `node_modules` contents; npm installs dependencies separately. A downstream
 bundle that includes dependency code must preserve the actual upstream license
 texts/notices from the exact bundled packages, including transitive packages.
@@ -24,6 +26,7 @@ attestation.
 | --- | --- | --- | --- |
 | @azure/msal-common | 16.14.1 | MIT | LICENSE |
 | @azure/msal-node | 7.0.0 | MIT | LICENSE |
+| @modelcontextprotocol/sdk | 1.32.1 | MIT | LICENSE |
 | ajv | 8.20.0 | MIT | LICENSE |
 | ajv-formats | 3.0.1 | MIT | LICENSE |
 | buffer-equal-constant-time | 1.0.1 | BSD-3-Clause | LICENSE.txt |
@@ -33,6 +36,7 @@ attestation.
 | fflate | 0.8.3 | MIT | LICENSE |
 | json-schema-traverse | 1.0.0 | MIT | LICENSE |
 | jsonwebtoken | 9.0.3 | MIT | LICENSE |
+| jose | 6.2.12 | MIT | LICENSE.md |
 | jwa | 2.0.1 | MIT | LICENSE |
 | jws | 4.0.1 | MIT | LICENSE |
 | lodash.includes | 4.3.0 | MIT | LICENSE |
@@ -54,6 +58,18 @@ installed packages. The lock records Microsoft npm mirror URLs and supplied
 integrities (some SHA-1); this is not evidence of a clean public-registry
 installation. Downstream consumers must update their dependency and bundled
 license inventory, not just copy the toolkit runtime asset snapshot.
+
+The Container Apps recipe adds `@modelcontextprotocol/sdk@1.32.1` and
+`jose@6.2.12`; their installed metadata and license filenames were inspected.
+The SDK brings additional transitive dependencies recorded in `package-lock.json`.
+The generated server has its own narrower lock in
+`src/recipes/container-apps/package-lock.json`. Its emitted lock changes known
+mirror URL prefixes to public npm while preserving package versions and
+integrity hashes. Fresh generated-server installation was checked offline from
+the local npm cache, not by downloading from public npm. Generated projects and
+their Docker build include the toolkit source license and a dependency-notice
+reminder. Distributors must still inventory and retain the actual licenses for
+the complete installed dependency tree in their final image.
 
 Development tooling, including TypeScript and esbuild, retains its own terms
 as supplied with those packages. Audit the actual shipped artifact rather

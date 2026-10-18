@@ -1,4 +1,5 @@
 export const commandFamilies = {
+  containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
   generation: ['mcp-server-plan', 'mcp-server-create', 'rest-tools-plan', 'rest-tools-write'],
   resources: ['mcp-resources-choose', 'mcp-resources-plan', 'mcp-resources-write', 'mcp-inventory-plan', 'mcp-inventory'],
   identity: ['mcp-account-plan', 'mcp-account-switch', 'mcp-app-init', 'mcp-app-account-plan', 'mcp-app-account-switch', 'mcp-app-plan', 'mcp-app-apply'],
@@ -24,6 +25,7 @@ No command / init: terminal-only New / Resume / Advanced setup.
 New: source/authentication questions, reviewed local generation after confirmation.
 Resume: local report only. No automatic login, deployment, discovery or tool calls.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
+Container Apps uses its separate mcp-container-apps-schema, not the APIM schema.
 
 ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands.join(', ')}`).join('\n')}
 
@@ -60,6 +62,12 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Container Apps recipe 1: local SDK server source and ARM review files only.
+mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
+--output directory; create requires the plan's exact --approve. Plan supports
+--summary. Entra v2 delegated callers, anonymous JSON backend and reviewed fixed
+GETs only. No APIM, cloud deployment, image build/push, automatic sign-in or
+new-contract discovery/proof/FCC integration. See docs/container-apps-recipe.md.
 First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinary
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.

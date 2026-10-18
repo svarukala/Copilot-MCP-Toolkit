@@ -364,12 +364,104 @@ published here. Historical consumed proofs remain consumed.
 
 ## Requested capability backlog
 
-Backlog inclusion is not approval to implement, collect credentials, deploy or
-call a provider. Priority and the first supported provider profile remain unset.
+Backlog inclusion alone is not approval to implement, collect credentials,
+deploy or call a provider. The hosting-recipe order below and starting local
+work on B2 were explicitly requested on 2026-10-18. Live execution remains
+separately approved. B1's priority and first provider profile remain unset.
 
 | ID | Work | Status | Completion gate |
 | --- | --- | --- | --- |
 | B1 | Support upstream MCP servers requiring username/password authentication | Requested 2026-10-18; not implemented | Review direct HTTP Basic and password-to-token exchange as distinct profiles; agree secure credential storage, caller isolation, token lifecycle and consumer compatibility before implementation |
+| B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | In progress: local source/runtime generation implemented and offline checked | Entra v2 delegated callers, reviewed fixed GETs, anonymous JSON backend, server-owned annotations and ARM review files. Automated Azure lifecycle, discovery/proof/FCC integration and live consumer qualification remain |
+| B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Requested next after B2; not implemented | Reuse B2's server; APIM proxies MCP rather than generating tools from REST. Review caller/backend authentication, prevent gateway bypass, and qualify annotation preservation and streaming |
+| B4 | Recipe 3: MCP server hosted on Azure App Service | Requested backlog; not implemented | Reuse the shared server implementation with an App Service deployment recipe; independently qualify authentication, hosting behavior and consumer compatibility |
+| B5 | Recipe 4: MCP server hosted on Azure Functions | Requested backlog; not implemented | Review extension versus SDK-based hosting, preview/plan limitations, stateless behavior, annotations and authentication before selecting the supported profile |
+
+### B2-B5: Alternative MCP hosting recipes
+
+User-directed order: **Container Apps direct -> Container Apps with APIM gateway
+-> App Service -> Functions**. APIM is explicitly the second recipe, not a
+requirement for the first. AKS remains an option to evaluate for customers with
+existing clusters, not part of the initial implementation sequence.
+
+- Build a shared SDK-based MCP server with host-specific deployment recipes.
+  Hosting alone does not supply annotations: the server must publish accurate,
+  reviewed tool hints, including `readOnlyHint` where applicable. Do not infer
+  safety from HTTP GET alone or manufacture observed consumer metadata.
+- Start B2 with a bounded REST-to-MCP profile, not arbitrary code generation or
+  automatic exposure of every OpenAPI operation. Reuse existing validation and
+  mapping logic where compatible. The existing APIM definition, descriptor,
+  ownership and evidence contracts must remain unchanged.
+- The initial B2 implementation uses Entra v2 delegated caller sign-in and an
+  anonymous backend returning JSON. This is the conservative implementation
+  default, not a user approval to expose an endpoint or access private source
+  data. Broader authentication profiles need a separate scope review. Direct
+  hosting retains access checks, request limits and safe logging.
+- Each recipe must include editable server source, local startup instructions,
+  reviewable infrastructure files, configuration guidance and troubleshooting.
+  Generation must not install dependencies, build/push images, create resources,
+  register authentication, discover tools or execute a backend call implicitly.
+- Treat the new generated project as a new contract. Do not feed it into the
+  existing APIM lifecycle or treat generated tool definitions as a tools/list
+  capture. Deployment, discovery, proof, FCC/plugin onboarding and actual
+  consumer verification retain their separate boundaries.
+- B3 must reuse the MCP server's definitions through an existing-server proxy.
+  Do not fall back to native REST-to-MCP generation or rewrite response bodies
+  to patch annotations. Review which identity reaches the backend and ensure
+  callers cannot bypass gateway restrictions through the direct app endpoint.
+- Acceptance must distinguish offline generation/runtime checks from live
+  hosting, authentication, discovery and consumer results. Verify the actual
+  Read/Write labels in the target Copilot experience before claiming the
+  annotation issue is resolved end to end.
+- Keep native APIM generation available with its documented annotation
+  limitation. These recipes are additions, not a migration of existing projects,
+  renewal of historical evidence or permission to replay consumed proofs.
+
+Design references (documentation review, not deployed qualification):
+[Azure hosting comparison](https://learn.microsoft.com/azure/container-apps/mcp-choosing-azure-service),
+[existing MCP server behind APIM](https://learn.microsoft.com/azure/api-management/expose-existing-mcp-server),
+and [SDK-based Functions hosting](https://learn.microsoft.com/azure/azure-functions/self-hosted-mcp-servers).
+The reviewed Functions SDK-hosting route is public preview, stateless Streamable
+HTTP and Flex Consumption only; do not generalize it to every Functions plan.
+
+#### B2 initial local implementation
+
+`mcp-container-apps-schema/plan/create` generates editable Node.js source using
+the official MCP SDK, a separate pinned runtime package/lock, Docker build files,
+an ARM template, source/license notices and [recipe instructions](container-apps-recipe.md).
+The existing APIM input, descriptor, lifecycle and root library API are unchanged.
+The conversational skill documents the separate route; the terminal wizard does
+not yet offer it.
+
+Source generation requires exact input/build/file/destination approval and never
+overwrites a directory. The runtime checks token signatures, issuer, tenant,
+v2 audience, delegated scope, calling-client allowlist and lifetime; it does not
+trust forwarded identity headers. Backend requests have fixed URLs, no forwarded
+caller credentials, redirect rejection, 10-second deadlines, 1 MiB JSON response
+limits and no automatic retry. Request limits are 64 KiB and 20 concurrent
+requests, with a per-process minute budget.
+
+Offline checks cover the actual SDK annotations/calls through synthetic
+transports, signed local token rejection cases, HTTP rejection and limits,
+approval/target/input changes, independent generated-server installation from
+cache and fresh packed CLI execution with networking/processes denied.
+The initial packed check exposed a test assumption that every dependency has a
+root CommonJS entry; it now resolves the SDK's actual server entry point.
+The exact-size test uses valid JSON-RPC metadata rather than an unsupported
+top-level field. These corrections do not weaken runtime validation.
+Final focused run: 19 tests passed across the recipe, fresh packed consumer,
+CLI feedback and original generation parity; CLI syntax and strict public types
+passed. Exact 64 KiB request and 1 MiB response boundaries and real ten-second
+backend cancellation were exercised. The full repository suite was not rerun.
+
+Remaining B2 work: reviewed Azure prerequisite inspection and deployment
+automation; new-contract endpoint readback, discovery/proof and FCC handoff
+integration; an explicitly approved live deployment and consumer Read/Write
+classification check. The current template references an existing environment,
+registry and pull identity and requires a separately selected image. It can
+update an existing app if manually misapplied: no cloud ownership/no-overwrite
+guarantee is claimed. No image was built/pushed, no Azure/M365/provider operation
+was executed, and no historical evidence or consumed proof was changed.
 
 ### B1: Username/password-authenticated MCP
 

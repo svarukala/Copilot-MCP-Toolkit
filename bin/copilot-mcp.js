@@ -68,6 +68,20 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'].includes(command)) {
+      const schema = command === 'mcp-container-apps-schema', planning = command === 'mcp-container-apps-plan';
+      const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json', ...(planning ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!workspaceRoot || !options.config || !options.output)) {
+        throw new Error('Container Apps schema accepts --json only. Plan/create requires --workspace-root, --config and a new --output directory; create also needs exact --approve. Local source generation only.');
+      }
+      const recipe = await import('../src/mcp-container-apps.js');
+      if (schema) print(recipe.containerAppsSchema, true);
+      else print(await (planning ? recipe.planContainerApps : recipe.writeContainerApps)({
+        config: options.config, output: options.output, workspaceRoot, approval: options.approve,
+      }), true);
+      return 0;
+    }
     if (['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'].includes(command)) {
       const schema = command === 'mcp-auth-execution-schema', status = command === 'mcp-auth-execution-status';
       const allowed = schema ? ['json'] : ['workspace-root', 'project', 'json', ...(status ? [] : ['config', 'phase',

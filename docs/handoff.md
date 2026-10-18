@@ -5,6 +5,19 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Alternative hosting is now an explicit [ordered backlog B2-B5](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes):
+  (1) direct Container Apps, (2) Container Apps behind an APIM gateway,
+  (3) App Service, (4) Functions. The user requested starting local work on
+  recipe 1. Its first local implementation now generates an SDK-based Node
+  server, Entra v2 delegated-token checks, owner-reviewed fixed-GET tools against
+  an anonymous JSON backend, Docker/ARM files and pinned runtime dependencies.
+  Use `mcp-container-apps-schema/plan/create` and the [recipe guide](container-apps-recipe.md);
+  this is separate from the terminal wizard and APIM lifecycle. Offline SDK,
+  local-signature, HTTP and fresh packed/generated-server checks pass. Automated
+  Azure deployment, new-contract discovery/proof/FCC integration and live
+  consumer label verification remain. No APIM definitions or observed evidence
+  were rewritten. No image build/push, cloud deployment, sign-in or live call
+  is authorized by the backlog or request to begin local development.
 - An opt-in [public npm installation guide](public-npm-setup.md) is linked from
   the README download step. It changes a fresh local checkout's project registry
   and locked download URLs while preserving all versions and integrity hashes.
@@ -197,7 +210,8 @@ The root API is deliberately bounded. Internal transport injections/executors ar
 not public APIs. The Copilot CLI skill drives the same CLI; it is not an MCP
 tool-server facade. No automatic host registration or global installation exists.
 
-This toolkit generates APIM deployment bundles, not arbitrary Node/Python servers.
+This toolkit generates APIM deployment bundles and a separate bounded Node.js
+Container Apps recipe, not arbitrary Node/Python servers.
 Do not describe all REST/OAuth/provider scenarios as supported. Read the narrower
 native-proof and experimental-proxy limits before proposing a live journey.
 
