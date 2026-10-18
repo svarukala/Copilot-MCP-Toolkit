@@ -51,6 +51,14 @@ three independence tests and both expiry tests under the formerly failing
 fractional clock origin passed afterward. The full suite was not rerun after
 this test-only correction. No live provider or consumer qualification is implied.
 
+Public npm follow-up: [a separate installation guide](public-npm-setup.md) now
+covers explicit project-local registry selection and conversion of pinned
+tarball URLs without deleting/regenerating the lockfile. Offline checks confirm
+all 52 URL mappings, preservation of every other lockfile field, repeatability
+and rejection of unexpected sources/missing integrity/unsupported lock format
+before writing. PowerShell examples parse. Default feed configuration is
+unchanged; fresh public-npm installation remains unqualified.
+
 ## Scenario and runtime qualification
 
 Implementation details and all unsupported cases remain in

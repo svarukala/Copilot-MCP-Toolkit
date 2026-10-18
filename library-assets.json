@@ -15,6 +15,7 @@
     "docs/federated-connectors.md",
     "docs/handoff.md",
     "docs/progress-tracker.md",
+    "docs/public-npm-setup.md",
     "docs/scenarios.md",
     "docs/wiqd-handoff.md",
     "examples/auth-registration/execution.json",

@@ -8,8 +8,12 @@ No YAML runtime, Cowork package or plugin authoring dependency is required.
 `.npmrc` uses `https://packagefeedproxy.microsoft.io/npm/`. The inherited lock
 retains exact tarball URLs/integrities for the approved mirror, with the new root
 package/bin identity and YAML removed. This is not evidence of public npm registry
-reproducibility. Do not bypass proxy/TLS/feed policy, run public-registry fallbacks,
-publish to npm, or perform a global install to make validation pass.
+reproducibility. Do not bypass proxy/TLS/feed policy, silently fall back to public
+npm, publish to npm, or perform a global install to make validation pass.
+For an explicit, organization-permitted public npm setup in a separate checkout,
+follow [the public npm installation guide](public-npm-setup.md). It changes only
+registry/download locations and retains pinned versions and integrity hashes;
+the repository's default feed and lockfile remain unchanged.
 
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --fund=false
