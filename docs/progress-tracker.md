@@ -426,6 +426,18 @@ HTTP and Flex Consumption only; do not generalize it to every Functions plan.
 
 #### B2 initial local implementation
 
+#### B3 local gateway implementation
+
+Recipe 2 now generates an SDK-owned Container Apps server plus a separate APIM
+HTTP proxy template. Independent signed gateway managed-identity and delegated
+caller tokens are both required. All APIM policy sections inherit existing
+policies; no REST-to-MCP conversion, response rewrite or policy retry is added.
+Release review binds distinct resource groups and per-template parameters.
+Fifteen focused offline tests passed, including actual local signatures,
+direct-host bypass rejection, metadata URLs and preserved tools/list annotations.
+Live identity issuance, inherited gateway policies and consumer classification
+remain unverified. See [recipe 2](apim-gateway-recipe.md).
+
 Follow-up milestone: sealed source manifests, exact image/template release
 preparation, source-only ZIPs and an explicit unverified existing-MCP endpoint
 reference now connect generated source to the existing discovery/proof/FCC flows.

@@ -73,8 +73,9 @@ async function prepareRelease(options) {
   const project = await readRecipeProject(options.project);
   const config = await readControl(path.resolve(options.config));
   const functions = project.input.recipe === 'functions-sdk-v1';
+  const gateway = project.input.recipe === 'container-apps-apim-v1';
   requireArtifact(onlyKeys(config, functions ? ['schemaVersion', 'accountName', 'sourceArchiveSha256']
-    : ['schemaVersion', 'accountName', 'containerImage'])
+    : ['schemaVersion', 'accountName', 'containerImage', ...(gateway ? ['backendOrigin'] : [])])
     && config.schemaVersion === 1 && typeof config.accountName === 'string'
     && /^[A-Za-z0-9][A-Za-z0-9_.+@-]{0,253}$/.test(config.accountName)
     && !secretIssues(savedJson(config)), 'Release input requires an explicit nonsecret account and immutable artifact reference.');
@@ -83,6 +84,12 @@ async function prepareRelease(options) {
     requireArtifact(typeof config.containerImage === 'string' && config.containerImage.startsWith(`${registry}/`)
       && /^[a-z0-9.-]+\/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$/.test(config.containerImage),
     'Use a digest-pinned image from the selected registry, not a tag, secret or another registry.');
+  }
+  if (gateway) {
+    const origin = new URL(config.backendOrigin);
+    requireArtifact(origin.protocol === 'https:' && origin.origin === config.backendOrigin && !origin.port
+      && origin.hostname.startsWith(`${project.input.azure.appName}.`) && origin.hostname.endsWith('.azurecontainerapps.io'),
+    'Gateway release requires the actual selected Container Apps HTTPS backend origin, not the gateway URL.');
   }
   const outputPath = await newOutput(options.output);
   const archive = sourceArchive(project.files);
@@ -112,6 +119,14 @@ async function prepareRelease(options) {
   };
   const files = { 'release-review.json': savedJson(release), 'parameters.json': savedJson(parameters),
     ...Object.fromEntries(templates.map(([name, value]) => [name, value.toString('utf8')])) };
+  for (const [name, bytes] of templates) {
+    const supplied = { containerImage: config.containerImage, backendOrigin: config.backendOrigin };
+    const specific = Object.fromEntries(Object.keys(JSON.parse(bytes).parameters ?? {}).map(key => {
+      requireArtifact(supplied[key] !== undefined, `Missing explicit template parameter: ${key}.`);
+      return [key, { value: supplied[key] }];
+    }));
+    files[name.replace(/\.json$/, '.parameters.json')] = savedJson({ ...parameters, parameters: specific });
+  }
   return { action: 'mcp-recipe-release-bundle', outputPath, review: release, files,
     sourceArchiveSha256: digest(archive), sourceArchiveBytes: archive.length,
     approvalToken: `mcp-recipe-release/${metadataDigest(boundedSnapshot({ config, outputPath, release, files }))}`, archive };

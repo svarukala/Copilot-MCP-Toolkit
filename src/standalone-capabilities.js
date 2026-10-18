@@ -8,6 +8,12 @@ recipeArtifacts: {
       generatedCapture: false, imageSourceVerified: false, cloudExecution: false,
       networkCalls: false, proofReplayAuthorized: false, publicLibrary: false,
     },
+hostingRecipes: {
+      commands: ['mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'],
+      recipes: ['container-apps-direct-v1', 'container-apps-apim-v1'],
+      gateway: 'inherited-HTTP-proxy-with-independent-signed-managed-identity-and-delegated-caller',
+      sourceOnly: true, cloudExecution: false, liveQualified: false,
+    },
 containerAppsRecipe: {
       contractVersion: 1, recipe: 'container-apps-direct-v1',
       commands: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],

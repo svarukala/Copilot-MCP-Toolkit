@@ -4,6 +4,11 @@ The recipes use the same Node.js MCP server. Hosting changes; tool logic and
 caller permissions do not. Each operation below is explicit and local unless
 the operator separately chooses to build, publish, deploy or test.
 
+Available local generators: [direct Container Apps](container-apps-recipe.md)
+and [Container Apps behind APIM](apim-gateway-recipe.md). Use the closed
+`mcp-hosting-schema` and `mcp-hosting-plan/create` for either. The original
+`mcp-container-apps-*` commands intentionally remain recipe-1-only.
+
 ## Source, release and endpoint are different things
 
 1. **Generate source.** Review the selected recipe input and save a new project.

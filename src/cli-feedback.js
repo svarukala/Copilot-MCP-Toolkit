@@ -5,7 +5,7 @@ const context = new AsyncLocalStorage();
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
-  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan'];
+  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -126,7 +126,7 @@ export function cliPlanSummary(plan) {
     writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\nNo Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
     return;
   }
-  if (plan.action === 'mcp-container-apps-create') {
+  if (['mcp-container-apps-create', 'mcp-hosting-create'].includes(plan.action)) {
     writeFeedback(state, `[Container Apps recipe summary]\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nAccess: Entra sign-in required; no APIM\nTools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
     return;
   }

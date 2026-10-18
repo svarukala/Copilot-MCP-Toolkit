@@ -25,12 +25,18 @@ export const runtimeSchema = object({
     readOnlyReviewed: { const: true },
   }) },
 });
+runtimeSchema.properties.gateway = object({
+  tenantId: uuid, audience: uuid, principalId: uuid, role: { const: 'Mcp.Gateway' },
+  publicUrl: { type: 'string', pattern: '^https://[a-z][a-z0-9-]+\\.azure-api\\.net/[a-z][a-z0-9-]+/mcp$' },
+});
 const ajv = new Ajv();
 addFormats(ajv);
 const validate = ajv.compile(runtimeSchema);
 export function validateRuntimeConfig(value) {
   const config = structuredClone(value);
   if (!validate(config)) throw new Error('Invalid runtime configuration.');
+  if (config.gateway && (config.gateway.tenantId !== config.authentication.tenantId
+    || config.gateway.audience === config.authentication.audience)) throw new Error('Invalid independent gateway authentication.');
   const application = new URL(config.authentication.applicationIdUri);
   if (application.username || application.password || application.search || application.hash
     || /[\\<>"{}]/.test(config.authentication.applicationIdUri) || config.authentication.applicationIdUri.endsWith('/')) {
@@ -72,6 +78,23 @@ export function createTokenVerifier(authentication, key) {
       || typeof payload.scp !== 'string' || !payload.scp.split(' ').includes(authentication.scope)
       || !authentication.allowedClientIds.includes(payload.azp)) {
       throw Object.assign(new Error('Caller lacks the required delegated access.'), { code: 'CALLER_FORBIDDEN' });
+    }
+
+    return payload;
+  };
+}
+
+export function createGatewayVerifier(gateway, key) {
+  const keys = key ?? createRemoteJWKSet(new URL(`https://login.microsoftonline.com/${gateway.tenantId}/discovery/v2.0/keys`),
+    { timeoutDuration: 5000, cooldownDuration: 30000 });
+  return async token => {
+    const { payload } = await jwtVerify(token, keys, {
+      issuer: `https://login.microsoftonline.com/${gateway.tenantId}/v2.0`, audience: gateway.audience,
+      algorithms: ['RS256'], requiredClaims: ['exp', 'iat', 'nbf', 'tid', 'oid', 'roles', 'ver'], clockTolerance: 5,
+    });
+    if (payload.ver !== '2.0' || payload.tid !== gateway.tenantId || payload.oid !== gateway.principalId
+      || payload.scp !== undefined || !Array.isArray(payload.roles) || !payload.roles.includes(gateway.role)) {
+      throw Object.assign(new Error('Gateway identity is not permitted.'), { code: 'CALLER_FORBIDDEN' });
     }
     return payload;
   };
@@ -136,6 +159,9 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
   }
   const log = dependencies.log ?? (event => process.stderr.write(`${JSON.stringify(event)}\n`));
   const verify = dependencies.verify ?? createTokenVerifier(config.authentication);
+  const verifyGateway = config.gateway ? dependencies.verifyGateway ?? createGatewayVerifier(config.gateway) : undefined;
+  const advertised = config.gateway ? new URL(config.gateway.publicUrl) : endpoint;
+  const metadataUrl = new URL('.well-known/oauth-protected-resource', advertised.href.replace(/mcp$/, '')).href;
   let windowStart = performance.now(), count = 0, active = 0;
   return async (req, res) => {
     const send = (status, error, headers = {}) => {
@@ -147,12 +173,12 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end('{"status":"up"}'); return;
       }
-      if (req.headers.host !== endpoint.host || req.headers.origin !== undefined && req.headers.origin !== endpoint.origin) {
+      if (req.headers.host !== endpoint.host || req.headers.origin !== undefined && req.headers.origin !== advertised.origin) {
         send(403, 'Host or Origin is not allowed.'); return;
       }
       if (req.url === '/.well-known/oauth-protected-resource' && req.method === 'GET') {
         res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-        res.end(JSON.stringify({ resource: endpoint.href,
+        res.end(JSON.stringify({ resource: advertised.href,
           authorization_servers: [`https://login.microsoftonline.com/${config.authentication.tenantId}/v2.0`],
           scopes_supported: [`${config.authentication.applicationIdUri}/${config.authentication.scope}`], bearer_methods_supported: ['header'] }));
         return;
@@ -165,7 +191,19 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
       }
       active++;
       try {
-        const challenge = { 'www-authenticate': `Bearer resource_metadata="${endpoint.origin}/.well-known/oauth-protected-resource"` };
+        if (verifyGateway) {
+          const proof = req.headers['x-copilot-mcp-gateway-authorization'];
+          if (typeof proof !== 'string' || proof.length > 16384 || !proof.startsWith('Bearer ') || proof.length <= 7) {
+            send(401, 'A signed APIM gateway token is required.'); return;
+          }
+          try { await verifyGateway(proof.slice(7)); }
+          catch (error) {
+            const rejected = error.code === 'CALLER_FORBIDDEN' || tokenErrors.has(error.code);
+            log({ event: rejected ? 'gateway-authentication-rejected' : 'gateway-authentication-unavailable' });
+            send(rejected ? 403 : 503, rejected ? 'Gateway identity is not permitted.' : 'Gateway validation is unavailable.'); return;
+          }
+        }
+        const challenge = { 'www-authenticate': `Bearer resource_metadata="${metadataUrl}"` };
         const authorization = req.headers.authorization;
         if (typeof authorization !== 'string' || authorization.length > 16384 || !/^Bearer [A-Za-z0-9._-]+$/.test(authorization)) {
           send(401, 'A valid delegated Entra access token is required.', challenge); return;

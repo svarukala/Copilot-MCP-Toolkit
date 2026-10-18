@@ -8,6 +8,7 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
+import { hostingSchemas, gatewaySettings, gatewayInfrastructure } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions } from './recipes/container-apps/runtime.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
@@ -40,15 +41,27 @@ export const containerAppsSchema = object({
 const ajv = new Ajv();
 addFormats(ajv);
 const validate = ajv.compile(containerAppsSchema);
+export const hostingSchema = { oneOf: hostingSchemas(containerAppsSchema) };
+const validateHosting = ajv.compile(hostingSchema);
 function requireRecipe(ok, message, code = 'INPUT') {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_CONTAINER_APPS_${code}` });
 }
 
-export function compileContainerApps(value) {
+export function compileContainerApps(value) { return compile(value, false); }
+export function compileHostingRecipe(value) { return compile(value, true); }
+function compile(value, hosting) {
   const input = boundedSnapshot(value);
-  requireRecipe(validate(input) && !secretIssues(savedJson(input)),
+  requireRecipe((hosting ? validateHosting : validate)(input) && !secretIssues(savedJson(input)),
     'Use mcp-container-apps-schema with explicit nonsecret target/authentication details.');
   requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
+  if (input.azure.gateway) {
+    requireRecipe(input.azure.gateway.audience !== input.authentication.audience,
+      'Use a separate v2 resource application for the gateway identity, not the delegated caller audience.');
+    const uri = new URL(input.azure.gateway.applicationIdUri);
+    requireRecipe(!uri.username && !uri.password && !uri.search && !uri.hash
+      && !/[\\<>"{}]/.test(input.azure.gateway.applicationIdUri) && !input.azure.gateway.applicationIdUri.endsWith('/'),
+    'Use the exact nonsecret gateway Application ID URI.');
+  }
   for (const id of [input.azure.environmentResourceId, input.azure.registry.pullIdentityResourceId]) {
     requireRecipe(id.startsWith(`/subscriptions/${input.azure.subscriptionId}/`), 'Existing resources must be in the selected subscription.');
   }
@@ -75,6 +88,7 @@ export function compileContainerApps(value) {
   const runtime = validateRuntimeConfig({
     schemaVersion: 1, name: input.name, authentication: input.authentication,
     backendOrigin: input.backend.origin, requestsPerMinute: input.requestsPerMinute, tools,
+    ...(input.azure.gateway ? { gateway: gatewaySettings(input) } : {}),
   });
   return { input, runtime };
 }
@@ -128,11 +142,11 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 `;
 
-async function prepare(options) {
+async function prepare(options, hosting = false) {
   requireRecipe(typeof options.config === 'string' && typeof options.output === 'string',
     'Plan/create requires --config and a new --output directory.');
   const configPath = await assertProjectPath(path.resolve(options.config));
-  const { input, runtime } = compileContainerApps(await readControl(configPath));
+  const { input, runtime } = (hosting ? compileHostingRecipe : compileContainerApps)(await readControl(configPath));
   const outputPath = await assertProjectPath(path.resolve(options.output));
   requireRecipe((await lstat(path.dirname(outputPath))).isDirectory(), 'Output parent must already exist.');
   try { await lstat(outputPath); requireRecipe(false, 'Output already exists. Use a new directory.', 'OUTPUT_EXISTS'); }
@@ -159,7 +173,10 @@ async function prepare(options) {
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
   files['infra/container-app.json'] = savedJson(infrastructure(input));
+  if (input.azure.gateway) files['infra/apim-gateway.json'] = savedJson(gatewayInfrastructure(input, infrastructure(input)));
   files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'container-apps-recipe.md'), 'utf8');
+  files['hosting-recipes.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'), 'utf8');
+  if (input.azure.gateway) files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'apim-gateway-recipe.md'), 'utf8');
   files['LICENSE'] = await readFile(path.join(TOOLKIT_ROOT, 'LICENSE'), 'utf8');
   files['THIRD-PARTY-NOTICES.md'] = `# Generated server notices
 
@@ -191,8 +208,8 @@ This notice is not a complete dependency license audit or a service-content lice
   files['recipe-review.json'] = savedJson(review);
   sealRecipeFiles(files, input.recipe);
   const digest = metadataDigest(boundedSnapshot({ configPath, input, outputPath, files, review }));
-  return { action: 'mcp-container-apps-create', status: 'planned', outputPath, review, files,
-    approvalToken: `mcp-container-apps/${digest}` };
+  return { action: hosting ? 'mcp-hosting-create' : 'mcp-container-apps-create', status: 'planned', outputPath, review, files,
+    approvalToken: `${hosting ? 'mcp-hosting' : 'mcp-container-apps'}/${digest}` };
 }
 
 export async function planContainerApps(options) {
@@ -200,9 +217,17 @@ export async function planContainerApps(options) {
   return withCliWorkspace(options.workspaceRoot, () => prepare(options));
 }
 export async function writeContainerApps(options) {
+  return writeRecipe(options, false);
+}
+export async function planHostingRecipe(options) {
+  requireRecipe(typeof options.workspaceRoot === 'string', 'An explicit --workspace-root is required.');
+  return withCliWorkspace(options.workspaceRoot, () => prepare(options, true));
+}
+export async function writeHostingRecipe(options) { return writeRecipe(options, true); }
+async function writeRecipe(options, hosting) {
   requireRecipe(typeof options.workspaceRoot === 'string', 'An explicit --workspace-root is required.');
   return withCliWorkspace(options.workspaceRoot, async () => {
-    const plan = await prepare(options);
+    const plan = await prepare(options, hosting);
     requireRecipe(options.approval === plan.approvalToken, 'Review the exact current local-write approval token.', 'APPROVAL_REQUIRED');
     await mkdir(plan.outputPath, { mode: 0o700 });
     await mkdir(path.join(plan.outputPath, 'infra'), { mode: 0o700 });

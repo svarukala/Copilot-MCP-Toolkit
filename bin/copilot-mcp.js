@@ -85,16 +85,18 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
         output: options.output, approval: options.approve }), true);
       return 0;
     }
-    if (['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'].includes(command)) {
-      const schema = command === 'mcp-container-apps-schema', planning = command === 'mcp-container-apps-plan';
+    if (['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create',
+      'mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'].includes(command)) {
+      const schema = command.endsWith('-schema'), planning = command.endsWith('-plan'), hosting = command.startsWith('mcp-hosting-');
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json', ...(planning ? ['summary'] : ['approve'])];
       if (Object.keys(options).some(key => !allowed.includes(key))
         || !schema && (!workspaceRoot || !options.config || !options.output)) {
         throw new Error('Container Apps schema accepts --json only. Plan/create requires --workspace-root, --config and a new --output directory; create also needs exact --approve. Local source generation only.');
       }
       const recipe = await import('../src/mcp-container-apps.js');
-      if (schema) print(recipe.containerAppsSchema, true);
-      else print(await (planning ? recipe.planContainerApps : recipe.writeContainerApps)({
+      if (schema) print(hosting ? recipe.hostingSchema : recipe.containerAppsSchema, true);
+      else print(await (hosting ? planning ? recipe.planHostingRecipe : recipe.writeHostingRecipe
+        : planning ? recipe.planContainerApps : recipe.writeContainerApps)({
         config: options.config, output: options.output, workspaceRoot, approval: options.approve,
       }), true);
       return 0;
