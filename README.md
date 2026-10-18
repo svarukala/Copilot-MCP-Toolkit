@@ -11,6 +11,37 @@ generator. It generates APIM deployment bundles, not a new Node/Python MCP serve
 Generation, deployment, discovery, protocol proof, result assertions and caller/
 backend rejection are distinct evidence. A generated endpoint is not live readiness.
 
+## Disclaimer, AI-generated code and user responsibility
+
+**This project was developed primarily using AI-generated code.** It may contain
+bugs, security vulnerabilities, incorrect assumptions or incomplete functionality.
+AI assistance, included safeguards and passing tests do not guarantee accuracy,
+security, reliability or suitability for production use.
+
+**The software is provided "AS IS", without warranty of any kind**, as set out in
+the [MIT License](LICENSE), including no warranty of merchantability, fitness for
+a particular purpose or noninfringement. To the extent permitted by applicable
+law, the authors and copyright holders disclaim liability for claims, damages
+or other liability arising from the software or its use, as provided in that
+license. This is not a supported product or a commitment to provide maintenance,
+updates, bug fixes or service levels.
+
+**Customers and other users must take operational ownership of their adoption.**
+You are responsible for independently reviewing and testing the code, deciding
+whether it meets your security and compliance requirements, and maintaining,
+enhancing and fixing the version you use. You are also responsible for your
+deployments, credentials, data handling, third-party permissions and cloud costs.
+Do not rely on the maintainers to identify or resolve defects before using it.
+"Ownership" here means responsibility for your implementation and operation,
+not a transfer of copyright or a change to the MIT license.
+
+**Contributions are encouraged.** When you identify and fix a bug or make a
+useful improvement, please consider submitting a pull request with a clear
+description and relevant tests so others can benefit. Do not include credentials,
+private customer data or sensitive security-exploit details in public issues or
+pull requests. Contributions are subject to review; acceptance or a response
+within any particular timeframe is not guaranteed.
+
 ## Run locally
 
 ```powershell
