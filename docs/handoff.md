@@ -1,10 +1,15 @@
 # Session handoff
 
-Last updated: 2026-10-16. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-18. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
+- Requested backlog item [B1: username/password-authenticated MCP](progress-tracker.md#b1-usernamepassword-authenticated-mcp)
+  covers separate direct-Basic and password-to-token profiles, Key Vault-only
+  credential references, protected caller access, entitlement isolation and
+  token lifecycle without tool-call replay. Not implemented or approved for
+  execution; prefer compatible provider OAuth where available.
 - Setup wording now separates simple questions from technical approval details.
   New and Advanced resource intake choose existing/new APIM, applicable Key Vault,
   and resource group before identifiers; new resources use names, existing ones

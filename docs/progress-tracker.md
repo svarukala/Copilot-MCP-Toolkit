@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-16.
+Last updated: 2026-10-18.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -334,6 +334,43 @@ reported unsupported discovery while the connector details later showed all
 three tools; neither registry availability nor a discovery count proves consumer
 execution. No authentication cache, real identity, raw capture or approval is
 published here. Historical consumed proofs remain consumed.
+
+## Requested capability backlog
+
+Backlog inclusion is not approval to implement, collect credentials, deploy or
+call a provider. Priority and the first supported provider profile remain unset.
+
+| ID | Work | Status | Completion gate |
+| --- | --- | --- | --- |
+| B1 | Support upstream MCP servers requiring username/password authentication | Requested 2026-10-18; not implemented | Review direct HTTP Basic and password-to-token exchange as distinct profiles; agree secure credential storage, caller isolation, token lifecycle and consumer compatibility before implementation |
+
+### B1: Username/password-authenticated MCP
+
+- Distinguish direct HTTP Basic on the MCP endpoint from a provider token
+  endpoint accepting username/password and returning a bearer token. Neither
+  implies OAuth authorization-code support or a generic OAuth password grant.
+  Prefer provider-supported authorization code with PKCE when available.
+- Design a bounded adapter/proxy contract, not password fields in a Cowork
+  manifest or skill. Use explicit Key Vault credential references; never put
+  credential values or tokens in CLI arguments, project JSON, logs, examples,
+  exports or consumer handoffs.
+- Keep downstream caller authentication separate and protected. Review
+  per-user credentials versus an explicitly licensed service account; never
+  share a personal account implicitly or expose protected provider data through
+  an anonymous endpoint. Confirm provider terms and entitlements.
+- Specify token acquisition, expiry/renewal, credential rotation and failure
+  handling. Never silently replay failed, unknown or consumed MCP tool calls
+  when renewing a token; preserve existing approvals, evidence and locks.
+- Acceptance requires synthetic offline coverage of credential isolation,
+  redaction, expiry, rejection and no-replay behavior, plus updated intake,
+  schemas, documentation and consumer handoff limitations. Live provider and
+  Cowork qualification remain separate, explicitly approved operations.
+- Morningstar's [programmatic authentication documentation](https://developer.morningstar.com/content/documentation/api-utilities/authentication-api/api-reference/3.1.0/authentication-api-oas.json)
+  is a reference example, not a selected implementation target. Its
+  [MCP overview](https://developer.morningstar.com/direct-web-services/documentation/morningstar-ai-integrations/morningstar-mcp-server/overview)
+  also documents OAuth integrations; do not assume username/password exchange
+  is the only route or that custom-client authorization-code compatibility is
+  already verified.
 
 ## Next work: MCP Toolkit to WIQD
 
