@@ -983,9 +983,9 @@ test('experimental inspection expiry after report write leaves original history 
   const [filename] = await readdir(path.join(f.dir, '.mcp-lifecycle'));
   const historyFile = path.join(f.dir, '.mcp-lifecycle', filename), history = await readFile(historyFile);
   const before = new Set(readdirSync(f.dir));
-  const started = performance.now();
+  // Integer clock values keep deadline subtraction exact.
   t.mock.method(performance, 'now', () => readdirSync(f.dir).some(name => name.startsWith('reconcile-') && !before.has(name))
-    ? started + 300000 : started);
+    ? 300000 : 0);
   await assert.rejects(f.inspect(), { code: 'AZURE_INSPECTION_TIMEOUT' });
   assert.deepEqual(await readFile(historyFile), history);
   await assert.rejects(readExperimentalConfiguration(f.dir));
@@ -994,11 +994,11 @@ test('experimental inspection expiry after report write leaves original history 
 
 test('experimental inspection expiry during evidence publication invalidates it and remains explicitly refreshable', async t => {
   const f = await configurationFixture(t);
-  const evidenceFile = path.join(f.dir, '.mcp-configuration.json'), started = performance.now();
+  const evidenceFile = path.join(f.dir, '.mcp-configuration.json');
   let expired = false;
   const clock = t.mock.method(performance, 'now', () => {
     if (existsSync(evidenceFile) && JSON.parse(readFileSync(evidenceFile, 'utf8')).evidenceDigest) expired = true;
-    return started + (expired ? 300000 : 0);
+    return expired ? 300000 : 0;
   });
   await assert.rejects(f.inspect(), { code: 'AZURE_INSPECTION_TIMEOUT' });
   assert.equal(JSON.parse(await readFile(evidenceFile)).status, 'inspection-started');

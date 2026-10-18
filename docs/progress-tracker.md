@@ -32,6 +32,25 @@ later edits have been tested.
 | F14 | Explicit public anonymous APIM | Implemented/offline verified | Native anonymous-backend fixed GET only; public/read-only declarations and bounded aggregate throttles on MCP + REST. Entra default, management identity, staging/inheritance/ownership and proof consumption preserved. No Entra resource-app or discovery-client requirement; FCC No Auth. Full offline suite: 770 passed; final public-mode rerun: 36 passed; syntax/types pass. Live qualification pending |
 | F15 | Plain-language setup and visible next steps | Implemented/offline verified | Existing/new APIM and applicable Key Vault choices before IDs; names for new resources, exact IDs for existing resources. Short save question with full approval reference retained. Skill directs one-question intake and next-action offers without automatic deployment or bypassing local-only limits. 57 focused offline checks, including fresh packed consumer, passed; syntax/types pass. Installed skill copies unchanged; conversational/live behavior not yet requalified |
 
+## FSI audience documentation and merge review
+
+2026-10-18: the README now explains MCP in plain language, gives numbered
+PowerShell setup steps and terminal/Copilot CLI choices, and includes a public
+exchange-rate demo and a concise support table. AI-generated/as-is terms and
+customer operational responsibility remain prominent. The configured dependency
+feed is an explicit installation prerequisite, not a claim of public npm
+reproducibility. Requested obsolete naming was removed from tracked files.
+
+Read-only review of the accumulated branch against main found no significant
+issues. Syntax, strict types, README file-link checks and CLI help passed.
+The full offline run executed 774 tests: 773 passed and one expiry test failed
+because its fractional mock clock could round the elapsed time below the exact
+deadline. Both affected expiry mocks now use integer times; runtime code and
+timeout limits are unchanged. All six targeted inspection-budget/expiry tests,
+three independence tests and both expiry tests under the formerly failing
+fractional clock origin passed afterward. The full suite was not rerun after
+this test-only correction. No live provider or consumer qualification is implied.
+
 ## Scenario and runtime qualification
 
 Implementation details and all unsupported cases remain in

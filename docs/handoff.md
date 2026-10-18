@@ -5,6 +5,13 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- FSI audience preparation: the README has numbered setup steps, a public FX
+  demo, simple capability limits and the retained as-is/AI-generated disclaimer.
+  It discloses the dependency-feed access prerequisite. The accumulated branch
+  received a read-only code review; a full offline run found one fractional-clock
+  test failure, corrected with exact integer mock times and passing targeted
+  regressions. See [review evidence](progress-tracker.md#fsi-audience-documentation-and-merge-review);
+  runtime timeout behavior and live-operation approval boundaries are unchanged.
 - Requested backlog item [B1: username/password-authenticated MCP](progress-tracker.md#b1-usernamepassword-authenticated-mcp)
   covers separate direct-Basic and password-to-token profiles, Key Vault-only
   credential references, protected caller access, entitlement isolation and
