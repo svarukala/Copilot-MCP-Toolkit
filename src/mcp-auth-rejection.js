@@ -184,7 +184,7 @@ export async function planMcpAuthRejection(projectDir, excludeAttempt, backend =
     return { ...plan, approvalDigest: digest(plan) };
   }
   requireMetadata(!backend, 'AUTH_REJECTION_UNSUPPORTED');
-  if (descriptor.kind === 'existing-mcp' && descriptor.inbound.type === 'anonymous') return {
+  if (descriptor.inbound.type === 'anonymous') return {
     schemaVersion: 1, action: 'standalone-mcp-auth-rejection', status: 'not-applicable',
     reason: 'Anonymous MCP has no bearer rejection gate. This is not a passing authentication test.', toolDispatched: false };
   requireMetadata(descriptor.kind === 'native-apim-mcp' && descriptor.inbound.type === 'entra', 'AUTH_REJECTION_UNSUPPORTED');

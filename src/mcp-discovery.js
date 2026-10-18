@@ -53,8 +53,12 @@ export function planMcpDiscovery(value, options = {}) {
     methods: ['initialize', 'notifications/initialized', 'tools/list'],
     limitations: [
       'Network/login requires separate exact approval; tools/call is not authorized.',
-      'Runtime discovery user is explicit and independent from the Azure deployment account.',
-      'Existing public discovery-client registration, delegated consent and endpoint authorization are prerequisites, not inferred from app metadata.',
+      source.kind === 'native-apim-mcp' && source.inbound.type === 'anonymous'
+        ? 'This public endpoint has no MCP discovery-user identity. Azure management identity remains a separate requirement.'
+        : 'Runtime discovery user is explicit and independent from the Azure deployment account.',
+      ...(source.kind === 'native-apim-mcp' && source.inbound.type === 'anonymous'
+        ? ['No MCP caller identity or consent is required. Azure management authorization for deployment and native proof readback remains separate.']
+        : ['Existing public discovery-client registration, delegated consent and endpoint authorization are prerequisites, not inferred from app metadata.']),
       'No authentication downgrade, resource mutation, token persistence or automatic retry is performed.',
       'Descriptor status is generation/reference evidence; tools/list is not Cowork runtime acceptance.',
     ] };

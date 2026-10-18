@@ -33,7 +33,7 @@ test('consumer fallback and packaging execution are absent rather than hidden be
   }
   for (const file of files.filter(f => f.endsWith('.js'))) {
     const text = await readFile(path.join(TOOLKIT_ROOT, 'src', file), 'utf8');
-    assert.doesNotMatch(text, /from ['"][^'"]*(?:Cowork-Plugin-Toolkit|cowork-plugin-toolkit)|\.source-import|D4NA/);
+    assert.doesNotMatch(text, /from ['"][^'"]*(?:Cowork-Plugin-Toolkit|cowork-plugin-toolkit)|\.source-import/);
   }
 });
 

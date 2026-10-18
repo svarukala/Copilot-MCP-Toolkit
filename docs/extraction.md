@@ -22,10 +22,15 @@ product dependencies. `deployment-diagnostic.js` contains only the closed
 diagnostic normalizer formerly mixed into workflow state. Entra metadata/discovery
 retain only shared authentication primitives. Azure retains standalone app
 **verification**, not token-store app creation/merge or consumer registration.
-Separate MCP app-setup phases remain supported.
+Separate MCP app-setup phases remain supported. The later user-approved
+[auth-registration module](auth-registration.md) adds local shared SSO/OAuth
+preparation and consumer references, not token-store execution or a dependency
+on the original workflow.
 
-The known first-party service-client UUID remains only a **discovery denylist**
-constant. It is never a default inbound client or registration target.
+The known first-party service-client UUID remains a **discovery denylist**
+constant and is also displayed as explicit token-store setup guidance by the
+FCC/auth-registration handoffs. It is never a default operator discovery client,
+silently added inbound client, or automatically selected registration target.
 All standalone inbound/resource identities are explicit; plugin-shaped configs
 cannot select a legacy fallback. YAML/skill-authoring runtime and Teams schema
 assets are absent. No original recovery archives, projects, auth caches, captures,

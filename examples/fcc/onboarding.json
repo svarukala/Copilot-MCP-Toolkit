@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "connector": {
+    "displayName": "Synthetic literature connector",
+    "description": "Offline demonstration of read-only literature connector preparation. Not a deployed PubMed connector.",
+    "developer": {
+      "name": "Example Developer",
+      "websiteUrl": "https://example.com/literature",
+      "privacyPolicyUrl": "https://example.com/privacy",
+      "termsOfUseUrl": "https://example.com/terms"
+    }
+  },
+  "source": {
+    "descriptorFile": "server/mcp-server.json"
+  },
+  "authentication": {
+    "type": "entra-sso"
+  },
+  "review": {
+    "metadataApprovedForExport": true,
+    "dataAccess": "public-data",
+    "dataAccessReason": "Synthetic public-literature scenario only. Review the real backend before any live use.",
+    "tools": [
+      {
+        "name": "search",
+        "readOnly": true,
+        "reason": "Proposed synthetic retrieval operation; no observed tool definition or runtime behavior is claimed."
+      },
+      {
+        "name": "fetch",
+        "readOnly": true,
+        "reason": "Proposed synthetic record retrieval; no observed tool definition or runtime behavior is claimed."
+      }
+    ]
+  }
+}

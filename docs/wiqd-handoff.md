@@ -4,12 +4,48 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+2026-10-15 approved scope addition: [shared auth preparation](auth-registration.md)
+now exports explicit SSO/OAuth settings and nonsecret FCC/plugin reference data.
+This narrow implementation is not H1/H3's endpoint/tool contract and does not
+invoke WIQD. A separate Linux-only public ATK execution adapter now implements
+reviewed SSO/OAuth registration and unverified result import. Real
+Linux/provider qualification and package/runtime compatibility remain unverified.
+
+Subsequent Windows investigation: WIQD 0.18.0 Core offers an account picker and
+browser-authentication switch without ATK's unconditional interactive logout.
+Its fixed Credential Manager encryption-key namespace is not isolated by HOME
+redirection. A supported project-private credential boundary and bounded
+registration interface remain prerequisites for a native replacement; no WIQD
+cache/token transfer is approved. See
+[the investigation](auth-registration.md#native-windows-wiqd-investigation).
+The toolkit's Linux fresh packed-consumer test now passes; this is package
+portability evidence, not WIQD consumer or live-authentication compatibility.
+
+The narrower user-managed Windows auth handoff is now implemented through
+`mcp-auth-wiqd-schema/plan/bundle`. It emits registration review data and
+operator-run WIQD command guidance, not the proposed H1 endpoint/tool contract.
+It never runs WIQD, edits its project, adopts its credentials or claims
+project-isolated authentication. Whole-app provisioning requires separate
+operator review. Reference return uses the existing unverified preparation/FCC
+path. This does not implement a native automatic registration adapter.
+
+FCC-only clarification (2026-10-15): this optional app/plugin handoff is not a
+prerequisite for custom FCC onboarding. Do not create a WIQD agent or app package
+to satisfy the ATK action's app-ID requirement. The direct Teams Developer Portal
+auth-registration flow remains an alternative to the separate, explicitly
+opted-in tenant-only SSO ATK compatibility path. That executor can supply the
+unused `AnyApp` validation argument without an agent or later restriction
+switch; it does not change this WIQD handoff. FCC form entry stays manual; see
+[FCC-only onboarding](federated-connectors.md#fcc-only-route-no-agent-project).
+
 ## Boundary
 
 MCP Toolkit owns the MCP endpoint, APIM/Key Vault integration, supported explicit
 Entra setup, and guarded discovery/proof/evidence. WIQD owns composing the
-endpoint into a Cowork/M365 app package, consumer credential references,
-package validation, provisioning and distribution.
+endpoint into a Cowork/M365 app package, mapping consumer credential references,
+package validation, provisioning and distribution. Shared auth configuration
+preparation and its separate execution module now belong here, retaining their
+own provider identity, no-replay and phase-review boundary.
 
 The integration should be a versioned data contract, not a dependency on a private
 MCP module, a copied infrastructure engine, or a revival of Cowork Plugin Toolkit.

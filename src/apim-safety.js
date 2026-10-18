@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { apimMode, gatewayApiId, needsGateway, resourceOwnerIdentity, upstreamMcpMapping,
   experimentalProxy, proxyBackendId, SECRET_USER_ROLE } from './contract.js';
+import { publicAnonymous } from './apim-public.js';
 
 export const OWNER_TAG = 'cowork-toolkit-project';
 
@@ -25,6 +26,7 @@ export function deploymentTarget(config) {
     apim: a?.apimName ?? null, vault: a?.keyVaultName ?? null,
     ...(a?.resourceGroupMode ? { resourceGroupMode: a.resourceGroupMode } : {}),
     ...(a?.keyVaultMode ? { keyVaultMode: a.keyVaultMode } : {}),
+    ...(publicAnonymous(config) ? { publicExposure: { profile: 'public-read-only-get-v1', inbound: config.inbound } } : {}),
   };
 }
 

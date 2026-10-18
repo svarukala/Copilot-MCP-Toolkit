@@ -1,85 +1,227 @@
 # Copilot MCP Toolkit
 
-An independent **Node.js 22+ CLI and library** for bounded REST-to-MCP scenarios,
-existing MCP references, and guarded Azure API Management lifecycle operations.
-GitHub Copilot CLI can use the same engine through the included guidance skill.
-No Cowork toolkit installation, plugin package, token-store registration or D4NA
-runtime is required.
+**Turn supported REST API operations into tools that AI assistants can use.**
+Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
+Management (APIM), and check them in separately approved steps. You can also
+connect to an existing Model Context Protocol (MCP) server.
 
-This is an experimental engineering toolkit, not an arbitrary REST/OAuth-to-server
-generator. It generates APIM deployment bundles, not a new Node/Python MCP server.
-Generation, deployment, discovery, protocol proof, result assertions and caller/
-backend rejection are distinct evidence. A generated endpoint is not live readiness.
+MCP is a standard way for AI assistants to discover and call tools. For a financial
+services demo, those tools might retrieve public exchange rates or access an
+approved research service. The toolkit does not provide financial data licenses
+or investment advice.
 
-## Run locally
+Use the guided terminal setup or work conversationally with **GitHub Copilot
+CLI**. This is an experimental developer toolkit, not a turnkey production
+product. It creates APIM deployment files, not a standalone Node.js or Python
+MCP server. **Saving files does not deploy an endpoint or make it available in
+Microsoft 365 Copilot.**
+
+[Quick start](#quick-start) |
+[FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
+[What is supported](#what-is-supported) |
+[Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Disclaimer, AI-generated code and user responsibility
+
+**This project was developed primarily using AI-generated code.** It may contain
+bugs, security vulnerabilities, incorrect assumptions or incomplete functionality.
+AI assistance, included safeguards and passing tests do not guarantee accuracy,
+security, reliability or suitability for production use.
+
+**The software is provided "AS IS", without warranty of any kind**, as set out in
+the [MIT License](LICENSE), including no warranty of merchantability, fitness for
+a particular purpose or noninfringement. To the extent permitted by applicable
+law, the authors and copyright holders disclaim liability for claims, damages
+or other liability arising from the software or its use, as provided in that
+license. This is not a supported product or a commitment to provide maintenance,
+updates, bug fixes or service levels.
+
+**Customers and other users must take operational ownership of their adoption.**
+You are responsible for independently reviewing and testing the code, deciding
+whether it meets your security and compliance requirements, and maintaining,
+enhancing and fixing the version you use. You are also responsible for your
+deployments, credentials, data handling, third-party permissions and cloud costs.
+Do not rely on the maintainers to identify or resolve defects before using it.
+"Ownership" here means responsibility for your implementation and operation,
+not a transfer of copyright or a change to the MIT license.
+
+**Contributions are encouraged.** When you identify and fix a bug or make a
+useful improvement, please consider submitting a pull request with a clear
+description and relevant tests so others can benefit. Do not include credentials,
+private customer data or sensitive security-exploit details in public issues or
+pull requests. Contributions are subject to review; acceptance or a response
+within any particular timeframe is not guaranteed.
+
+## Quick start
+
+### 1. Check what you need
+
+For local setup, install **Git**, **Node.js 22 or later** (with npm), and optionally
+**GitHub Copilot CLI** if you want conversational guidance. The commands below
+use PowerShell. Windows users do not need Linux or Docker for local setup.
+
+For Azure deployment later, you also need an Azure subscription, permission to
+use or create the selected resources, and the tools required by the
+[deployment workflow](docs/cli-contract.md). Azure resources and API usage can
+incur charges. Microsoft 365 onboarding additionally requires the appropriate
+tenant access, licensing and administrator approvals.
+
+### 2. Download the toolkit and install dependencies
+
+Run this from a folder where you keep source code:
 
 ```powershell
-npm ci --offline --ignore-scripts --no-audit --fund=false
+git clone https://github.com/svarukala/Copilot-MCP-Toolkit.git
+Set-Location .\Copilot-MCP-Toolkit
+npm ci --ignore-scripts --no-audit --fund=false
 node .\bin\copilot-mcp.js --help
-node .\bin\copilot-mcp.js capabilities --json
+```
+
+**Installation prerequisite:** this checkout currently uses the package feed
+`https://packagefeedproxy.microsoft.io/npm/`, including URLs in its lockfile.
+Your environment must be permitted and able to access that feed. Installation
+from public npm alone has not been verified. If access fails, stop and arrange
+an approved dependency source with your IT team; do not disable TLS checks or
+bypass network policy. If all dependencies are already cached, add `--offline`
+to `npm ci`. See [dependency setup](docs/development.md).
+
+You do not need to publish this package to npm or install it globally.
+
+### 3. Create a separate folder for your generated projects
+
+Keep credentials, generated files and deployment evidence out of this repository:
+
+```powershell
+$workspace = Join-Path $HOME 'mcp-work'
+New-Item -ItemType Directory -Path $workspace -Force | Out-Null
+$workspace
+```
+
+Save the printed path. Setup will ask for this existing workspace and a **new
+project folder inside it**, such as `mcp-work\fx-demo`. Existing project folders
+will not be overwritten.
+
+### 4. Choose how you want to work
+
+**Option A: Guided terminal setup**
+
+From the toolkit folder, run:
+
+```powershell
 node .\bin\copilot-mcp.js
 ```
 
-The last command opens a terminal-only guided **review**: generation, explicit
-resource choices, or resume. It never automatically approves login or execution.
-Use explicit commands with `--json` in automation. `copilot-mcp` is also the package
-bin after a local package installation; npm publication and global installation
-are unnecessary. Offline installation requires the locked tarballs in the local
-cache. Otherwise obtain approval for the configured feed; never bypass TLS, proxy
-or network policy. See [development](docs/development.md).
+| Menu option | Use it to |
+| --- | --- |
+| Start a new MCP setup | Choose a REST API or existing MCP server and its authentication method. |
+| Resume an existing setup | Review saved progress and the next required step; nothing runs automatically. |
+| Advanced | Review an existing toolkit definition or change proposed Azure resource choices. |
+| Exit | Leave without making changes. |
 
-### First local bundle (no network)
+For APIM setups, choose existing or new APIM, Key Vault (only for API-key
+backends), and resource group before entering their details. Existing resources
+need full Resource IDs; new resources need names. Then review the files and
+choose whether to save them. **This step does not sign in or deploy to Azure.**
 
-All examples contain synthetic IDs and endpoints, not deployable account selections.
-Use an explicit workspace separate from installed code:
+**Option B: GitHub Copilot CLI**
 
-```powershell
-$cli = (Resolve-Path .\bin\copilot-mcp.js).Path
-$workspace = Join-Path $HOME 'mcp-work'
-New-Item -ItemType Directory -Path $workspace -ErrorAction Stop
-Copy-Item .\examples\mcp\existing-anonymous.json (Join-Path $workspace 'definition.json')
-$definition = Join-Path $workspace 'definition.json'
-$project = Join-Path $workspace 'server'
-$review = node $cli mcp-server-plan --workspace-root $workspace --config $definition --json --summary | ConvertFrom-Json
-node $cli mcp-server-create --workspace-root $workspace --config $definition --output $project --approve $review.reviewDigest --json
-node $cli mcp-resume --workspace-root $workspace --project $project --json --summary
+From the same toolkit folder, start `copilot` and use a prompt like:
+
+> Read `skills\copilot-mcp\SKILL.md` from this checkout and use
+> `bin\copilot-mcp.js`. Help me create a new MCP setup for a REST API.
+> Ask one simple question at a time. Keep generated projects in a separate
+> workspace outside this repository. Prepare local files only; do not sign in,
+> deploy or call the endpoint yet.
+
+You can also [install the included skill](docs/copilot-cli.md) for use from
+other folders. The skill guides the same CLI; it does not give Copilot extra
+permissions. Never paste passwords, API keys or tokens into prompts.
+
+### 5. Review the next step
+
+After files are saved, the toolkit shows a Resume report. For an APIM setup,
+the overall journey is:
+
+| Stage | What happens |
+| --- | --- |
+| Prepare | Save the reviewed configuration and deployment files locally. |
+| Sign in and inspect | Select your Azure account and check the intended resources, with separate approval. |
+| Deploy | Review and approve the exact Azure changes, including any new resources and costs. |
+| Discover and test | Separately approve listing MCP tools and any eligible test call. |
+| Connect to a consumer | Follow the separate Microsoft 365 or plugin onboarding process. |
+
+Not every source or authentication method supports every stage. Follow the
+report rather than skipping prerequisites. If an operation fails or its outcome
+is unclear, inspect the retained state instead of repeating it blindly.
+**A successful deployment or tool listing is not proof that Cowork or another
+consumer can use the endpoint.**
+
+## FSI demo idea: public exchange rates
+
+A simple starting point is a fixed, read-only EUR/USD reference-rate endpoint:
+
+```text
+https://api.frankfurter.dev/v2/rate/eur/usd
 ```
 
-The reference is **not verified**. For REST generation, review and adapt
-`examples/mcp/catalog.json` instead: explicit Entra inbound plus an anonymous
-backend. Other examples cover Key Vault upstream MCP, delegated fixtures and
-system-managed-identity application access. Never put API keys or tokens in JSON.
+In New setup, choose **REST API > Anonymous / no authentication > One fixed GET
+endpoint** and enter the URL. The toolkit generates the minimal OpenAPI
+definition for that one operation; it does not fetch the endpoint during setup.
+For more complex APIs, supply a local OpenAPI 3.0.x JSON file and select operations.
 
-### Continue safely
+Backend authentication and caller access are separate choices. Keep Entra
+authentication for restricted callers, or explicitly choose public anonymous
+access only after confirming the data is public and the operation is read-only.
+Public mode requires request limits and exposes both the MCP and backing REST
+routes; it is not suitable for licensed research or private customer data.
+Azure management still requires sign-in, and APIM hosting is not free.
 
-`mcp-resume` presents completed/stale/pending/blocked layers and one supported next
-plan. Explicit new tenant, subscription and account selection precedes any Azure
-creation. Account-switch approval is separate from deployment approval; MCP user
-authentication is separate again. Copy the exact current top-level approval and
-required effect flags. Changed input, identity, freshness or history invalidates
-the previous approval. No implicit login, capture renewal, negative-matrix replay
-or retry of a dispatched call is provided.
+After separate deployment, testing and consumer onboarding, a demo prompt could be:
 
-`mcp-diagnose` is local evidence-only. `mcp-export-plan` / `mcp-export`, archive
-inspection, and new-destination restore preserve evidence without porting auth
-caches or rewriting history. In Cloud Shell, a checkpoint on the same filesystem
-is **not** a cross-device backup; storage persistence is unknown unless explicitly
-declared, and declaration is not verification.
+> Retrieve the latest available EUR/USD reference rate and its date. Calculate
+> the indicative USD value of EUR 100,000 and explain why a bank's settlement
+> amount may differ.
 
-## Integrations and boundaries
+This is reference data, not a real-time trading quote. This recipe is not a
+claim of completed end-to-end qualification. See the
+[demo runbook](docs/fcc-demo.md) and [public-access limits](docs/scenarios.md#public-anonymous-apim).
+Repository examples use fictional identifiers; replace them only with explicitly
+selected values for your environment.
 
-- [Session handoff and next starting point](docs/handoff.md)
-- [Implementation and scenario tracking](docs/progress-tracker.md)
-- [Proposed MCP Toolkit to WIQD handoff](docs/wiqd-handoff.md)
-- [CLI contract and exact approval flows](docs/cli-contract.md)
-- [Scenario/auth coverage and unsupported limits](docs/scenarios.md)
-- [Install the GitHub Copilot CLI skill](docs/copilot-cli.md)
-- [Library API](docs/api.md)
-- [Extraction and compatibility decisions](docs/extraction.md)
+## What is supported
 
-The skill provides instructions, not a second execution engine or an MCP tool-server
-facade. It cannot grant host/tool permissions or register the generated server.
-No live/cloud/provider validation is implied by the offline tests.
+| Scenario | Current boundary |
+| --- | --- |
+| REST API through APIM | Selected operations with supported anonymous, Key Vault API-key or limited Entra authentication patterns. Not every API can be converted. |
+| Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
+| Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
+| Username/password MCP | Backlog only; not implemented. |
+| Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
+| Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |
+
+API keys belong in Azure Key Vault, referenced by configuration, never stored
+as values in toolkit JSON. Some advanced authentication-registration execution
+requires Linux; that is not a prerequisite for the local quick start.
+Testing support is narrower than generation support. Read the
+[scenario matrix](docs/scenarios.md) before choosing a production use case.
+
+## Learn more and contribute
+
+| Goal | Guide |
+| --- | --- |
+| Follow the guided setup or use Copilot CLI | [Copilot CLI guide](docs/copilot-cli.md) |
+| Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
+| Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
+| Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |
+| See completed work, limitations and backlog | [Progress tracker](docs/progress-tracker.md) |
+| Develop, test or contribute fixes | [Development guide](docs/development.md) |
+| Use the library from code | [Library API](docs/api.md) |
+| Continue toolkit integration development | [Handoff](docs/handoff.md) and [WIQD proposal](docs/wiqd-handoff.md) |
+
+Contributions should include relevant tests and contain only synthetic examples,
+not real customer data or credentials. Tests are offline and do not contact
+Azure, Microsoft 365 or data providers. Passing them does not establish live
+service compatibility.
 
 MIT; original attribution is retained in [LICENSE](LICENSE). Dependency notices
 are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

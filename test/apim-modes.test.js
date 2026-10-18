@@ -221,6 +221,62 @@ function runner(cfg, application, options = {}) {
   return { run, calls, apis, policies, values, service, backend, proxyBackends, grants, apiDiagnostics, operations, tools, operationPolicies, global: () => globalPolicy };
 }
 
+for (const scenario of ['pass', 'inherited-auth', 'collision', 'protected-receipt']) {
+  test(`public native lifecycle preserves management identity and safety boundaries: ${scenario}`, async t => {
+    await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
+    const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'public-lifecycle-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    t.mock.method(globalThis, 'fetch', () => assert.fail('No live requests in lifecycle tests'));
+    const input = JSON.parse(await readFile(new URL('../examples/mcp/public-rates.json', import.meta.url)));
+    const review = await prepareMcpServer(input), dir = path.join(root, 'project'), cfg = mcpRuntimeConfig(input);
+    await createMcpServerProject(review, { workspaceRoot: root, projectDir: dir });
+    assert.equal((await planMcpServerProvision(dir, { phase: 'gateway' })).approvalToken, null);
+    await selectMockAzureIdentity(dir, cfg.azure);
+    if (scenario === 'protected-receipt') {
+      const target = deploymentTarget(cfg);
+      delete target.publicExposure;
+      await writeFile(path.join(dir, 'infra', 'provisioning-receipt.json'), JSON.stringify({ target }));
+      await assert.rejects(planMcpServerProvision(dir, { phase: 'gateway' }), { code: 'PROVISIONING_TARGET_CHANGED' });
+      return;
+    }
+    const mock = runner(cfg, undefined, scenario === 'inherited-auth'
+      ? { globalPolicy: '<policies><inbound><validate-jwt header-name="Authorization" /></inbound></policies>' } : {});
+    const run = async (command, args) => {
+      assert.ok(!args.some(arg => arg.includes('graph.microsoft.com')), 'No resource-app/Graph requests for public mode');
+      return mock.run(command, args);
+    };
+    if (scenario === 'collision') {
+      const id = review.descriptor.ownership.apiId;
+      mock.apis.set(id, { name: id, properties: { path: id, type: 'mcp', description: ownerDescription(cfg) } });
+    }
+    for (const phase of scenario === 'pass' ? ['foundation', 'finalize', 'gateway'] : ['gateway']) {
+      const plan = await planMcpServerProvision(dir, { phase });
+      assert.ok(plan.approvalToken);
+      assert.ok(plan.plan.azureIdentity);
+      assert.ok(plan.plan.steps.some(step => step.id === 'check-account'));
+      assert.ok(!plan.plan.steps.some(step => /^check-app-|^authorization-|secret-access/.test(step.id)));
+      assert.equal(plan.prerequisites.applicationCreation, 'not-required-public-anonymous');
+      const result = await provisionMcpServer(dir, { phase, approval: plan.approvalToken, run });
+      if (scenario === 'pass') assert.equal(result.lifecycleStatus, 'completed', JSON.stringify(result));
+      else {
+        assert.equal(result.errorCode, scenario === 'collision' ? 'APIM_API_COLLISION' : 'APIM_POLICY_REVIEW_REQUIRED');
+        assert.ok(!mock.calls.some(args => args[0] === 'deployment' || args.includes('PUT')));
+      }
+    }
+    assert.equal(mock.global(), scenario === 'inherited-auth'
+      ? '<policies><inbound><validate-jwt header-name="Authorization" /></inbound></policies>' : passthrough);
+    assert.equal(mock.policies.get('unrelated'), passthrough);
+    if (scenario === 'pass') {
+      await assert.rejects(planMcpServerProvision(dir, { phase: 'gateway' }), /Gateway already completed/);
+      const id = review.descriptor.ownership.apiId;
+      for (const api of [id, `${id}-rest`]) {
+        assert.equal(mock.apis.get(api).properties.subscriptionRequired, false);
+        assert.match(mock.policies.get(api), /rate-limit-by-key/);
+      }
+    }
+  });
+}
+
 async function experimentalFixture(t, { tavily = false } = {}) {
   await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
   const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'experimental-lifecycle-'));
@@ -927,9 +983,9 @@ test('experimental inspection expiry after report write leaves original history 
   const [filename] = await readdir(path.join(f.dir, '.mcp-lifecycle'));
   const historyFile = path.join(f.dir, '.mcp-lifecycle', filename), history = await readFile(historyFile);
   const before = new Set(readdirSync(f.dir));
-  const started = performance.now();
+  // Integer clock values keep deadline subtraction exact.
   t.mock.method(performance, 'now', () => readdirSync(f.dir).some(name => name.startsWith('reconcile-') && !before.has(name))
-    ? started + 300000 : started);
+    ? 300000 : 0);
   await assert.rejects(f.inspect(), { code: 'AZURE_INSPECTION_TIMEOUT' });
   assert.deepEqual(await readFile(historyFile), history);
   await assert.rejects(readExperimentalConfiguration(f.dir));
@@ -938,11 +994,11 @@ test('experimental inspection expiry after report write leaves original history 
 
 test('experimental inspection expiry during evidence publication invalidates it and remains explicitly refreshable', async t => {
   const f = await configurationFixture(t);
-  const evidenceFile = path.join(f.dir, '.mcp-configuration.json'), started = performance.now();
+  const evidenceFile = path.join(f.dir, '.mcp-configuration.json');
   let expired = false;
   const clock = t.mock.method(performance, 'now', () => {
     if (existsSync(evidenceFile) && JSON.parse(readFileSync(evidenceFile, 'utf8')).evidenceDigest) expired = true;
-    return started + (expired ? 300000 : 0);
+    return expired ? 300000 : 0;
   });
   await assert.rejects(f.inspect(), { code: 'AZURE_INSPECTION_TIMEOUT' });
   assert.equal(JSON.parse(await readFile(evidenceFile)).status, 'inspection-started');

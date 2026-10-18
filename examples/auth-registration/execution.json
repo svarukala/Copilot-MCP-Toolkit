@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "providerRoot": "/opt/atk/node_modules/@microsoft/m365agentstoolkit-cli"
+}

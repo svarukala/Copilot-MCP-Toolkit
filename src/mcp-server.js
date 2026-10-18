@@ -10,6 +10,7 @@ import { ownerId } from './apim-safety.js';
 import { secretIssues } from './validation.js';
 import { managedIdentitySchema, checkManagedIdentityConfig, managedIdentityGuidance } from './apim-managed-identity.js';
 import { graphOrganizationOperation } from './mcp-graph-organization.js';
+import { publicInboundSchema, publicAnonymous, publicExposureWarnings } from './apim-public.js';
 
 export const mcpServerContractVersion = 1;
 const object = (properties, required = Object.keys(properties)) => ({ type: 'object', additionalProperties: false, properties, required });
@@ -24,7 +25,7 @@ const inboundSchema = object({
 const serverSchema = object({ id: uuid, name: text(100) });
 const restInputSchema = object({
   schemaVersion: { const: 1 }, server: serverSchema, azure: azureSchema,
-  inbound: inboundSchema,
+  inbound: { oneOf: [inboundSchema, publicInboundSchema] },
   backend: { ...object({
     endpoint: { type: 'string', maxLength: 2048 }, auth: { enum: ['anonymous', 'api-key', 'entra', 'managed-identity'] },
     apiKey: apiKeySchema,
@@ -71,7 +72,7 @@ const descriptorSchema = object({
   contractVersion: { const: 1 }, kind: { const: 'native-apim-mcp' },
   status: { const: 'generated-not-deployed' }, server: serverSchema,
   endpoint: { type: 'string', maxLength: 2048 }, transport: { const: 'streamable-http' },
-  inbound: inboundSchema, target: azureSchema,
+  inbound: restInputSchema.properties.inbound, target: azureSchema,
   ownership: object({ ownerId: { type: 'string', pattern: '^[a-f0-9]{24}$' },
     apiId: { type: 'string', pattern: '^mcp-[a-f0-9]{12}$' } }),
   operationIds: restInputSchema.properties.operationIds,
@@ -79,6 +80,7 @@ const descriptorSchema = object({
   descriptorDigest: { type: 'string', pattern: '^sha256:[a-f0-9]{64}$' },
 });
 const proxyDescriptorSchema = structuredClone(descriptorSchema);
+proxyDescriptorSchema.properties.inbound = inboundSchema;
 proxyDescriptorSchema.properties.kind = { const: 'apim-mcp-proxy' };
 delete proxyDescriptorSchema.properties.operationIds;
 proxyDescriptorSchema.required = proxyDescriptorSchema.required.filter(key => key !== 'operationIds');
@@ -115,7 +117,8 @@ export function mcpRuntimeConfig(input) {
     server: input.server, inbound: input.inbound, azure: input.azure,
     ...(input.schemaVersion === 3 ? { experimentalProfile: input.experimentalProfile } : {}),
     connectors: [{ id: 'server', displayName: input.server.name, description: input.server.name,
-      kind: input.kind === 'apim-mcp-proxy' ? 'mcp' : 'rest', ...input.backend, entra: input.inbound,
+      kind: input.kind === 'apim-mcp-proxy' ? 'mcp' : 'rest', ...input.backend,
+      ...(input.inbound.type === 'entra' ? { entra: input.inbound } : {}),
       ...(input.kind === 'apim-mcp-proxy' && input.schemaVersion >= 2 ? { mcpProxyVersion: input.schemaVersion } : {}),
       ...(input.kind === 'apim-mcp-proxy' ? {} : { rest: { operationIds: input.operationIds, document: input.document } }) }],
   };
@@ -165,7 +168,8 @@ export async function prepareMcpServerDefinition(value) {
     ...Object.fromEntries(Object.entries(resources).map(([name, contents]) => [`infra/${name}`, savedJson(contents)])),
   };
   requireInput(Object.values(files).reduce((n, bytes) => n + Buffer.byteLength(bytes), 0) <= 8 * 1024 * 1024, 'MCP bundle exceeds 8 MiB.');
-  const review = { contractVersion: 1, evidence: 'local-generation-review', input, descriptor, files, limitations: [...limits,
+  const review = { contractVersion: 1, evidence: 'local-generation-review', input, descriptor, files, limitations: [
+    ...(!direct && publicAnonymous(input) ? [...limits.slice(0, 3), ...publicExposureWarnings, limits[5]] : limits),
     ...(input.schemaVersion === 3 ? [
       'EXPERIMENTAL owned-backend-routing-v1: explicit backendId, message dictionary and fixed /mcp/ policy. Preview MCP policy execution and forwarding are NOT qualified by offline generation or ARM readback.',
       'Only existing APIM/group/vault and an existing exact secret-scoped grant are supported. No role, secret or Entra mutations; one new owned backend/API with local policy and Key Vault reference. Discovery and tools/call require separate review.',
@@ -222,7 +226,7 @@ export function validateMcpServerDescriptor(value) {
     if (descriptor.inbound.type === 'entra') checkedInbound(descriptor.inbound, descriptor.inbound);
     return descriptor;
   }
-  checkedInbound(descriptor.inbound, descriptor.target);
+  if (descriptor.inbound.type === 'entra') checkedInbound(descriptor.inbound, descriptor.target);
   const config = { server: descriptor.server, azure: descriptor.target };
   const apiId = gatewayApiId(config, {});
   requireInput(descriptor.endpoint === `https://${descriptor.target.apimName}.azure-api.net/${apiId}/mcp`

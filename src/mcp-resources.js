@@ -6,6 +6,7 @@ import { apimMode, keyVaultMode, experimentalProxy, proxyBackendId } from './con
 import { readAzureIdentity, azureIdentityGuard } from './azure-identity.js';
 import { runAzureCommand } from './azure.js';
 import { requireControl as ensure, writeControl, controlOutput, controlFailure, withControlLock } from './mcp-control.js';
+import { azureSchema } from './config.js';
 
 export function resourceChoices(config) {
   const a = config.azure, keyed = config.connectors.some(c => c.auth === 'api-key');
@@ -67,22 +68,65 @@ export async function prepareResourceSelection(value) {
     resources: resourceChoices(mcpRuntimeConfig(review.input)), compatibility: 'not-cloud-verified', reviewDigest: review.reviewDigest };
   return { ...plan, approvalToken: `mcp-resources/${metadataDigest(plan)}` };
 }
-export async function chooseMcpResources(definition, prompt) {
+function resourceModes(definition, key) {
+  if (key === 'keyVault' && definition.backend.auth !== 'api-key') return ['none'];
+  return definition.backend.auth === 'managed-identity' || definition.schemaVersion === 3 ? ['existing'] : ['existing', 'new'];
+}
+export async function promptMcpResourceModes(definition, prompt) {
   ensure(definition.kind !== 'existing-mcp', 'Direct MCP references need no Azure resource selection.');
-  prompt.output.write('Local resource choice only: no Azure inventory or compatibility is claimed. Reuse can be entered by exact resource ID even if inventory is denied. Account login, inventory and provisioning each need separate review.\n');
-  const selection = {};
-  for (const [key, label] of [['resourceGroup', 'Resource group'], ['apim', 'API Management'], ['keyVault', 'Key Vault']]) {
-    if (key === 'keyVault' && definition.backend.auth !== 'api-key') { selection[key] = { mode: 'none' }; continue; }
-    const mode = await prompt.choose(`${label}: reuse existing or create new?`, [
-      { value: 'cancel', label: 'Cancel without writing or provisioning' },
-      { value: 'existing', label: 'Reuse an exact existing resource ID (manual entry; not yet verified)' },
-      ...(definition.backend.auth === 'managed-identity' || definition.schemaVersion === 3 ? [] : [{ value: 'new', label: 'Create new after separate target/resource/cost approval' }]),
+  prompt.output.write('First choose which Azure resources to use. Nothing is created or checked in Azure yet.\n');
+  const modes = {};
+  for (const [key, label] of [['apim', 'APIM service'], ['keyVault', 'Key Vault'], ['resourceGroup', 'resource group']]) {
+    const allowed = resourceModes(definition, key);
+    if (allowed[0] === 'none') {
+      modes[key] = 'none';
+      prompt.output.write('This setup does not need Key Vault because the backend has no API key.\n');
+      continue;
+    }
+    const mode = await prompt.choose(allowed.includes('new')
+      ? `Use an existing ${label} or create a new one?`
+      : `This setup requires an existing ${label}. Continue?`, [
+      { value: 'cancel', label: 'Cancel setup' },
+      { value: 'existing', label: 'Use existing' },
+      ...(allowed.includes('new') ? [{ value: 'new', label: 'Create new (Azure charges may apply)' }] : []),
     ]);
     if (mode === 'cancel') return { status: 'cancelled' };
-    const resourceId = await prompt.ask(`${label} full resource ID in tenant ${definition.azure.tenantId}, subscription ${definition.azure.subscriptionId}`);
+    ensure(allowed.includes(mode), 'Choose one of the supported resource options.');
+    modes[key] = mode;
+  }
+  return modes;
+}
+export async function promptMcpResourceSelection(definition, prompt, { modes } = {}) {
+  modes ??= await promptMcpResourceModes(definition, prompt);
+  if (modes.status === 'cancelled') return modes;
+  ensure(definition.kind !== 'existing-mcp' && Object.keys(modes).sort().join(',') === 'apim,keyVault,resourceGroup'
+    && Object.keys(modes).every(key => resourceModes(definition, key).includes(modes[key])), 'Unsupported resource choices.');
+  prompt.output.write('For existing resources, copy the full Resource ID from Azure portal > resource > JSON View. Names alone are not enough to identify existing resources.\n');
+  const selection = {};
+  for (const [key, label, property, provider] of [
+    ['resourceGroup', 'resource group', 'resourceGroup', ''],
+    ['apim', 'APIM service', 'apimName', 'Microsoft.ApiManagement/service'],
+    ['keyVault', 'Key Vault', 'keyVaultName', 'Microsoft.KeyVault/vaults'],
+  ]) {
+    const mode = modes[key];
+    if (mode === 'none') { selection[key] = { mode }; continue; }
+    let resourceId;
+    if (mode === 'new') {
+      const pattern = new RegExp(azureSchema.properties[property].pattern);
+      const name = await prompt.ask(`Name for the new ${label}`, {
+        check: value => ensure(pattern.test(value), 'Invalid resource name.'),
+        hint: `Enter a valid Azure ${label} name, not a URL or Resource ID.`,
+      });
+      resourceId = key === 'resourceGroup' ? `/subscriptions/${definition.azure.subscriptionId}/resourceGroups/${name}`
+        : `${selection.resourceGroup.resourceId}/providers/${provider}/${name}`;
+    } else resourceId = await prompt.ask(`Resource ID of the existing ${label}`);
     selection[key] = { mode, resourceId };
   }
-  return prepareResourceSelection({ definition, selection });
+  return selection;
+}
+export async function chooseMcpResources(definition, prompt) {
+  const selection = await promptMcpResourceSelection(definition, prompt);
+  return selection.status === 'cancelled' ? selection : prepareResourceSelection({ definition, selection });
 }
 export async function planResourceInventory(projectDir) {
   const { readMcpServerProject } = await import('./mcp-lifecycle.js');

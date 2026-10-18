@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { publicAnonymous, assertPublicAnonymousConfig } from './apim-public.js';
 
 // A known first-party service client is not an operator-owned public discovery client.
 export const RESTRICTED_DISCOVERY_CLIENT_ID = 'ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b';
@@ -76,6 +77,10 @@ export function inboundAuthorization(config, connector) {
 }
 
 export function requireStandaloneConfig(config) {
+  if (config?.server?.id && !config.plugin && publicAnonymous(config)) {
+    assertPublicAnonymousConfig(config);
+    return;
+  }
   if (!config?.server?.id || config.plugin || config.inbound?.type !== 'entra'
     || !Array.isArray(config.inbound.allowedClientIds) || !config.inbound.allowedClientIds.length) {
     throw new Error('An explicit standalone server and Entra inbound client allowlist are required; consumer defaults are unsupported.');

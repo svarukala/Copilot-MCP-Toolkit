@@ -89,7 +89,7 @@ async function fixture(t, changeInput = () => {}, proofOptions = {}) {
   const tool = { name: map.displayName, description: map.description,
     inputSchema: proofOptions.schema ?? { additionalProperties: false, properties: {}, required: [], type: 'object' } };
   const tools = { tools: [tool] };
-  const identity = { discoveryClientId: input.inbound.allowedClientIds[0],
+  const identity = input.inbound.type === 'anonymous' ? {} : { discoveryClientId: input.inbound.allowedClientIds[0],
     expectedUserId: '77777777-7777-4777-8777-777777777777' };
   const dependencies = observationTransport(review.descriptor, identity, tools);
   const capture = await discoverMcpToolsForTest(review.descriptor, { ...identity,
@@ -169,6 +169,37 @@ const execute = async (f, approval, overrides = {}, dependencies = f.dependencie
     onDeviceCode() {}, ...overrides }, true, (source, options, guard, context) =>
     runMcpProjectMappedProof(source, options, context.mapping,
       { ...dependencies, beforeRequest: guard, beforeToolCall: context.beforeToolCall, beforeToolDispatch: context.beforeToolDispatch }), runAzure);
+
+test('public native discovery and proof omit caller auth, retain private ARM readback and consume the single call', async t => {
+  const input = JSON.parse(await readFile(new URL('../examples/mcp/public-rates.json', import.meta.url)));
+  const f = await fixture(t, value => { value.inbound = input.inbound; });
+  f.dependencies.authTransport = () => assert.fail('Anonymous MCP must not request an auth token');
+  const transport = f.dependencies.mcpTransport;
+  f.dependencies.mcpTransport = (url, options) => {
+    assert.equal(new Headers(options.headers).has('Authorization'), false);
+    return transport(url, options);
+  };
+  assert.equal(f.selection.capture.evidence, 'observed-discovery');
+  assert.equal((await planMcpAuthRejection(f.dir)).status, 'not-applicable');
+  const plan = await planMcpProjectProof(f.dir, f.selection);
+  assert.equal(plan.operation.auth, undefined);
+  assert.equal(plan.operation.nativeGetMapping.annotations, 'absent');
+  assert.ok(plan.operation.nativeGetMapping.requests.length > 0);
+  const result = await execute(f, plan);
+  assert.equal(result.result.status, 'protocol-success');
+  assert.equal(f.dependencies.calls.filter(method => method === 'tools/call').length, 1);
+  assert.ok(f.calls.some(args => args[0] === 'account'));
+  await assert.rejects(execute(f, plan), { code: 'PROOF_REPLAY_BLOCKED' });
+});
+
+test('public native proof refuses changed throttle policy before dispatch', async t => {
+  const input = JSON.parse(await readFile(new URL('../examples/mcp/public-rates.json', import.meta.url)));
+  const f = await fixture(t, value => { value.inbound = input.inbound; });
+  f.outputs.get(`apis/${f.apiId}/policies/policy`).properties.value =
+    f.outputs.get(`apis/${f.apiId}/policies/policy`).properties.value.replace('calls="60"', 'calls="10000"');
+  await assert.rejects(execute(f, await planMcpProjectProof(f.dir, f.selection)), { code: 'APIM_PROOF_MAPPING_MISMATCH' });
+  assert.equal(f.dependencies.calls.filter(method => method === 'tools/call').length, 0);
+});
 
 async function delegatedFixture(t) {
   let reviewed;

@@ -8,6 +8,22 @@ dependency directory. Never use a filesystem root.
 
 ## Command families
 
+No command / `init` opens the terminal-only New / Resume / Advanced menu.
+New can author a definition from source/authentication answers and generate a
+new local bundle after explicit digest/destination review and confirmation.
+It then returns a local Resume report, not a live execution. Resume and Advanced
+remain review-only. See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+`init --json` and nonterminal invocation remain rejected; automation uses the
+explicit commands below.
+
+Anonymous REST supports an additional explicit public caller-access choice.
+The native input's `inbound` carries `type: "anonymous"`, `publicData: true`,
+`readOnly: true` and `rateLimit` (`calls`: 1-10000; `renewalPeriod`: 1-300 seconds).
+This is not the bare anonymous existing-MCP reference shape. Only public fixed
+GETs qualify; Entra remains the default for other APIM journeys. See
+[public APIM](scenarios.md#public-anonymous-apim). Deployment still requires
+private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Auth.
+
 | Family | Plan/local view | Explicit continuation |
 | --- | --- | --- |
 | Generate | `mcp-server-plan --config definition.json` | `mcp-server-create --config definition.json --output NEW --approve reviewDigest` |
@@ -25,12 +41,59 @@ dependency directory. Never use a filesystem root.
 | Closed checks | `mcp-auth-rejection-plan`, `mcp-backend-rejection-plan`, `mcp-qualification-plan` | Corresponding executor with exact approval and `--allow-network`; qualification also needs selection |
 | Local journey | `mcp-status`, `mcp-resume`, `mcp-diagnose` with `--project DIR` | Resume may delegate ONE phase only after exact current `next.approval` and `next.requiredFlags` |
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
+| Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
+| Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
+| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding. Config-only `allowAnyAppValidationPlaceholder` opt-in is limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
 probes. Unsupported flags are not substitutes for a reviewed plan.
 
+FCC plan/bundle requires an explicit workspace separate from installed code.
+Source descriptor/capture paths resolve relative to the config file. It preserves
+all observed tool schemas and requires explicit metadata-export and read-only
+reviews. Missing/stale metadata is reported as blocked, not fabricated or renewed.
+Exit 0 means local plan/write completion; inspect the separate readiness object.
+`bundle.manualSetup` supplies labeled human copy/paste fields and manual auth
+registration steps. Missing values remain null. OAuth accepts a registration
+reference only and remains blocked without supported discovery; no credentials,
+browser automation or tenant writes are admitted.
+`--summary` is supported on `mcp-fcc-plan`. See
+[FCC onboarding](federated-connectors.md) for the complete boundary.
+
+Auth-registration preparation uses the same explicit workspace, JSON stdout,
+`--summary` on plans and new-destination-only policy. It rejects effect flags.
+See [shared auth preparation](auth-registration.md). FCC may select its output
+via `source.authenticationBundleFile`; this is an integrity/descriptor-bound
+reference import, not a consumer-readiness assertion or execution receipt.
+
+Auth execution phases are `initialize`, `login`, `register`, `close`, each with
+its own plan/token. All executions require `--allow-provider`; login also needs
+`--allow-network --interactive`, registration needs
+`--allow-network --confirm-identity`, and confidential registration additionally
+needs `--allow-cloud` with an explicit private Key Vault identity. Close needs
+no config and preserves consumed attempts. No other phase accepts those effect
+flags. Plans support `--summary`; status is local-only. Registration results can
+be imported into preparation with `source.registrationResultFile`; a supplied
+reference/result cannot trigger another registration. See the auth runbook for
+Linux prerequisites, terminal-only login and unknown-attempt reconciliation.
+Login/register summaries also disclose ATK's ancillary experimentation-service
+request and machine-derived client metadata; the provider's telemetry flag does
+not disable that request. Browser callbacks may use separately verified
+Windows-to-WSL localhost forwarding; no automatic host switch is performed.
+ATK may launch the Windows default browser under WSL. The login summary discloses
+that browser cookies/history are outside the toolkit's private-cache boundary.
+
 ## Output and approvals
+
+`mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` implement
+a local-only, user-managed WIQD handoff. Config selects a registration input,
+existing private WIQD project directory and explicit environment. Plan/bundle
+requires `--workspace-root --config --output`; plan accepts `--summary`, and
+bundle requires exact `--approve`. Effect flags are rejected. Output includes
+operator commands/action review data, never provider execution or project edits.
+Only the local JSON write is approved. WIQD's entire provisioning lifecycle,
+identity, consent and any publication remain separately operator-reviewed.
 
 JSON stdout is the complete machine contract; `--json` never embeds progress.
 Exit 0 means the command completed in its documented sense, not universal readiness.

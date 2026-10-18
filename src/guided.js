@@ -1,4 +1,17 @@
 import { createInterface } from 'node:readline/promises';
+import { secretIssues } from './validation.js';
+
+const WELCOME = String.raw`
+  __  __  ____ ____
+ |  \/  |/ ___|  _ \
+ | |\/| | |   | |_) |
+ | |  | | |___|  __/
+ |_|  |_|\____|_|
+
+ Welcome to Copilot MCP Toolkit
+ REST APIs -> MCP tools -> Copilot
+
+`;
 
 export function createPrompter(input = process.stdin, output = process.stderr) {
   const rl = createInterface({ input, output });
@@ -7,7 +20,7 @@ export function createPrompter(input = process.stdin, output = process.stderr) {
   const cancelled = () => Object.assign(new Error('Guided review cancelled; no execution approval was granted.'), { code: 'ABORTED' });
   rl.on('close', () => { closed = true; controller.abort(); });
   rl.on('SIGINT', () => rl.close());
-  async function ask(label, { defaultValue, optional = false, check } = {}) {
+  async function ask(label, { defaultValue, optional = false, check, hint } = {}) {
     while (!closed) {
       let raw;
       try {
@@ -19,10 +32,11 @@ export function createPrompter(input = process.stdin, output = process.stderr) {
       if (!answer && optional) return undefined;
       if (!answer) { output.write('A value is required.\n'); continue; }
       if (/[\u0000-\u001f\u007f-\u009f]/.test(answer)) { output.write('Control characters are not accepted.\n'); continue; }
+      if (secretIssues(answer)) { output.write('Possible credential rejected. Enter only nonsecret metadata or a Key Vault reference.\n'); continue; }
       try { if (check) await check(answer); }
       catch {
         if (closed) throw cancelled();
-        output.write('The value is outside the supported choices. Review the prompt; no action has been approved.\n');
+        output.write(`${hint ?? 'The value is outside the supported choices. Review the prompt; no action has been approved.'}\n`);
         continue;
       }
       if (closed) throw cancelled();
@@ -37,21 +51,35 @@ export function createPrompter(input = process.stdin, output = process.stderr) {
     } });
     return choices[Number(selected) - 1].value;
   }
-  return { ask, choose, output, close: () => rl.close() };
+  return { ask, choose, output, signal: controller.signal, close: () => rl.close() };
 }
 
 export async function guidedArguments(p, options = {}) {
   if (Object.keys(options).some(key => !['workspace-root', 'config', 'project'].includes(key))) {
     throw new Error('Guided review accepts only --workspace-root, --config and --project; it never accepts execution approvals.');
   }
-  p.output.write('Local guided review only. Never enter credentials. The resulting plan is not approval to sign in, deploy or call a tool.\n');
-  const action = await p.choose('Choose a standalone journey', [
-    { value: 'generate', label: 'Review an existing MCP definition for a NEW bundle' },
-    { value: 'resources', label: 'Review explicit new/reused Azure resource choices' },
-    { value: 'resume', label: 'Resume from retained project state (no execution)' },
+  p.output.write(WELCOME);
+  p.output.write('Local guided setup only. Never enter credentials. Local generation requires confirmation; sign-in, deployment and tool calls require separate approvals.\n');
+  let action = await p.choose('How would you like to start?', [
+    { value: 'new', label: 'Start a new MCP setup' },
+    { value: 'resume', label: 'Resume an existing setup (review only)' },
+    { value: 'advanced', label: 'Advanced: review an existing definition or resource choices' },
     { value: 'exit', label: 'Exit without changes' },
   ]);
   if (action === 'exit') return undefined;
+  if (action === 'new') {
+    if (options.config || options.project) throw new Error('New setup accepts only --workspace-root. Use Resume for --project or Advanced for --config.');
+    const { createGuidedSetup } = await import('./guided-setup.js');
+    return createGuidedSetup(p, options);
+  }
+  if (action === 'advanced') {
+    action = await p.choose('What would you like to review?', [
+      { value: 'generate', label: 'Review an existing MCP definition for a NEW bundle' },
+      { value: 'resources', label: 'Review explicit new/reused Azure resource choices' },
+      { value: 'exit', label: 'Exit without changes' },
+    ]);
+    if (action === 'exit') return undefined;
+  }
   const workspace = options['workspace-root'] ?? await p.ask('Existing absolute workspace directory (not installed code)');
   const args = ['--workspace-root', workspace];
   if (action === 'resume') {

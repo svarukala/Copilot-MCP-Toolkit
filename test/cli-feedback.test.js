@@ -4,6 +4,23 @@ import assert from 'node:assert/strict';
 
 import { withCliFeedback, configureCliFeedback, cliStage, cliInspectionStep, cliPlanSummary } from '../src/cli-feedback.js';
 
+test('public generation summary puts exposure and aggregate rate limits on stderr without changing the plan', async t => {
+  const output = [];
+  t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });
+  const plan = { evidence: 'local-generation-review', reviewDigest: `sha256:${'a'.repeat(64)}`,
+    descriptor: { kind: 'native-apim-mcp', endpoint: 'https://synthetic-apim.azure-api.net/mcp',
+      status: 'generated-not-deployed', inbound: { type: 'anonymous', rateLimit: { calls: 60, renewalPeriod: 60 } } } };
+  const before = JSON.stringify(plan);
+  await withCliFeedback(async () => {
+    configureCliFeedback('mcp-server-plan', { summary: true });
+    cliPlanSummary(plan); return 0;
+  });
+  assert.equal(JSON.stringify(plan), before);
+  assert.match(output[0], /anyone can call/);
+  assert.match(output[0], /60 requests \/ 60 seconds; approximate, not a cost ceiling/);
+  assert.match(output.join(''), /EXACT reviewDigest/);
+});
+
 test('CLI progress is opt-in, throttled, scoped and cleaned up after failure', async t => {
   const output = [];
   t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });
@@ -66,6 +83,16 @@ test('CLI summary selects only the exact top-level approval and screens untruste
   });
   assert.match(output.at(-1), /No usable top-level approval/);
   assert.doesNotMatch(output.at(-1), /bbbbbbbb/);
+  await withCliFeedback(async () => {
+    configureCliFeedback('mcp-auth-execution-plan', { summary: true });
+    cliPlanSummary({ action: 'mcp-auth-execution', phase: 'login', project: 'synthetic-session', status: 'planned',
+      effects: ['ATK startup requests https://default.exp-tas.com/vscode/ab; --telemetry false does not disable it.'],
+      approvalToken: token });
+    return 0;
+  });
+  assert.match(output.at(-1), /https:\/\/default\.exp-tas\.com\/vscode\/ab/);
+  assert.match(output.at(-1), /--telemetry false does not disable/);
+  assert.ok(output.at(-1).includes(`EXACT approvalToken: ${token}`));
   for (const unsafe of ['api_key=SUPER_PRIVATE_VALUE', 'Bearer abcdefghijklmnop', 'unsafe\u009b31m', 'fake\u2028line']) {
     await withCliFeedback(async () => {
       configureCliFeedback('mcp-account-plan', { summary: true });
@@ -80,18 +107,19 @@ test('CLI summary selects only the exact top-level approval and screens untruste
 test('feedback flags reject unrelated commands and finished contexts ignore late progress', async t => {
   const output = [];
   t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });
-  let late;
+  let late, releaseLate;
   await withCliFeedback(async () => {
     assert.throws(() => configureCliFeedback('create', { progress: true }), /--progress/);
     assert.throws(() => configureCliFeedback('mcp-proof', { summary: true }), /--summary/);
     configureCliFeedback('mcp-proof', { progress: true });
-    late = new Promise(resolve => setTimeout(() => { cliStage('mcp-call'); resolve(); }, 5));
+    late = new Promise(resolve => { releaseLate = resolve; }).then(() => cliStage('mcp-call'));
     return 2;
   });
 
   const count = output.length;
+  releaseLate();
   await late;
-  assert.equal(output.length, count);
+  assert.equal(output.length, count, JSON.stringify(output));
   assert.match(output.at(-1), /CLI stopped/);
 });
 

@@ -5,11 +5,12 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, copyFile } from 'node
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
 test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 180000 }, async t => {
-  await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
-  const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'fresh-package-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
   const pack = JSON.parse(execFileSync(process.execPath,
@@ -66,7 +67,68 @@ syncBuiltinESMExports();
   };
   const cap = invoke(['capabilities']).result;
   assert.equal(cap.toolkit.name, 'copilot-mcp-toolkit');
+  assert.equal(cap.guidedSetup.cloudExecution, false);
+  assert.equal(cap.guidedSetup.existingMcpOAuth, 'reference-only');
+  const guidedProject = path.join(workspace, 'guided-reference');
+  const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
+  await writeFile(rehearsal, `
+import { guidedArguments } from ${JSON.stringify(pathToFileURL(path.join(installed, 'src', 'guided.js')).href)};
+import { main } from ${JSON.stringify(pathToFileURL(cli).href)};
+const choices = ['new', 'mcp', 'anonymous', 'create'];
+const answers = ['Synthetic packed setup', 'https://mcp.example.com/mcp', ${JSON.stringify(guidedProject)}];
+const prompt = {
+  output: process.stderr,
+  async choose(label, items) {
+    const value = choices.shift();
+    if (!items.some(item => item.value === value)) throw Error('Unexpected wizard choice');
+    return value;
+  },
+  async ask(label, options) {
+    const answer = answers.shift();
+    if (options?.check) await options.check(answer);
+    return answer;
+  },
+};
+const args = await guidedArguments(prompt, { 'workspace-root': ${JSON.stringify(workspace)} });
+if (choices.length || answers.length || args[0] !== 'mcp-resume') throw Error('Wizard did not finish');
+if (await main(args) !== 2) throw Error('Expected a blocked local Resume report, not execution');
+`);
+  const guided = spawnSync(process.execPath, ['--require', preload, rehearsal],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(guided.status, 0, guided.stderr);
+  assert.doesNotMatch(guided.stdout + guided.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  assert.equal(JSON.parse(guided.stdout).action, 'standalone-mcp-resume');
+  assert.equal(JSON.parse(await readFile(path.join(guidedProject, 'mcp-server.json'))).status, 'referenced-not-verified');
   assert.ok(cap.commands.includes('mcp-diagnose'));
+  assert.ok(cap.commands.includes('mcp-fcc-plan'));
+  assert.equal(cap.federatedConnectors.registration, false);
+  assert.equal(cap.federatedConnectors.manualSetup, 'human-copy-paste-form-and-auth-registration-fields');
+  assert.equal(cap.federatedConnectors.oauthDiscovery, false);
+  assert.equal(cap.federatedConnectors.incompleteDeveloperMetadata, 'blocked-local-draft');
+  assert.equal(cap.federatedConnectors.legalPolicies, 'optional-caller-declaration-placeholder-blocks-no-fetch');
+  assert.equal(invoke(['mcp-fcc-schema']).result.properties.schemaVersion.const, 1);
+  assert.ok(cap.commands.includes('mcp-auth-registration-plan'));
+  assert.equal(cap.authRegistration.registration, false);
+  assert.equal(cap.authRegistration.subprocesses, false);
+  assert.equal(cap.authWiqdHandoff.windowsWorkflow, true);
+  assert.equal(cap.authWiqdHandoff.registration, false);
+  assert.equal(invoke(['mcp-auth-wiqd-schema']).result.properties.schemaVersion.const, 1);
+  invoke(['mcp-auth-wiqd-schema', '--allow-network'], [1]);
+  assert.equal(invoke(['mcp-auth-registration-schema']).result.properties.schemaVersion.const, 1);
+  assert.ok(cap.commands.includes('mcp-auth-execution-plan'));
+  assert.equal(cap.authRegistrationExecution.liveQualified, false);
+  assert.equal(cap.authRegistrationExecution.automaticRetry, false);
+  assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'register', 'close']);
+  assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.schemaVersion.const, 1);
+  assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.allowAnyAppValidationPlaceholder.type, 'boolean');
+  assert.equal(cap.authRegistrationExecution.anyAppCompatibility.targetAudience, 'HomeTenant');
+  assert.equal(cap.authRegistrationExecution.anyAppCompatibility.createsApp, false);
+  invoke(['mcp-auth-execution-schema', '--allow-provider'], [1]);
+  invoke(['mcp-auth-execution-plan', '--phase', 'initialize', '--allow-network'], [1]);
+  invoke(['mcp-auth-execute', '--phase', 'register', '--allow-provider'], [1]);
+  const authSession = path.join(workspace, 'auth-session');
+  assert.equal(invoke(['mcp-auth-execution-status', '--workspace-root', workspace, '--project', authSession]).result.status, 'not-initialized');
+  invoke(['mcp-auth-execution-status', '--workspace-root', workspace, '--project', authSession, '--confirm-identity'], [1]);
   const config = path.join(workspace, 'definition.json'), project = path.join(workspace, 'server');
   await copyFile(path.join(installed, 'examples', 'mcp', 'existing-anonymous.json'), config);
   const base = ['--workspace-root', workspace];
@@ -92,6 +154,173 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.equal(invoke(['mcp-server-create', ...base, '--config', config, '--output', project, '--approve', 'wrong'], [1]).result.success, false);
   assert.ok(!(await readdir(workspace)).includes('server'));
   invoke(['mcp-server-create', ...base, '--config', config, '--output', project, '--approve', plan.result.reviewDigest]);
+  const fccWorkspace = path.join(workspace, 'fcc-demo');
+  await mkdir(fccWorkspace);
+  const fccBase = ['--workspace-root', fccWorkspace];
+  const fccDefinition = path.join(fccWorkspace, 'definition.json');
+  const fccConfig = path.join(fccWorkspace, 'onboarding.json');
+  const fccProject = path.join(fccWorkspace, 'server');
+  const fccOutput = path.join(fccWorkspace, 'prepared.json');
+  await copyFile(path.join(installed, 'examples', 'fcc', 'existing-literature-entra.json'), fccDefinition);
+  await copyFile(path.join(installed, 'examples', 'fcc', 'onboarding.json'), fccConfig);
+  const fccServer = invoke(['mcp-server-plan', ...fccBase, '--config', fccDefinition]).result;
+  invoke(['mcp-server-create', ...fccBase, '--config', fccDefinition, '--output', fccProject, '--approve', fccServer.reviewDigest]);
+  const fccArgs = [...fccBase, '--config', fccConfig, '--output', fccOutput];
+  const fccPlan = invoke(['mcp-fcc-plan', ...fccArgs, '--summary']);
+  assert.ok(fccPlan.stderr.includes(fccPlan.result.approvalToken));
+  assert.equal(fccPlan.result.bundle.readiness.status, 'blocked');
+  assert.deepEqual(fccPlan.result.bundle.tools, []);
+  assert.equal(fccPlan.result.bundle.manualSetup.submission, 'manual-only');
+  assert.deepEqual(fccPlan.result.bundle.manualSetup.formFields.at(-1),
+    { label: 'SSO registration ID', value: null, status: 'missing' });
+  assert.deepEqual(fccPlan.result.bundle.readiness.gaps.map(gap => gap.code),
+    ['CAPTURE_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_AUDIENCE_MISSING']);
+  invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', 'wrong'], [1]);
+  assert.ok(!(await readdir(fccWorkspace)).includes('prepared.json'));
+  const fccWritten = invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', fccPlan.result.approvalToken]).result;
+  assert.equal(fccWritten.executionReadiness, false);
+  assert.deepEqual(JSON.parse(await readFile(fccOutput)), fccPlan.result.bundle);
+  invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', fccPlan.result.approvalToken], [1]);
+  const incompleteFccConfig = path.join(fccWorkspace, 'incomplete-onboarding.json');
+  const incompleteFccInput = JSON.parse(await readFile(fccConfig));
+  delete incompleteFccInput.connector.developer;
+  incompleteFccInput.review.legalPolicies = 'placeholder';
+  await writeFile(incompleteFccConfig, JSON.stringify(incompleteFccInput));
+  const incompleteFccArgs = [...fccBase, '--config', incompleteFccConfig,
+    '--output', path.join(fccWorkspace, 'incomplete-prepared.json')];
+  const incompleteFccPlan = invoke(['mcp-fcc-plan', ...incompleteFccArgs, '--summary']);
+  assert.equal(incompleteFccPlan.result.bundle.readiness.status, 'blocked');
+  assert.equal(incompleteFccPlan.result.bundle.readiness.gaps.filter(gap => gap.code === 'DEVELOPER_METADATA_MISSING').length, 4);
+  assert.ok(incompleteFccPlan.result.bundle.readiness.gaps.some(gap => gap.code === 'LEGAL_POLICIES_PLACEHOLDER'));
+  assert.match(incompleteFccPlan.stderr, /Legal policies: placeholder/);
+  assert.match(incompleteFccPlan.stderr, /zero gaps is NOT execution readiness/);
+  const incompleteWritten = invoke(['mcp-fcc-bundle', ...incompleteFccArgs, '--approve', incompleteFccPlan.result.approvalToken]).result;
+  assert.deepEqual(JSON.parse(await readFile(incompleteWritten.outputPath)), incompleteFccPlan.result.bundle);
+  const authConfig = path.join(fccWorkspace, 'registration.json'), authOutput = path.join(fccWorkspace, 'auth.json');
+  await copyFile(path.join(installed, 'examples', 'auth-registration', 'sso.json'), authConfig);
+  const authInput = JSON.parse(await readFile(authConfig));
+  authInput.registration.applicableToApps = 'AnyApp';
+  await writeFile(authConfig, JSON.stringify(authInput));
+  const providerRoot = path.join(fccWorkspace, 'synthetic-atk');
+  await mkdir(path.join(providerRoot, 'lib'), { recursive: true });
+  await writeFile(path.join(providerRoot, 'package.json'), JSON.stringify({ name: '@microsoft/m365agentstoolkit-cli', version: '1.1.17' }));
+  await writeFile(path.join(providerRoot, 'cli.js'), 'synthetic-do-not-execute');
+  await writeFile(path.join(providerRoot, 'lib', 'index.js'), 'synthetic-do-not-execute');
+  const executionConfig = path.join(fccWorkspace, 'execution.json');
+  await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json', providerRoot }));
+  const executionArgs = [...fccBase, '--project', path.join(fccWorkspace, 'auth-session'), '--config', executionConfig, '--phase', 'initialize'];
+  const executionPlan = invoke(['mcp-auth-execution-plan', ...executionArgs, '--summary']);
+  assert.equal(executionPlan.result.status, 'blocked');
+  assert.ok(executionPlan.result.gaps.includes('REAL_M365_APP_ID_REQUIRED'));
+  assert.ok(executionPlan.stderr.includes(executionPlan.result.approvalToken));
+  invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
+  assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
+  await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
+    providerRoot, allowAnyAppValidationPlaceholder: true }));
+  const compatiblePlan = invoke(['mcp-auth-execution-plan', ...executionArgs, '--summary']);
+  assert.ok(!compatiblePlan.result.gaps.includes('REAL_M365_APP_ID_REQUIRED'));
+  assert.equal(compatiblePlan.result.providerCompatibility.expectedM365AppId, '');
+  assert.equal(compatiblePlan.result.request.registration.appId, undefined);
+  assert.ok(compatiblePlan.stderr.includes('HomeTenant / AnyApp'));
+  assert.ok(compatiblePlan.stderr.includes(compatiblePlan.result.providerCompatibility.validationAppId));
+  assert.notEqual(compatiblePlan.result.approvalToken, executionPlan.result.approvalToken);
+  invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
+  assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
+  authInput.registration.reference = { registrationId: '+synthetic/registration==', applicationIdUri: 'api://literature.example.com' };
+  await writeFile(authConfig, JSON.stringify(authInput));
+  const authArgs = [...fccBase, '--config', authConfig, '--output', authOutput];
+  const authPlan = invoke(['mcp-auth-registration-plan', ...authArgs, '--summary']);
+  assert.ok(authPlan.stderr.includes(authPlan.result.approvalToken));
+  assert.equal(authPlan.result.bundle.readiness.status, 'blocked');
+  assert.equal(authPlan.result.bundle.providerPreparation.action, null);
+  assert.equal(authPlan.result.bundle.registrationReference.status, 'provided-unverified');
+  for (const flag of ['--allow-cloud', '--allow-network', '--interactive', '--use-device-code', '--progress']) {
+    invoke(['mcp-auth-registration-plan', ...authArgs, flag], [1]);
+  }
+  invoke(['mcp-auth-registration-schema', '--output', authOutput], [1]);
+  invoke(['mcp-auth-registration-bundle', ...authArgs, '--approve', 'wrong'], [1]);
+  const authWritten = invoke(['mcp-auth-registration-bundle', ...authArgs, '--approve', authPlan.result.approvalToken]).result;
+  assert.equal(authWritten.executionReadiness, false);
+  invoke(['mcp-auth-registration-bundle', ...authArgs, '--approve', authPlan.result.approvalToken], [1]);
+  const importedFccConfig = path.join(fccWorkspace, 'fcc-with-auth.json');
+  const importedFccInput = JSON.parse(await readFile(fccConfig));
+  importedFccInput.source.authenticationBundleFile = 'auth.json';
+  await writeFile(importedFccConfig, JSON.stringify(importedFccInput));
+  const importedFccArgs = [...fccBase, '--config', importedFccConfig, '--output', path.join(fccWorkspace, 'fcc-with-auth-output.json')];
+  const importedFccPlan = invoke(['mcp-fcc-plan', ...importedFccArgs]).result;
+  assert.equal(importedFccPlan.bundle.authentication.registrationId, '+synthetic/registration==');
+  assert.equal(importedFccPlan.bundle.manualSetup.sharedRegistration.referenceStatus, 'provided-unverified');
+  assert.match(importedFccPlan.bundle.manualSetup.authenticationRegistration.steps
+    .find(step => step.id === 'sso-config').instruction, /Reuse the supplied registration reference/);
+  invoke(['mcp-fcc-bundle', ...importedFccArgs, '--approve', importedFccPlan.approvalToken]);
+  const oauthDefinition = path.join(fccWorkspace, 'oauth-definition.json'), oauthProject = path.join(fccWorkspace, 'oauth-server');
+  const oauthInput = JSON.parse(await readFile(fccDefinition));
+  oauthInput.inbound = { type: 'oauth' };
+  await writeFile(oauthDefinition, JSON.stringify(oauthInput));
+  const oauthReview = invoke(['mcp-server-plan', ...fccBase, '--config', oauthDefinition]).result;
+  invoke(['mcp-server-create', ...fccBase, '--config', oauthDefinition, '--output', oauthProject, '--approve', oauthReview.reviewDigest]);
+  const oauthConfig = path.join(fccWorkspace, 'oauth-registration.json');
+  const oauthRegistration = JSON.parse(await readFile(path.join(installed, 'examples', 'auth-registration', 'oauth-pkce.json')));
+  oauthRegistration.source.descriptorFile = 'oauth-server/mcp-server.json';
+  oauthRegistration.registration.appId = '55555555-5555-4555-8555-555555555555';
+  await writeFile(oauthConfig, JSON.stringify(oauthRegistration));
+  const oauthArgs = [...fccBase, '--config', oauthConfig, '--output', path.join(fccWorkspace, 'oauth-auth.json')];
+  const oauthPlan = invoke(['mcp-auth-registration-plan', ...oauthArgs]).result;
+  assert.equal(oauthPlan.bundle.providerPreparation.action.with.identityProvider, 'Custom');
+  assert.equal(oauthPlan.bundle.providerPreparation.action.with.scope, 'literature.read');
+  assert.equal(oauthPlan.bundle.providerPreparation.action.with.clientSecret, undefined);
+  invoke(['mcp-auth-registration-bundle', ...oauthArgs, '--approve', oauthPlan.approvalToken]);
+  const wiqdProject = path.join(fccWorkspace, "existing WIQD user's project");
+  await mkdir(wiqdProject);
+  const wiqdConfig = path.join(fccWorkspace, 'wiqd-handoff.json');
+  await writeFile(wiqdConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'oauth-registration.json',
+    wiqdProject, environment: 'dev' }));
+  const wiqdArgs = [...fccBase, '--config', wiqdConfig, '--output', path.join(fccWorkspace, 'wiqd-output.json')];
+  const wiqdPlan = invoke(['mcp-auth-wiqd-plan', ...wiqdArgs, '--summary']);
+  assert.ok(wiqdPlan.stderr.includes(wiqdPlan.result.approvalToken));
+  assert.match(wiqdPlan.stderr, /ENTIRE WIQD lifecycle/);
+  assert.equal(wiqdPlan.result.bundle.registration.action.with.clientSecret, undefined);
+  assert.equal(wiqdPlan.result.bundle.commands.provision.args.at(-1), wiqdProject);
+  for (const flag of ['--allow-provider', '--allow-network', '--allow-cloud', '--interactive']) {
+    invoke(['mcp-auth-wiqd-plan', ...wiqdArgs, flag], [1]);
+  }
+  invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', 'wrong'], [1]);
+  assert.equal(invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', wiqdPlan.result.approvalToken]).result.executionReadiness, false);
+  assert.deepEqual(await readdir(wiqdProject), []);
+  invoke(['mcp-auth-wiqd-bundle', ...wiqdArgs, '--approve', wiqdPlan.result.approvalToken], [1]);
+  const confidentialConfig = path.join(fccWorkspace, 'oauth-confidential.json');
+  oauthRegistration.registration.isPKCEEnabled = false;
+  oauthRegistration.registration.credential = { type: 'key-vault-reference',
+    secretIdentifier: 'https://synthetic-vault.vault.azure.net/secrets/oauth-client/0123456789abcdef0123456789abcdef' };
+  await writeFile(confidentialConfig, JSON.stringify(oauthRegistration));
+  const confidential = invoke(['mcp-auth-registration-plan', ...fccBase, '--config', confidentialConfig,
+    '--output', path.join(fccWorkspace, 'oauth-confidential-output.json')]).result;
+  assert.equal(confidential.bundle.providerPreparation.action, null);
+  assert.ok(confidential.bundle.readiness.gaps.some(g => g.code === 'SECRET_RESOLUTION_UNIMPLEMENTED'));
+  const restDefinition = path.join(fccWorkspace, 'rest.json');
+  await copyFile(path.join(installed, 'examples', 'fcc', 'literature-rest.json'), restDefinition);
+  const restPlan = invoke(['mcp-server-plan', ...fccBase, '--config', restDefinition]).result;
+  assert.equal(restPlan.descriptor.kind, 'native-apim-mcp');
+  assert.deepEqual(restPlan.descriptor.operationIds, ['search', 'fetch']);
+  const restProject = path.join(fccWorkspace, 'rest-server');
+  invoke(['mcp-server-create', ...fccBase, '--config', restDefinition, '--output', restProject, '--approve', restPlan.reviewDigest]);
+  const restFccInput = JSON.parse(await readFile(fccConfig));
+  restFccInput.source.descriptorFile = 'rest-server/mcp-server.json';
+  await writeFile(fccConfig, JSON.stringify(restFccInput));
+  const restFccPlan = invoke(['mcp-fcc-plan', ...fccBase, '--config', fccConfig,
+    '--output', path.join(fccWorkspace, 'rest-prepared.json')]).result;
+  assert.equal(restFccPlan.bundle.endpoint.sourceKind, 'native-apim-mcp');
+  assert.equal(restFccPlan.bundle.endpoint.sourceStatus, 'generated-not-deployed');
+  const publicDefinition = path.join(fccWorkspace, 'public.json'), publicProject = path.join(fccWorkspace, 'public-server');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'public-rates.json'), publicDefinition);
+  const publicPlan = invoke(['mcp-server-plan', ...fccBase, '--config', publicDefinition]).result;
+  assert.equal(publicPlan.descriptor.inbound.type, 'anonymous');
+  assert.equal(publicPlan.descriptor.inbound.publicData, true);
+  assert.equal(cap.mcpServer.publicAnonymous.liveQualified, false);
+  invoke(['mcp-server-create', ...fccBase, '--config', publicDefinition, '--output', publicProject, '--approve', publicPlan.reviewDigest]);
+  const publicResume = invoke(['mcp-resume', ...fccBase, '--project', publicProject], [2]).result;
+  assert.equal(publicResume.next.code, 'AZURE_IDENTITY_REQUIRED');
+  assert.equal(publicResume.replayAuthorized, false);
   const selection = path.join(workspace, 'selection.json');
   await writeFile(selection, '{}');
   const resume = invoke(['mcp-resume', ...base, '--project', project, '--config', selection, '--summary'], [0, 2]).result;

@@ -4,7 +4,7 @@ import { secretIssues } from './validation.js';
 const context = new AsyncLocalStorage();
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
-  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan'];
+  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -113,10 +113,32 @@ export function cliPlanSummary(plan) {
   const state = context.getStore();
   if (!state?.summary || state.closed || !plan || typeof plan !== 'object') return;
   if (state.command === 'mcp-server-plan' && plan.evidence === 'local-generation-review') {
+    if (plan.descriptor.kind === 'native-apim-mcp' && plan.descriptor.inbound.type === 'anonymous') {
+      const rate = plan.descriptor.inbound.rateLimit;
+      writeFeedback(state, `[public exposure]\nMCP and backing REST routes: anyone can call without a token or subscription key.\nDeclared public data and read-only GETs; not independently verified.\nAggregate limit per API per gateway/region: ${safe(String(rate.calls))} requests / ${safe(String(rate.renewalPeriod))} seconds; approximate, not a cost ceiling.\nNo Entra resource app or discovery client; Azure management identity and separate deployment approval remain required.\n`);
+    }
     writeFeedback(state, `[generation summary]\nOperation: local standalone bundle creation only\nEndpoint: ${safe(plan.descriptor.endpoint)}\nStatus: ${safe(plan.descriptor.status)}\nCalls: zero; no login, deployment or provider readiness implied.\nEXACT reviewDigest: ${safe(plan.reviewDigest)}\nUse mcp-server-create with a NEW --output and this --approve. Full review remains on stdout.\n`);
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-auth-execution') {
+    writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
+    return;
+  }
+  if (plan.action === 'mcp-auth-wiqd-handoff-write') {
+    writeFeedback(state, `[WIQD handoff summary]\nOperation: local private JSON only; no WIQD invocation or project edits\nNew destination: ${safe(plan.outputPath)}\nWIQD project: ${safe(plan.bundle.target.project)}\nEnvironment: ${safe(plan.bundle.target.environment)}\nExpected operator: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.bundle.preparation.request.tenantId)}\nAuthentication belongs to the user-managed WIQD profile, not a toolkit-isolated session.\nProvisioning requires separate review of the ENTIRE WIQD lifecycle. No credential transfer or automatic retry.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nThis approval writes only the handoff; it authorizes none of its provider commands.\n`);
+    return;
+  }
+  if (plan.action === 'mcp-auth-registration-preparation-write') {
+    const request = plan.bundle.request;
+    writeFeedback(state, `[auth registration summary]\nOperation: local private preparation JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nExpected operator: ${safe(plan.operator.accountName)}\nTenant: ${safe(request.tenantId)}\nRestrictions: ${safe(request.registration.targetAudience)} / ${safe(request.registration.applicableToApps)}\nReadiness: blocked; provider authentication and registration are NOT executed.\nCalls: zero; no secret resolution, ATK invocation or consent.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview full metadata on stdout before mcp-auth-registration-bundle.\n`);
+    return;
+  }
+  if (plan.action === 'mcp-fcc-onboarding-write') {
+    const discovery = plan.bundle.evidence.discovery;
+    writeFeedback(state, `[FCC summary]\nOperation: local private onboarding JSON only\nNew destination: ${safe(plan.outputPath)}\nEndpoint: ${safe(plan.bundle.endpoint.url)}\nReadiness: ${safe(plan.bundle.readiness.status)}; gaps: ${plan.bundle.readiness.gaps.length}\nLegal policies: ${safe(plan.bundle.evidence.legalPolicies.status)} (caller declaration, not verified)\nDiscovery: ${safe(discovery.status)}${discovery.expiresAt ? `; expires: ${safe(discovery.expiresAt)}` : ''}\nNext: resolve gaps and complete human legal/audience/submission checkpoints; zero gaps is NOT execution readiness.\nCalls: zero; no login, registration, deployment or proof replay.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all exported metadata on stdout before mcp-fcc-bundle.\n`);
+    return;
+  }
   if (['standalone-mcp-evidence-export', 'standalone-mcp-evidence-restore'].includes(plan.action)) {
     writeFeedback(state, `[evidence summary]\nOperation: ${safe(plan.action)}\nNew destination: ${safe(plan.destination.path)}\nArchive SHA256: ${safe(plan.archiveSha256)}\nPersistence: ${safe(plan.persistence.status)}; same-filesystem checkpoint is NOT a cross-device backup.\nCalls: zero; identity: none. Evidence expiry and historical bindings are not renewed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nFull file hashes, exclusions, lock presence and limitations remain on stdout.\n`);
     return;

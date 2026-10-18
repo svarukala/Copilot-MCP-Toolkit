@@ -1,10 +1,154 @@
 # Session handoff
 
-Last updated: 2026-10-14. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-18. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
+- FSI audience preparation: the README has numbered setup steps, a public FX
+  demo, simple capability limits and the retained as-is/AI-generated disclaimer.
+  It discloses the dependency-feed access prerequisite. The accumulated branch
+  received a read-only code review; a full offline run found one fractional-clock
+  test failure, corrected with exact integer mock times and passing targeted
+  regressions. See [review evidence](progress-tracker.md#fsi-audience-documentation-and-merge-review);
+  runtime timeout behavior and live-operation approval boundaries are unchanged.
+- Requested backlog item [B1: username/password-authenticated MCP](progress-tracker.md#b1-usernamepassword-authenticated-mcp)
+  covers separate direct-Basic and password-to-token profiles, Key Vault-only
+  credential references, protected caller access, entitlement isolation and
+  token lifecycle without tool-call replay. Not implemented or approved for
+  execution; prefer compatible provider OAuth where available.
+- Setup wording now separates simple questions from technical approval details.
+  New and Advanced resource intake choose existing/new APIM, applicable Key Vault,
+  and resource group before identifiers; new resources use names, existing ones
+  still require exact IDs. The save question refers to setup files, while the full
+  definition and exact digest remain visible and unchanged. The shipped Copilot
+  skill asks one question at a time and offers the next reviewed action after a
+  phase instead of waiting for "let's deploy". Local-only instructions, human
+  gates and separate live approvals remain enforced; no live operations were
+  performed and installed skill copies were not changed. Focused offline coverage
+  passed 57 checks including a fresh packed consumer; syntax/types pass. This
+  does not qualify a new live Copilot conversation or Azure deployment.
+- Public anonymous native APIM support is implemented for explicitly reviewed
+  public, fixed read-only GETs against an anonymous backend. The wizard keeps
+  Entra first and offers public access separately, requiring declarations/rate
+  limits while skipping resource-app and discovery-client fields. Both API
+  layers are throttled; inherited policies and Azure management identity remain
+  required. Public target bindings refuse protected receipt reuse. Discovery,
+  fixed-GET proof and FCC No Auth retain their separate approvals/evidence gates.
+  See [scope and limits](scenarios.md#public-anonymous-apim). Coverage is synthetic/
+  offline only: no Azure deployment, Frankfurter call, FCC rollout, recording or
+  consumer qualification was performed for this change. Existing installed skill
+  copies are not automatically updated; this repository's shipped skill is updated.
+- The terminal CLI now starts with New / Resume / Advanced. New collects source
+  and authentication details, authors a fixed GET or imports selected OpenAPI
+  operations, and uses the existing engine to create a new local bundle only
+  after definition/destination/digest confirmation. It then shows local Resume
+  status. Resource choices reuse the existing selector; no cloud calls, new
+  OAuth support, automatic deployment or proof replay were added. The skill
+  guides the same intake through explicit JSON commands for Copilot CLI.
+  See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+- Latest owner-reported FCC outcome: the secured connector was added, and the
+  supplied tools screenshot shows the expected single fixture tool. Its UI
+  type is **Write**, despite the read-only description. The retained original
+  capture has no tool annotations; MCP defaults an omitted `readOnlyHint` to
+  false, which is consistent with this classification but does not establish
+  the client's exact classification logic. Do not edit the capture or invent
+  annotations in a handoff to change the UI. A subsequent read-only comparison
+  confirmed the retained Learn tools declare readOnlyHint true. Native APIM's
+  published tool contract for the pinned API version has no annotation field;
+  the renderer matches that contract and discovery preserves received hints.
+  No supported native setter was qualified. See the
+  [annotation review](federated-connectors.md#native-apim-annotations-and-consumer-classification)
+  before considering a product-support inquiry or separately scoped MCP backend.
+  No live correction was attempted. No attributed tool execution,
+  rollout audience or finalized legal-policy status is established.
+- Before that success, the owner encountered `AADSTS650057`. The retained app
+  snapshot had an empty `requiredResourceAccess`, and the error named the same
+  app as client and resource with no valid resources. The owner manually added
+  its own delegated scope under API permissions; a supplied screenshot matched
+  that configuration. This is distinct from Expose an API preauthorization.
+  No automated cloud mutation or fresh Graph/consent-grant readback was performed.
+- Latest offline retrospective improvements: FCC planning now allows omitted
+  developer fields only as a blocked draft, records optional caller-declared
+  legal-policy status and blocks known placeholders, and reuses supplied SSO/
+  OAuth registration references in both checklists. Complete legacy inputs
+  remain supported; omitted legal status means not reviewed, not approved.
+  Summaries now expose policy status and capture expiry. The shipped skill
+  collects metadata earlier and stops at human gates without duplicate sign-ins
+  or repeated blocker messages. These changes apply to newly reviewed outputs;
+  existing private handoffs, receipts, captures and live resources were untouched.
+- Latest endpoint observation: fresh private Entra public-client sign-in and
+  metadata-only discovery succeeded using the registration-URI-qualified scope.
+  The original capture contains one controlled read-only fixture tool with an
+  empty object input schema and no annotations. Its timestamp is retained;
+  FCC capture admission expires after 24 hours. No tool was executed, and this
+  does not qualify token-store SSO, downstream runtime behavior or FCC consumer
+  acceptance. The new reference preserves the old descriptor/registration
+  receipt binding; do not import that old preparation into the new descriptor.
+  The owner subsequently supplied developer fields, and a new private FCC
+  onboarding draft was written and read back with the original SSO reference
+  and actual tool metadata intact. Its status is `manual-checkpoints-required`,
+  not execution-ready. The supplied privacy/terms pages are explicitly
+  placeholders, not finalized policies; supplied URLs do not resolve legal
+  review. Human FCC submission, consent and secured-pilot audience review remain.
+- Latest owner-approved settings outcome: the registration URI and Web consent
+  redirect were added to the existing Entra app, and the new audience was added
+  to the MCP gateway, REST wrapper and controlled backend. Fresh readback
+  verified the additive changes and preservation of other inspected settings.
+  One Graph PATCH was reconciled after URI reordering; it was not repeated.
+  Three APIM writes used concrete ETags. This was a private operator-reviewed
+  merge, not new toolkit support for automatic reused-resource mutation.
+  The backend user restriction and historical consumed proofs are preserved.
+  Endpoint calls, consent, FCC submission, rollout and consumer verification
+  remain separate. Do not upgrade or overwrite historical result/preparation
+  artifacts; private journals retain the exact changes and completion.
+- Pre-change read-only settings review: private Azure sign-in and existing-app/APIM
+  inspection completed. The registration URI and Web consent redirect are
+  missing from the existing Entra app. The MCP gateway, REST wrapper and
+  controlled backend each need the new audience reviewed; existing token-store
+  preauthorization/allowlists are present. Preserve all three authorization
+  layers and the backend's matching user restriction. No cloud settings,
+  endpoint calls or consumed proofs were changed at that checkpoint. The
+  subsequent explicit approval and additive updates are recorded above.
+- Latest SSO outcome: after corrected sign-in and operator identity confirmation,
+  one explicitly approved public ATK HomeTenant / AnyApp registration returned a
+  strictly parsed private `created-unverified` receipt. The target reservation
+  remains consumed; do not recreate it. No dummy app or agent was created.
+  Service-side restriction readback, FCC submission and consumer execution
+  remain unverified/separate; the subsequent settings work above does not
+  upgrade this original receipt. Private runtime cleanup also
+  requires its own reviewed phase; preserve the receipt and reservation.
+- Latest authentication correction: ATK's guided `--interactive true` mode
+  discarded the explicit tenant, despite successful browser sign-in. The
+  adapter now passes ATK `--interactive false` with interactive process I/O.
+  This preserves the supplied tenant without disabling human browser sign-in.
+  An explicitly requested fresh private retry subsequently passed the public
+  account/selected-tenant checks. This is not token-issuer attestation or
+  registration qualification. Operator identity confirmation and registration
+  were handled separately as recorded above; do not promote historical failures.
+- Latest approved ATK direction (2026-10-15): the user confirmed no existing
+  SSO registration and agreed to tenant-only / Any Teams app from the start.
+  The separate executor now has a narrowly scoped
+  `allowAnyAppValidationPlaceholder` compatibility opt-in, not a fake app
+  binding or provider patch. Plans disclose the unused validation UUID; real
+  app IDs remain mandatory for `SpecificApp`. No live phase is implied by the
+  implementation or by these notes. Read the auth runbook before preparing
+  the separately reviewed Linux initialization, sign-in and registration.
+- Latest scope correction (2026-10-15): the current journey is FCC-only, not
+  WIQD agent authoring. Do not create or provision an agent to obtain an app ID.
+  The direct Teams Developer Portal route remains an alternative to the
+  explicitly approved ATK compatibility path; FCC form entry remains manual.
+  The reviewed ATK action's app-ID requirement is not an FCC prerequisite.
+  A mistaken private local agent scaffold was stopped without cloud
+  provisioning; it is not an FCC dependency or evidence. See
+  [the FCC-only route](federated-connectors.md#fcc-only-route-no-agent-project).
+- The supplied endpoint's original nonsecret input was recovered privately and
+  reproduced its exact URL through the independent toolkit's offline planner.
+  Resource tenant/client/scope/audience/allowlist values are therefore available
+  as historical configuration, not fresh live observations. A private worksheet
+  and reference-only input retain that distinction. No source captures,
+  authentication caches or approvals were transferred. Actual auth registration,
+  current settings, legal metadata and rollout remain separate owner gates.
 - Work continues in [Copilot MCP Toolkit](https://github.com/svarukala/Copilot-MCP-Toolkit),
   an independent Node.js 22+ ESM CLI/library with an installable Copilot CLI skill.
 - Initial implementation is commit
@@ -79,6 +223,253 @@ documentation changes, or the Cowork freeze. This handoff does not require acces
 to those private artifacts; obtain separately reviewed inputs if future work does.
 
 ## Recommended next session
+
+The user subsequently prioritized custom federated connector demo preparation.
+Start with [FCC onboarding](federated-connectors.md) and FCC1-FCC5 in the tracker.
+Local schema/plan/bundle support, synthetic demo documentation and packed
+rehearsal are implemented. A separately authorized anonymous-MCP pilot has now
+completed toolkit discovery, private bundle writing and admin registration.
+The admin reports Ready, enabled, visible to everyone, and three read-only tools.
+Attributed live consumer acceptance remains unverified. The original H1/H2 recommendation below
+still applies to the broader WIQD integration, not automatic completion by FCC.
+
+FCC milestones are committed in `1ec9bc0` and `13263f5`. The Windows/Node 24.19.0
+run passed all 607 offline tests, syntax checking and strict TypeScript checks.
+The demo runbook is `docs/fcc-demo.md`; start with the offline rehearsal. A live
+demo still needs the actual endpoint, explicit tenant/resource identity, SSO
+registration, small test audience and a new bounded consumer purpose. No
+registration, deployment, consent, provider call or historical proof replay was
+performed during FCC implementation.
+
+The subsequent anonymous pilot did not require Azure deployment or SSO. Its
+tenant-wide audience was explicitly requested by the user, not inferred from
+implementation approval. The user subsequently directed the product to stop at a human copy-and-paste
+handoff when no supported registration API is available, rather than automate
+browser submission. The bundle now exposes `manualSetup` form/auth fields and
+steps, including supplied OAuth or secretless SSO registration references.
+OAuth is preparation-only with discovery/import unsupported. Live browser work
+was stopped at this direction; attributed Copilot execution remains unverified.
+Do not resume it merely from these notes or change the existing built-in connector. Registry
+availability, admin Ready status and tools-list success are distinct from that
+consumer result. See the dated layer table in [the tracker](progress-tracker.md).
+All real pilot files remain private; these notes transfer no execution authority.
+
+## Shared authentication registration continuation
+
+The user approved bringing shared SSO registration support into this independent
+toolkit, followed by generic OAuth registration and both consumer handoffs.
+The opaque FCC registration-ID fix is committed in `2ffcda8`; complete IDs,
+including Base64 punctuation and padding, survive export unchanged.
+
+The frozen Cowork implementation at `b51d6a8`, `src/sso-registration.js`, is the
+reference for guarded SSO creation. Its public ATK lifecycle uses
+`oauth/register` with `identityProvider: MicrosoftEntra`, captures the returned
+ID/Application ID URI, and retains unknown-attempt barriers. It is not a generic
+OAuth creation implementation and must not be copied with its plugin dependencies.
+
+Read-only inspection of installed ATK CLI 1.1.17 on 2026-10-15 found a provider
+isolation gate: `m365Login.ts` configures a Windows native broker;
+`cacheAccess.ts` uses a fixed OS credential-store service/account for its cache
+encryption key; the login command signs out the previous ATK account. Home-path
+redirection alone has not established private authentication. No auth caches
+were read or copied, and no ATK login or provisioning was invoked.
+
+This led to a Linux-only owner-private tmpfs adapter rather than a shared Windows
+profile or a Docker dependency. Actual Linux/provider qualification and explicit
+real app identity/restrictions are still required before live registration.
+Do not use shared credentials, monkey-patch Microsoft tooling, start Docker or
+create cloud resources implicitly. Manual registration remains valid.
+
+The ID milestone passed 35 FCC tests and the offline packed-consumer test.
+The shared local module is now implemented:
+`mcp-auth-registration-schema`, `mcp-auth-registration-plan` and
+`mcp-auth-registration-bundle` prepare SSO/custom OAuth settings, including
+explicit restrictions, PKCE or versioned Key Vault references. They invoke no
+provider. FCC can import the resulting exact descriptor-bound data through
+`source.authenticationBundleFile`; a plugin reference view is mapping guidance
+only. Supplied IDs remain `provided-unverified`. See
+[auth-registration](auth-registration.md) for synthetic examples and the exact
+execution gaps. The targeted milestone passed 85 tests: 38 auth, 35 FCC,
+11 shared CLI/guidance/independence and one expanded fresh packed journey with
+runtime networking/processes denied. Syntax/types also passed. This is offline
+evidence only, not a new full-suite or live result.
+
+The user then directed continued autonomous implementation. The separate
+`mcp-auth-execution-schema`, `mcp-auth-execution-plan`, `mcp-auth-execute` and
+`mcp-auth-execution-status` now implement AUTH3/AUTH4:
+
+- Independent initialize/login/register/close approvals using public ATK 1.1.17.
+  Only Linux owner-only `/dev/shm` tmpfs is admitted. D-Bus keyrings and ambient
+  provider overrides are excluded; Windows/macOS execution is refused.
+- Terminal-only browser sign-in URL with a same-host loopback callback.
+  Public account output plus selected-tenant metadata is not issuer attestation;
+  registration requires separate human identity confirmation.
+- SSO, generic OAuth PKCE and confidential OAuth. The latter uses an explicitly
+  selected matching private Azure identity for a Key Vault access token, then
+  one bounded HTTPS read of the exact secret version. Secret values do not go
+  through Azure CLI output/logging or toolkit durable artifacts.
+- Durable target reservations before one registration dispatch, including
+  unknown/failure barriers across renamed sessions. Unconfirmed subprocess
+  termination retains the lock/PID/runtime; no automatic retry or recovery.
+- Nonsecret `created-unverified` results imported through preparation's
+  `source.registrationResultFile`, then FCC's `source.authenticationBundleFile`.
+  Exact request/descriptor integrity is checked; existing references suppress
+  creation. Close removes only transient runtime files, retaining barriers.
+
+Read [auth registration](auth-registration.md) for the execution example,
+phase/flag table, cleanup and version-1 preparation compatibility. Old
+preparation gap identifiers remain unchanged to preserve historical hashes;
+consult the separate execution capability, not those gaps, for executor support.
+ATK entry-file fingerprints are not a full dependency attestation, and tmpfs
+does not protect against an untrusted host, same user, swap or crash dumps.
+
+No ATK sign-in/provisioning, Azure token/secret read or live registration was run
+for this implementation. The next live work needs a qualified Linux host/browser,
+the real intended app ID and exact phase reviews. Settings, consent, attributed
+FCC consumer execution and WIQD package compatibility are still unverified.
+Do not treat the code milestone as H1/H2/H6 completion or resume historical proofs.
+
+Execution milestone validation: 110 targeted offline tests passed on Windows /
+Node 24.19.0 (25 execution, 38 preparation, 35 FCC, 11 shared CLI/guidance/
+independence and one fresh packed-consumer journey), plus syntax and strict
+types. Synthetic providers cover the effect phases; packed runtime networking
+and subprocesses are denied. The actual Linux filesystem branch and live
+provider were not exercised. See the tracker for earlier separate baselines.
+
+### Subsequent Windows-first request
+
+The user requested trying safe Windows isolation first, with Linux as fallback.
+The read-only probe redirected profile folders but retained the same Windows
+security principal. Installed ATK 1.1.17 still had resolvable broker/keytar
+modules and fixed credential-store bindings; no supported complete isolation
+switch was found. Native same-user redirection therefore failed the precheck.
+No ATK sign-in, broker call, credential-store access or cache copy was attempted.
+Windows Sandbox was unavailable; no OS account/feature/VM was created.
+
+An existing WSL 2 Ubuntu environment was then used for seven focused offline
+checks with private, checksum-verified official Node 22.23.3. All passed,
+including actual tmpfs owner/permission checks and runtime cleanup. This adds
+real Linux filesystem evidence to the prior synthetic/Windows milestone, not
+live authentication or full packed portability. Temporary tooling was removed;
+system Node and user shell profiles were unchanged.
+
+Public npm metadata retrieval for ATK 1.1.17 failed TLS negotiation through both
+PowerShell and Node; certificate verification was not bypassed. The fallback
+still needs a reviewed Linux ATK installation and browser/callback setup before
+separately approved live work. Do not claim Windows isolation is impossible in
+a separate OS boundary, or that WSL presence alone qualifies authentication.
+Read [the assessment](auth-registration.md#windows-first-isolation-check).
+Keep the current Windows guard; no automatic cross-platform login/retry exists.
+
+### Resolved WSL setup and callback precheck
+
+Further work resolved the registry problem: the same public npm endpoint was
+accessible from WSL with TLS verification intact. Private official Node 22.23.3
+and pinned ATK 1.1.17 are now installed in this session's private tooling area,
+outside repository assets, using fresh npm configuration/cache and disabled
+installation scripts. No global tooling, account or provider code was changed.
+
+The real ATK help entry point completed in the private tmpfs runtime with all
+network dispatch denied and only its inspected read-only machine-ID command
+allowed. No account cache was created; runtime removal was verified. ATK did
+attempt its experimentation-service GET even with telemetry disabled, and the
+probe blocked it. Execution plans now disclose this ancillary request and
+machine-derived client metadata; the probe is not a production egress firewall.
+
+Windows successfully fetched a unique response from a synthetic WSL loopback
+server, which then exited. A Windows browser can therefore be considered for
+this host's callback without installing a Linux browser; actual Microsoft
+browser sign-in and host-specific browser policies remain untested. The docs
+and login plan now require verified callback reachability rather than assuming
+a Linux browser is mandatory. Source inspection also found that ATK's browser
+helper may automatically launch the Windows default browser under WSL, despite
+`BROWSER=/bin/true`. The login plan now discloses this: private ATK cache isolation
+does not isolate browser cookies/history. No real browser/sign-in was exercised.
+
+This completes the local Windows-first/fallback precheck, not live authentication.
+Keep Windows execution blocked, retain the Linux provider and its independent
+phase approvals, and obtain real app/identity review before live operations.
+Do not transfer this private tooling or any future account cache as repository
+evidence. See the auth runbook for exact validation scope.
+
+Final continuation checks passed: 33 targeted Windows tests including packed
+CLI, syntax/types, and twelve focused Linux checks on Node 22.23.3. The Linux
+scope includes actual tmpfs checks, synthetic SSO-to-FCC phases and CLI feedback.
+A timer-sensitive late-feedback test was made deterministic with an explicitly
+released promise. This is not the full Linux packed-consumer suite or live auth.
+Private Node/ATK tooling is retained; download/cache scratch files and all probe
+runtime/server processes are cleaned up.
+
+### Native WIQD alternative and completed package portability check
+
+The user requested a WIQD-style native Windows experience rather than making
+WSL the intended workflow. Inspection of installed WIQD 0.18.0 Core confirmed
+account selection, a supported browser-authentication switch and no unconditional
+sign-out at the start of interactive login. This differs from the pinned ATK
+adapter; it does not qualify reuse of WIQD's authentication cache.
+
+Core still uses a fixed `wiqd` / `appStudio` Credential Manager encryption-key
+entry, independent of its home-relative token files. The inspected code can
+fall back to unencrypted content when no encryption key is available. No
+private key-namespace override was found. No WIQD authentication/status command,
+credential-store access, settings change or token transfer was performed.
+Native Windows registration remains unimplemented: qualify a supported private
+credential boundary and registration-only interface before replacing the
+executor. See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
+
+Further source inspection found WIQD's separate cache-free CI refresh-token
+backend. It requires an explicit tenant and a caller-provided fresh delegated
+credential, and refuses interactive overrides. The public bootstrap command
+requires terminal-only human confirmation/disclosure. This is a possible
+integration direction, not authorization to capture/export existing tokens or
+an implemented native interactive adapter.
+
+Q1 is now complete for the fresh packed-consumer test. A missing private npm
+cache was populated separately with public dependencies, without installation
+scripts. A subsequent timeout on the Windows-mounted fixture was resolved by
+placing the disposable consumer in the OS temporary directory, without raising
+the 180-second timeout or weakening assertions. The full packed test passed on
+Linux Node 22.23.3 (about 103 seconds) and Windows (about 67 seconds), including
+offline installation and denied runtime networking/subprocesses. This does not
+claim a full Linux test-suite run or live authentication.
+
+At that historical checkpoint, live ATK SSO work was paused pending selection
+of a secured MCP endpoint and intended M365 app ID, followed by phase reviews.
+The user subsequently supplied an endpoint privately and clarified FCC-only
+scope. The direct portal route needs its actual resource authentication
+metadata, not a newly created agent or consumer app ID. The
+anonymous Microsoft Learn pilot cannot validate SSO, and its historical
+consumed evidence must not be replayed.
+
+## Broader WIQD integration
+
+### Implemented user-managed Windows registration handoff
+
+`mcp-auth-wiqd-schema`, `mcp-auth-wiqd-plan` and `mcp-auth-wiqd-bundle` now provide
+the simpler native Windows option without claiming to replace the isolated
+executor. An existing private WIQD project/environment and registration input
+produce one reviewed, no-overwrite JSON handoff: SSO/PKCE action data, quoted
+operator commands and exact reference-return mappings. The toolkit does not
+run WIQD or alter its project, credentials, account selection or settings.
+
+WIQD owns ordinary user-profile authentication. Its provisioning command can
+affect the whole app, so its full lifecycle and identity must be independently
+reviewed; an export approval never authorizes provisioning. Missing app IDs,
+confidential secrets or existing references suppress provider commands. The
+existing descriptor-bound reference import path remains unchanged, including
+version-1 hashes and unverified status. See the auth runbook's
+[Windows handoff](auth-registration.md#user-managed-wiqd-windows-handoff).
+
+Validation passed: 53 targeted Windows tests plus syntax/types, and eight Linux
+Node 22.23.3 checks including the complete packed-consumer test. The command
+rejects handoff outputs inside the selected WIQD project; neither creation nor
+editing of that project is part of the write. Runtime networking/subprocesses
+remain denied during the packed test. No live WIQD operation was exercised.
+
+Live use remains separate. The user has identified an existing secured endpoint;
+keep real endpoint/identity/project details only in private operator inputs,
+never in these public notes. The intended app ID and existing WIQD project
+still need explicit selection. No live operation is implied by this code.
 
 Start with H1 in [the tracker](progress-tracker.md): inspect current machine
 contracts and propose a small consumer-neutral handoff schema, without changing
