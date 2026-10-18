@@ -154,9 +154,11 @@ separately approved tool call. Generated `recipe-review.json` is a source review
 **not captured endpoint evidence**.
 
 FCC and Cowork still need their own authentication registration and rollout.
-The new recipe does not yet connect to the toolkit's observed-discovery, proof
-or FCC export flows. Do not fabricate an existing-MCP descriptor or edit old
-captures to make the new project appear qualified.
+Use the separately approved [recipe endpoint-reference flow](hosting-recipes.md)
+to connect an explicitly supplied actual endpoint to the existing discovery,
+proof and FCC flows. It preserves the referenced-not-verified status and does
+not fabricate tools or deployment evidence. Never edit old captures to make a
+new project appear qualified.
 
 Confirm the actual Read/Write labels in the target Copilot experience. Neither
 source annotations nor a successful tool call alone proves the final UI behavior.
@@ -186,3 +188,7 @@ source annotations nor a successful tool call alone proves the final UI behavior
 Customer ownership, maintenance and the repository's MIT/as-is terms still
 apply to generated source. Keep real configurations, generated projects and
 operational evidence out of the public toolkit repository.
+
+Release source/parameter packaging is also available through the
+[shared recipe commands](hosting-recipes.md). It remains local preparation,
+not an automatic Azure deployment.

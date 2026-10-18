@@ -7,6 +7,7 @@ import { boundedSnapshot, metadataDigest, savedJson } from './anonymous-metadata
 import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
+import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions } from './recipes/container-apps/runtime.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
@@ -184,10 +185,11 @@ This notice is not a complete dependency license audit or a service-content lice
       'Existing resource group, Container Apps environment, ACR and least-privilege pull identity required; no resource/identity/role creation or inspection.',
       'One warm replica costs money. Rate counters reset on restart and are not a distributed quota, billing cap or DDoS protection.',
       'Registry download/image build require separate approval. The image digest and base-image hardening must be reviewed before deployment.',
-      'No automated deployment/lifecycle, FCC handoff, observed discovery, proof or consumer qualification for this new contract.',
+      'No automated deployment/lifecycle or consumer qualification. A separately approved unverified endpoint reference can use existing discovery/proof/FCC flows.',
     ],
   };
   files['recipe-review.json'] = savedJson(review);
+  sealRecipeFiles(files, input.recipe);
   const digest = metadataDigest(boundedSnapshot({ configPath, input, outputPath, files, review }));
   return { action: 'mcp-container-apps-create', status: 'planned', outputPath, review, files,
     approvalToken: `mcp-container-apps/${digest}` };

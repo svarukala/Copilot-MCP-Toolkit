@@ -426,6 +426,13 @@ HTTP and Flex Consumption only; do not generalize it to every Functions plan.
 
 #### B2 initial local implementation
 
+Follow-up milestone: sealed source manifests, exact image/template release
+preparation, source-only ZIPs and an explicit unverified existing-MCP endpoint
+reference now connect generated source to the existing discovery/proof/FCC flows.
+No tools capture or deployment evidence is synthesized. Sixteen focused offline
+tests passed across source/runtime generation, artifact preparation, real local
+signatures, bounded HTTP and original APIM parity. Azure execution remains manual.
+
 `mcp-container-apps-schema/plan/create` generates editable Node.js source using
 the official MCP SDK, a separate pinned runtime package/lock, Docker build files,
 an ARM template, source/license notices and [recipe instructions](container-apps-recipe.md).

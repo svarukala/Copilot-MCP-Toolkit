@@ -14,8 +14,12 @@ It contains public engineering context only, not credentials or execution author
   Use `mcp-container-apps-schema/plan/create` and the [recipe guide](container-apps-recipe.md);
   this is separate from the terminal wizard and APIM lifecycle. Offline SDK,
   local-signature, HTTP and fresh packed/generated-server checks pass. Automated
-  Azure deployment, new-contract discovery/proof/FCC integration and live
-  consumer label verification remain. No APIM definitions or observed evidence
+  Azure deployment and live consumer label verification remain. Sealed source
+  releases and explicit unverified endpoint references now bridge to existing
+  discovery/proof/FCC flows without synthesizing observations. See
+  [the shared recipe flow](hosting-recipes.md). The user subsequently delegated
+  sequential implementation of all four recipes and periodic commits/pushes;
+  live deployments/scenario validation remain deferred. No APIM definitions or observed evidence
   were rewritten. No image build/push, cloud deployment, sign-in or live call
   is authorized by the backlog or request to begin local development.
 - An opt-in [public npm installation guide](public-npm-setup.md) is linked from

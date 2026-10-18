@@ -1,5 +1,13 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+recipeArtifacts: {
+      contractVersion: 1, source: 'sealed-generated-files', release: 'source-archive-and-exact-template-parameters',
+      commands: ['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
+        'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'],
+      endpointReference: 'explicit-existing-mcp-referenced-not-verified',
+      generatedCapture: false, imageSourceVerified: false, cloudExecution: false,
+      networkCalls: false, proofReplayAuthorized: false, publicLibrary: false,
+    },
 containerAppsRecipe: {
       contractVersion: 1, recipe: 'container-apps-direct-v1',
       commands: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
@@ -10,7 +18,8 @@ containerAppsRecipe: {
       requiredExistingResources: ['resource-group', 'container-apps-environment', 'acr', 'user-assigned-pull-identity'],
       approval: 'input-build-generated-bytes-destination-bound', publicLibrary: false,
       installation: false, imageBuild: false, cloudExecution: false, networkCalls: false,
-      apimLifecycleCompatible: false, integratedDiscovery: false, integratedFccHandoff: false, liveQualified: false,
+      apimLifecycleCompatible: false, endpointReferenceHandoff: 'explicit-unverified-existing-mcp',
+      integratedDiscovery: 'through-separately-created-reference', integratedFccHandoff: 'fresh-observed-reference-only', liveQualified: false,
     },
 guidedSetup: {
       command: 'init', terminalOnly: true, publicLibrary: false,

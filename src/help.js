@@ -1,5 +1,7 @@
 export const commandFamilies = {
   containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
+  recipeArtifacts: ['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
+    'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'],
   generation: ['mcp-server-plan', 'mcp-server-create', 'rest-tools-plan', 'rest-tools-write'],
   resources: ['mcp-resources-choose', 'mcp-resources-plan', 'mcp-resources-write', 'mcp-inventory-plan', 'mcp-inventory'],
   identity: ['mcp-account-plan', 'mcp-account-switch', 'mcp-app-init', 'mcp-app-account-plan', 'mcp-app-account-switch', 'mcp-app-plan', 'mcp-app-apply'],

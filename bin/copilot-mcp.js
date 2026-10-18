@@ -68,6 +68,23 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
+      'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'].includes(command)) {
+      const source = command === 'mcp-recipe-source-plan', planning = command.endsWith('-plan');
+      const allowed = ['project', 'workspace-root', 'json', ...(source ? [] : ['config', 'output',
+        ...(planning ? ['summary'] : ['approve'])])];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || !workspaceRoot || !options.project
+        || !source && (!options.config || !options.output)) {
+        throw new Error('Recipe artifacts require --workspace-root and --project; release/reference also require --config and new --output. Writes need exact --approve. No live effects.');
+      }
+      const artifacts = await import('../src/mcp-recipe-artifacts.js');
+      const action = source ? artifacts.recipeSourcePlan : command.includes('-release-')
+        ? planning ? artifacts.planRecipeRelease : artifacts.writeRecipeRelease
+        : planning ? artifacts.planRecipeReference : artifacts.writeRecipeReference;
+      print(await action({ workspaceRoot, project: options.project, config: options.config,
+        output: options.output, approval: options.approve }), true);
+      return 0;
+    }
     if (['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'].includes(command)) {
       const schema = command === 'mcp-container-apps-schema', planning = command === 'mcp-container-apps-plan';
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json', ...(planning ? ['summary'] : ['approve'])];
