@@ -7,6 +7,7 @@
     "bin/copilot-mcp.js",
     "docs/api.md",
     "docs/apim-gateway-recipe.md",
+    "docs/app-service-recipe.md",
     "docs/auth-registration.md",
     "docs/cli-contract.md",
     "docs/container-apps-recipe.md",

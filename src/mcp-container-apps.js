@@ -8,7 +8,7 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
-import { hostingSchemas, gatewaySettings, gatewayInfrastructure } from './mcp-hosting-targets.js';
+import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions } from './recipes/container-apps/runtime.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
@@ -62,7 +62,7 @@ function compile(value, hosting) {
       && !/[\\<>"{}]/.test(input.azure.gateway.applicationIdUri) && !input.azure.gateway.applicationIdUri.endsWith('/'),
     'Use the exact nonsecret gateway Application ID URI.');
   }
-  for (const id of [input.azure.environmentResourceId, input.azure.registry.pullIdentityResourceId]) {
+  for (const id of [input.azure.environmentResourceId, input.azure.planResourceId, input.azure.registry.pullIdentityResourceId].filter(Boolean)) {
     requireRecipe(id.startsWith(`/subscriptions/${input.azure.subscriptionId}/`), 'Existing resources must be in the selected subscription.');
   }
   requireRecipe(JSON.stringify([...input.operationIds].sort()) === JSON.stringify([...input.review.readOnlyOperationIds].sort()),
@@ -172,11 +172,13 @@ async function prepare(options, hosting = false) {
   files['Dockerfile'] = dockerfile;
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
-  files['infra/container-app.json'] = savedJson(infrastructure(input));
+  const appService = input.recipe === 'app-service-container-v1';
+  files[appService ? 'infra/app-service.json' : 'infra/container-app.json'] = savedJson(appService ? appServiceInfrastructure(input) : infrastructure(input));
   if (input.azure.gateway) files['infra/apim-gateway.json'] = savedJson(gatewayInfrastructure(input, infrastructure(input)));
   files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'container-apps-recipe.md'), 'utf8');
   files['hosting-recipes.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'), 'utf8');
   if (input.azure.gateway) files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'apim-gateway-recipe.md'), 'utf8');
+  if (appService) files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'app-service-recipe.md'), 'utf8');
   files['LICENSE'] = await readFile(path.join(TOOLKIT_ROOT, 'LICENSE'), 'utf8');
   files['THIRD-PARTY-NOTICES.md'] = `# Generated server notices
 
@@ -199,7 +201,7 @@ This notice is not a complete dependency license audit or a service-content lice
       'Entra v2 delegated tokens only. Exact tenant, audience, scope and allowed client application are checked in the server.',
       'Anonymous JSON backend, fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
       'Requests: 64 KiB; backend JSON: 1 MiB and 10 seconds; 20 concurrent requests; aggregate per-process requests/minute. No tool-call retries.',
-      'Existing resource group, Container Apps environment, ACR and least-privilege pull identity required; no resource/identity/role creation or inspection.',
+      'Existing resource group, selected host environment/plan, ACR and least-privilege pull identity required; no prerequisite resource/identity/role creation or inspection.',
       'One warm replica costs money. Rate counters reset on restart and are not a distributed quota, billing cap or DDoS protection.',
       'Registry download/image build require separate approval. The image digest and base-image hardening must be reviewed before deployment.',
       'No automated deployment/lifecycle or consumer qualification. A separately approved unverified endpoint reference can use existing discovery/proof/FCC flows.',

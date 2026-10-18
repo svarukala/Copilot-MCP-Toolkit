@@ -1,15 +1,13 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { createRequestHandler } from './runtime.js';
+import { createRequestHandler, resolveServerSettings } from './runtime.js';
 
 try {
   const config = JSON.parse(await readFile(new URL('./runtime-config.json', import.meta.url), 'utf8'));
-  const port = Number(process.env.PORT ?? 3000);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port.');
-  if (!process.env.PUBLIC_MCP_URL) throw new Error('PUBLIC_MCP_URL is required.');
+  const { port, publicUrl } = resolveServerSettings(process.env);
   const server = createServer({
     requestTimeout: 15000, headersTimeout: 10000, maxHeaderSize: 24576,
-  }, createRequestHandler(config, process.env.PUBLIC_MCP_URL));
+  }, createRequestHandler(config, publicUrl));
   server.timeout = 20000;
   server.on('timeout', socket => socket.destroy());
   server.on('error', () => {

@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { generateKeyPair, SignJWT } from 'jose';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
-import { createTokenVerifier, createGatewayVerifier, createRequestHandler } from '../src/recipes/container-apps/runtime.js';
+import { createTokenVerifier, createGatewayVerifier, createRequestHandler, resolveServerSettings } from '../src/recipes/container-apps/runtime.js';
 import { planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
@@ -18,6 +18,15 @@ function gatewayInput() {
     apiName: 'reviewed-mcp', path: 'reviewed-mcp', audience: '88888888-8888-4888-8888-888888888888',
     applicationIdUri: 'api://88888888-8888-4888-8888-888888888888',
     principalId: '99999999-9999-4999-8999-999999999999', role: 'Mcp.Gateway' };
+  return input;
+}
+function appServiceInput() {
+  const input = structuredClone(direct);
+  input.recipe = 'app-service-container-v1';
+  input.azure.planResourceId = input.azure.environmentResourceId.replace('Microsoft.App/managedEnvironments', 'Microsoft.Web/serverfarms');
+  delete input.azure.environmentResourceId;
+  input.azure.planKind = 'linux-dedicated-basic-or-higher';
+  input.azure.registry.pullIdentityClientId = '88888888-8888-4888-8888-888888888888';
   return input;
 }
 async function setup(t, input) {
@@ -106,4 +115,30 @@ test('gateway and caller signatures are independently required, with gateway met
   assert.equal(metadata.resource, runtime.gateway.publicUrl);
   const challenge = await request(validGateway, '');
   assert.match(challenge.headers.get('www-authenticate'), /reviewed-mcp\/\.well-known\/oauth-protected-resource/);
+});
+
+test('App Service uses the existing Linux plan, identity client ID and actual platform hostname', async t => {
+  const input = appServiceInput(), options = await setup(t, input);
+  const plan = await planHostingRecipe(options);
+  assert.equal(plan.files['infra/container-app.json'], undefined);
+  assert.equal(plan.files['runtime-config.json'], JSON.stringify(compileHostingRecipe(direct).runtime, null, 2) + '\n');
+  const template = JSON.parse(plan.files['infra/app-service.json']), app = template.resources[0];
+  assert.equal(app.properties.serverFarmId, input.azure.planResourceId);
+  assert.equal(app.properties.siteConfig.acrUserManagedIdentityID, input.azure.registry.pullIdentityClientId);
+  assert.equal(app.properties.siteConfig.acrUseManagedIdentityCreds, true);
+  assert.equal(app.properties.httpsOnly, true);
+  assert.match(template.outputs.mcpEndpoint.value, /defaultHostName/);
+  await writeHostingRecipe({ ...options, approval: plan.approvalToken });
+  assert.deepEqual(resolveServerSettings({ MCP_HOST_PLATFORM: 'app-service', WEBSITE_HOSTNAME: 'synthetic-app-unique.eastus.azurewebsites.net' }),
+    { port: 3000, publicUrl: 'https://synthetic-app-unique.eastus.azurewebsites.net/mcp' });
+  assert.throws(() => resolveServerSettings({ MCP_HOST_PLATFORM: 'app-service' }));
+  assert.throws(() => resolveServerSettings({ MCP_HOST_PLATFORM: 'app-service', WEBSITE_HOSTNAME: 'attacker.example.com' }));
+  assert.throws(() => resolveServerSettings({ PORT: '0', PUBLIC_MCP_URL: 'http://localhost/mcp' }));
+  for (const mutate of [
+    x => { x.azure.planKind = 'windows'; },
+    x => { x.azure.planResourceId = x.azure.planResourceId.replace(x.azure.subscriptionId, x.azure.tenantId); },
+    x => { delete x.azure.registry.pullIdentityClientId; },
+  ]) {
+    const bad = structuredClone(input); mutate(bad); assert.throws(() => compileHostingRecipe(bad));
+  }
 });

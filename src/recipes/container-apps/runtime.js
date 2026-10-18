@@ -147,6 +147,21 @@ export function createProtocolServer(config, { request = fetch, signal, log = ev
   return server;
 }
 
+export function resolveServerSettings(env) {
+  const port = Number(env.PORT ?? 3000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port.');
+  if (env.MCP_HOST_PLATFORM !== undefined && env.MCP_HOST_PLATFORM !== 'app-service') throw new Error('Unsupported hosting platform.');
+  let publicUrl = env.PUBLIC_MCP_URL;
+  if (!publicUrl && env.MCP_HOST_PLATFORM === 'app-service') {
+    if (!/^[a-z0-9][a-z0-9.-]*\.azurewebsites\.net$/.test(env.WEBSITE_HOSTNAME ?? '')) {
+      throw new Error('An actual platform-provided WEBSITE_HOSTNAME is required.');
+    }
+    publicUrl = `https://${env.WEBSITE_HOSTNAME}/mcp`;
+  }
+  if (!publicUrl) throw new Error('PUBLIC_MCP_URL is required.');
+  return { port, publicUrl };
+}
+
 const tokenErrors = new Set(['ERR_JWT_EXPIRED', 'ERR_JWT_CLAIM_VALIDATION_FAILED', 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
   'ERR_JWS_INVALID', 'ERR_JWT_INVALID', 'ERR_JOSE_ALG_NOT_ALLOWED', 'ERR_JWKS_NO_MATCHING_KEY']);
 

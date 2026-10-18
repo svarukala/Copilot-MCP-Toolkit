@@ -13,7 +13,18 @@ export function hostingSchemas(base) {
     role: { const: 'Mcp.Gateway' },
   });
   gateway.properties.azure.required.push('gateway');
-  return [base, gateway];
+  const appService = structuredClone(base);
+  appService.properties.recipe = { const: 'app-service-container-v1' };
+  const azure = appService.properties.azure;
+  delete azure.properties.environmentResourceId;
+  azure.required = azure.required.filter(key => key !== 'environmentResourceId');
+  azure.properties.planResourceId = { ...base.properties.azure.properties.environmentResourceId,
+    pattern: base.properties.azure.properties.environmentResourceId.pattern.replace('Microsoft.App/managedEnvironments', 'Microsoft.Web/serverfarms') };
+  azure.properties.planKind = { const: 'linux-dedicated-basic-or-higher' };
+  azure.required.push('planResourceId', 'planKind');
+  azure.properties.registry.properties.pullIdentityClientId = uuid;
+  azure.properties.registry.required.push('pullIdentityClientId');
+  return [base, gateway, appService];
 }
 
 export function gatewaySettings(input) {
@@ -76,5 +87,36 @@ export function gatewayInfrastructure(input, appTemplate) {
       ],
     }],
     outputs: { mcpEndpoint: { type: 'string', value: gatewaySettings(input).publicUrl } },
+  };
+}
+
+export function appServiceInfrastructure(input) {
+  const a = input.azure;
+  return {
+    $schema: 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#', contentVersion: '1.0.0.0',
+    metadata: { recipe: input.recipe, status: 'review-only-not-deployed', expectedTenantId: a.tenantId,
+      expectedSubscriptionId: a.subscriptionId, expectedResourceGroup: a.resourceGroup,
+      warning: 'Verify name absence, existing Linux Basic-or-higher plan, region and exact ACR pull identity. ARM may overwrite an existing site.' },
+    parameters: { containerImage: { type: 'string', minLength: 1 } },
+    resources: [{
+      type: 'Microsoft.Web/sites', apiVersion: '2023-12-01', name: a.appName, location: a.location, kind: 'app,linux,container',
+      tags: { 'copilot-mcp-recipe': input.recipe },
+      identity: { type: 'UserAssigned', userAssignedIdentities: { [a.registry.pullIdentityResourceId]: {} } },
+      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true,
+        siteConfig: { linuxFxVersion: "[concat('DOCKER|', parameters('containerImage'))]",
+          acrUseManagedIdentityCreds: true, acrUserManagedIdentityID: a.registry.pullIdentityClientId,
+          alwaysOn: true, minTlsVersion: '1.2', scmMinTlsVersion: '1.2', ftpsState: 'Disabled',
+          healthCheckPath: '/health', httpLoggingEnabled: false, detailedErrorLoggingEnabled: false,
+          appSettings: Object.entries({ PORT: '3000', WEBSITES_PORT: '3000', MCP_HOST_PLATFORM: 'app-service',
+            WEBSITES_ENABLE_APP_SERVICE_STORAGE: 'false', DOCKER_REGISTRY_SERVER_URL: `https://${a.registry.server}` })
+            .map(([name, value]) => ({ name, value })) },
+      },
+      resources: ['scm', 'ftp'].map(name => ({
+        type: 'basicPublishingCredentialsPolicies', apiVersion: '2023-12-01', name,
+        dependsOn: [`[resourceId('Microsoft.Web/sites', '${a.appName}')]`], properties: { allow: false },
+      })),
+    }],
+    outputs: { mcpEndpoint: { type: 'string',
+      value: `[concat('https://', reference(resourceId('Microsoft.Web/sites', '${a.appName}'), '2023-12-01').defaultHostName, '/mcp')]` } },
   };
 }
