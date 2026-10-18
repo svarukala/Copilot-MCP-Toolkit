@@ -5,6 +5,12 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- An opt-in [public npm installation guide](public-npm-setup.md) is linked from
+  the README download step. It changes a fresh local checkout's project registry
+  and locked download URLs while preserving all versions and integrity hashes.
+  Offline checks covered all 52 URLs, repeat conversion and fail-before-write
+  cases. The repository's default feed/lockfile were not changed, and no fresh
+  public-registry download/install was performed or qualified.
 - FSI audience preparation: the README has numbered setup steps, a public FX
   demo, simple capability limits and the retained as-is/AI-generated disclaimer.
   It discloses the dependency-feed access prerequisite. The accumulated branch

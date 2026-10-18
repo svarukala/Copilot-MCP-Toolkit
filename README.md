@@ -68,6 +68,11 @@ tenant access, licensing and administrator approvals.
 
 ### 2. Download the toolkit and install dependencies
 
+**Using public npm instead of the Microsoft package feed?** Follow the separate
+[public npm installation guide](docs/public-npm-setup.md) instead of this step,
+then return to Step 3 below. It covers both the project registry and the pinned
+download URLs without changing dependency versions.
+
 Run this from a folder where you keep source code:
 
 ```powershell
@@ -81,8 +86,9 @@ node .\bin\copilot-mcp.js --help
 `https://packagefeedproxy.microsoft.io/npm/`, including URLs in its lockfile.
 Your environment must be permitted and able to access that feed. Installation
 from public npm alone has not been verified. If access fails, stop and arrange
-an approved dependency source with your IT team; do not disable TLS checks or
-bypass network policy. If all dependencies are already cached, add `--offline`
+an approved dependency source with your IT team, or use the linked public npm
+guide if your organization permits it. Do not disable TLS checks or bypass
+network policy. If all dependencies are already cached, add `--offline`
 to `npm ci`. See [dependency setup](docs/development.md).
 
 You do not need to publish this package to npm or install it globally.
