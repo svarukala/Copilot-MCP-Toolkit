@@ -372,8 +372,8 @@ separately approved. B1's priority and first provider profile remain unset.
 | ID | Work | Status | Completion gate |
 | --- | --- | --- | --- |
 | B1 | Support upstream MCP servers requiring username/password authentication | Requested 2026-10-18; not implemented | Review direct HTTP Basic and password-to-token exchange as distinct profiles; agree secure credential storage, caller isolation, token lifecycle and consumer compatibility before implementation |
-| B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | In progress: local source/runtime generation implemented and offline checked | Entra v2 delegated callers, reviewed fixed GETs, anonymous JSON backend, server-owned annotations and ARM review files. Automated Azure lifecycle, discovery/proof/FCC integration and live consumer qualification remain |
-| B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Requested next after B2; not implemented | Reuse B2's server; APIM proxies MCP rather than generating tools from REST. Review caller/backend authentication, prevent gateway bypass, and qualify annotation preservation and streaming |
+| B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | Local generation/runtime/release/reference implemented; offline checked | Entra delegated callers, reviewed fixed GETs, anonymous JSON backend and server-owned annotations. Operator deployment; live qualification and future guarded cloud automation remain |
+| B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Local proxy/server/release/reference implemented; offline checked | Independent signed gateway identity plus caller token; inherited HTTP proxy policies, no native tool generation. Live token issuance, policy behavior and consumer labels remain; SSE is not supported by this JSON-only profile |
 | B4 | Recipe 3: MCP server hosted on Azure App Service | Local generation/runtime/release implemented; offline checked | Existing Linux Basic-or-higher plan; managed-identity image pull and actual platform hostname. Live image pull, routing, authentication and consumer checks remain |
 | B5 | Recipe 4: MCP server hosted on Azure Functions | Local SDK custom-handler generation and source release implemented | Public preview, Linux Flex Consumption, stateless JSON, identity-based blob/deployment storage; actual Functions host, remote build and live consumer validation remain |
 
@@ -426,18 +426,6 @@ HTTP and Flex Consumption only; do not generalize it to every Functions plan.
 
 #### B2 initial local implementation
 
-#### B3 local gateway implementation
-
-Recipe 2 now generates an SDK-owned Container Apps server plus a separate APIM
-HTTP proxy template. Independent signed gateway managed-identity and delegated
-caller tokens are both required. All APIM policy sections inherit existing
-policies; no REST-to-MCP conversion, response rewrite or policy retry is added.
-Release review binds distinct resource groups and per-template parameters.
-Fifteen focused offline tests passed, including actual local signatures,
-direct-host bypass rejection, metadata URLs and preserved tools/list annotations.
-Live identity issuance, inherited gateway policies and consumer classification
-remain unverified. See [recipe 2](apim-gateway-recipe.md).
-
 Follow-up milestone: sealed source manifests, exact image/template release
 preparation, source-only ZIPs and an explicit unverified existing-MCP endpoint
 reference now connect generated source to the existing discovery/proof/FCC flows.
@@ -473,14 +461,45 @@ CLI feedback and original generation parity; CLI syntax and strict public types
 passed. Exact 64 KiB request and 1 MiB response boundaries and real ten-second
 backend cancellation were exercised. The full repository suite was not rerun.
 
-Remaining B2 work: reviewed Azure prerequisite inspection and deployment
-automation; new-contract endpoint readback, discovery/proof and FCC handoff
-integration; an explicitly approved live deployment and consumer Read/Write
-classification check. The current template references an existing environment,
+Remaining B2 work: future guarded Azure prerequisite inspection/deployment
+automation and verified endpoint readback, plus an explicitly approved live
+deployment and consumer Read/Write classification check. Local endpoint
+references now bridge to discovery/proof/FCC but are not deployment receipts.
+The current template references an existing environment,
 registry and pull identity and requires a separately selected image. It can
 update an existing app if manually misapplied: no cloud ownership/no-overwrite
 guarantee is claimed. No image was built/pushed, no Azure/M365/provider operation
 was executed, and no historical evidence or consumed proof was changed.
+
+#### B3-B5 sequential local milestones
+
+Recipe 2 generates an SDK-owned server plus a separate APIM HTTP proxy template.
+Both signed gateway identity and delegated caller are required; inherited
+policies remain. Release parameters bind separate resource groups and the
+explicit backend origin. Recipe 3 adds Linux App Service container hosting with
+the identity client ID required for image pull and actual platform hostname.
+Recipe 4 adds a Linux FC1 preview custom handler, managed-identity storage,
+explicit admin-route protection and source-hash-bound release preparation.
+It does not replace the SDK with the Functions MCP trigger extension.
+
+The latest combined focused run passed 18 checks, including all four recipes,
+actual SDK/JWT/HTTP behavior and a fresh packed CLI with runtime network/process
+creation denied. The independent generated runtime also installed from cache
+and loaded successfully. CLI syntax and strict public types passed. This is
+offline evidence, not a Functions Core Tools or Azure runtime qualification.
+Complete synthetic examples, per-host guides, shared release/reference flow,
+CLI help/capabilities and the shipped Copilot skill are included.
+
+Final repository-wide regression: `npm test` passed all **792 tests**, with no
+failures, skips or cancellations. CLI syntax and strict public types also passed.
+This includes fresh packed-consumer execution of all four hosting profiles,
+release/reference commands, correct gateway/preview approval summaries, and
+unchanged historical lifecycle/evidence boundaries. The suite remained offline;
+no Functions Core Tools host, Azure deployment or live consumer was exercised.
+
+Commits were pushed periodically in the approved recipe order. No live
+deployment or scenario validation was attempted. The real-environment checklist
+is in [the shared guide](hosting-recipes.md#checks-still-needed-in-the-real-environment).
 
 ### B1: Username/password-authenticated MCP
 

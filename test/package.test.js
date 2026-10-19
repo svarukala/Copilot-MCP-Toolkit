@@ -110,6 +110,11 @@ await server.close();
     const args = ['--workspace-root', workspace, '--config', config, '--output', output];
     const plan = invoke(['mcp-hosting-plan', ...args, '--summary']);
     assert.ok(plan.stderr.includes(plan.result.approvalToken));
+    if (name === 'container-apps-apim') {
+      assert.match(plan.stderr, /independent signed gateway token/);
+      assert.doesNotMatch(plan.stderr, /no APIM/);
+    }
+    if (name === 'functions-sdk') assert.match(plan.stderr, /PUBLIC PREVIEW/);
     invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken]);
     assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
     const source = invoke(['mcp-recipe-source-plan', '--workspace-root', workspace, '--project', output]).result;

@@ -9,6 +9,12 @@ import { planRecipeRelease, writeRecipeRelease, planRecipeReference, writeRecipe
   recipeSourcePlan, readRecipeProject } from '../src/mcp-recipe-artifacts.js';
 import { planMcpProjectDiscovery } from '../src/mcp-discovery-project.js';
 
+test('all recipe artifact entry points require an explicit private workspace', async () => {
+  for (const action of [recipeSourcePlan, planRecipeRelease, writeRecipeRelease, planRecipeReference, writeRecipeReference]) {
+    await assert.rejects(action({ project: 'not-read' }), /explicit --workspace-root/);
+  }
+});
+
 async function setup(t) {
   const parent = path.join(TOOLKIT_ROOT, '.test-output'); await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'recipe-artifacts-'));

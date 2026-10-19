@@ -2,7 +2,10 @@
 
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
-| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous HTTPS JSON backend | Local SDK server/ARM generation only; selected owner-reviewed fixed GETs without arguments; existing environment/registry/pull identity; no APIM lifecycle/discovery/proof/FCC integration or live qualification |
+| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; no automatic deployment/live qualification |
+| Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
+| App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |
+| Functions SDK recipe 4 | Same delegated checks | Same | Explicit public-preview acceptance; Linux FC1 custom handler, stateless JSON, identity-based storage and separately reviewed source ZIP |
 | Native APIM from REST | Explicit Entra tenant, resource, scope and client allowlist | Anonymous | OpenAPI 3.0.x JSON and explicit operation IDs |
 | Native APIM from REST | Same | API key | Versionless Key Vault reference; APIM system identity; dedicated header OR query parameter |
 | Native APIM from REST | Same | Entra delegated | Same-token passthrough; backend must accept that resource/audience and authorize the user |
@@ -21,14 +24,17 @@ Entra remains the guided default; public access is a separate explicit choice.
 Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator
 secret-write rights and service secret-read rights are separate. No shared-service
-identity PATCH, user-assigned identity, default-role fallback, app-role assignment
+identity PATCH, native-APIM user-assigned identity, default-role fallback, app-role assignment
 mutation, OBO, backend client-secret flow or automatic consent is implemented.
 The separate auth-config executor registers confidential OAuth metadata; it does
 not add a backend token-exchange flow or OAuth MCP discovery/proof.
 
-For an SDK server rather than native APIM tool generation, see
-[Container Apps recipe 1](container-apps-recipe.md). Its generated annotations
-are not observed evidence and its direct endpoint is protected, not anonymous.
+For SDK servers rather than native APIM tool generation, see
+[all four hosting recipes](hosting-recipes.md). Generated annotations are not
+observed evidence. Source projects and local releases are not deployed resources.
+A separately approved endpoint reference can use existing discovery/proof/FCC
+flows without fabricating captures. All four need live platform and consumer
+qualification; the Functions host itself has not been run by the offline suite.
 
 ## Public anonymous APIM
 

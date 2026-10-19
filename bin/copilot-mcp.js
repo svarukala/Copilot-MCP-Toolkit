@@ -91,7 +91,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       const allowed = schema ? ['json'] : ['config', 'output', 'workspace-root', 'json', ...(planning ? ['summary'] : ['approve'])];
       if (Object.keys(options).some(key => !allowed.includes(key))
         || !schema && (!workspaceRoot || !options.config || !options.output)) {
-        throw new Error('Container Apps schema accepts --json only. Plan/create requires --workspace-root, --config and a new --output directory; create also needs exact --approve. Local source generation only.');
+        throw new Error('Hosting schema accepts --json only. Plan/create requires --workspace-root, --config and a new --output directory; create also needs exact --approve. Local source generation only.');
       }
       const recipe = await import('../src/mcp-container-apps.js');
       if (schema) print(hosting ? recipe.hostingSchema : recipe.containerAppsSchema, true);

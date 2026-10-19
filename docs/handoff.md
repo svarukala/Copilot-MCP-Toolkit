@@ -7,21 +7,29 @@ It contains public engineering context only, not credentials or execution author
 
 - Alternative hosting is now an explicit [ordered backlog B2-B5](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes):
   (1) direct Container Apps, (2) Container Apps behind an APIM gateway,
-  (3) App Service, (4) Functions. The user requested starting local work on
-  recipe 1. Its first local implementation now generates an SDK-based Node
-  server, Entra v2 delegated-token checks, owner-reviewed fixed-GET tools against
-  an anonymous JSON backend, Docker/ARM files and pinned runtime dependencies.
-  Use `mcp-container-apps-schema/plan/create` and the [recipe guide](container-apps-recipe.md);
-  this is separate from the terminal wizard and APIM lifecycle. Offline SDK,
-  local-signature, HTTP and fresh packed/generated-server checks pass. Automated
-  Azure deployment and live consumer label verification remain. Sealed source
-  releases and explicit unverified endpoint references now bridge to existing
-  discovery/proof/FCC flows without synthesizing observations. See
-  [the shared recipe flow](hosting-recipes.md). The user subsequently delegated
-  sequential implementation of all four recipes and periodic commits/pushes;
-  live deployments/scenario validation remain deferred. No APIM definitions or observed evidence
-  were rewritten. No image build/push, cloud deployment, sign-in or live call
-  is authorized by the backlog or request to begin local development.
+  (3) App Service, (4) Functions. All four local source/release/reference flows
+  are implemented and pushed in sequential milestones. Use `mcp-hosting-*` and
+  [the shared recipe guide](hosting-recipes.md). The original
+  `mcp-container-apps-*` remains direct-only. All share the SDK runtime with
+  Entra delegated checks and reviewed fixed GETs against an anonymous JSON
+  backend. APIM uses an HTTP proxy and independently signed gateway identity;
+  App Service uses an existing Linux plan; Functions is an explicit Linux FC1
+  preview custom-handler profile with identity-based blob storage.
+  Sealed source and release reviews are not attestations. An explicit
+  unverified endpoint reference can use existing discovery/proof/FCC without
+  synthesizing observations. These flows remain separate from the wizard,
+  historical APIM lifecycle and proposed WIQD endpoint contract.
+  The user delegated sequential implementation and periodic commits/pushes,
+  with live scenarios deferred. Automated cloud deployment is not implemented;
+  operator prerequisite/what-if/build/deploy reviews are documented. No image
+  publication, cloud operation, sign-in or live provider call was performed.
+  Actual Functions host/remote build, Azure routing/identities, APIM inherited
+  policies and consumer Read/Write labels remain unverified. No historical
+  descriptor, evidence, credential boundary or consumed proof was changed.
+  Final offline regression passed all 792 repository tests, CLI syntax and
+  strict public types. Final consistency work also corrected host-specific
+  approval summaries and rejects a direct-container reference for the gateway
+  recipe. The tracker and per-host guides retain the remaining live checks.
 - An opt-in [public npm installation guide](public-npm-setup.md) is linked from
   the README download step. It changes a fresh local checkout's project registry
   and locked download URLs while preserving all versions and integrity hashes.

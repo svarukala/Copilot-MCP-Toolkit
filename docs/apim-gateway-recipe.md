@@ -36,6 +36,15 @@ Use `mcp-hosting-schema`, `mcp-hosting-plan` and `mcp-hosting-create` with the
 same explicit workspace/config/new output and exact approval as recipe 1.
 See [shared preparation and reference commands](hosting-recipes.md).
 
+For a separately approved local startup, install the generated locked dependencies
+with `npm ci --ignore-scripts --no-audit --fund=false`, set
+`$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'`, then run `npm start`.
+Only health/public metadata can be checked without tokens. Both real gateway and
+caller tokens are still required for MCP; this is not an APIM emulator.
+Repository tests use synthetic local signing keys without weakening generated
+authentication. Do not put real tokens in arguments or files. Stop the local
+process afterward.
+
 ## How access works
 
 APIM first checks the caller's delegated token, exact tenant, audience, scope

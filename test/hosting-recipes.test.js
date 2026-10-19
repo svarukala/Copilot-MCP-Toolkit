@@ -7,7 +7,7 @@ import { generateKeyPair, SignJWT } from 'jose';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { createTokenVerifier, createGatewayVerifier, createRequestHandler, resolveServerSettings } from '../src/recipes/container-apps/runtime.js';
-import { planRecipeRelease, recipeSourcePlan, writeRecipeRelease } from '../src/mcp-recipe-artifacts.js';
+import { planRecipeRelease, recipeSourcePlan, writeRecipeRelease, planRecipeReference } from '../src/mcp-recipe-artifacts.js';
 import { unzipSync } from 'fflate';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
@@ -60,6 +60,11 @@ test('gateway recipe binds independent audiences, exact policy targets and both 
   assert.equal(JSON.parse(release.files['infra/container-app.parameters.json']).parameters.backendOrigin, undefined);
   assert.equal(JSON.parse(release.files['infra/apim-gateway.parameters.json']).parameters.backendOrigin.value,
     `https://${input.azure.appName}.synthetic.eastus.azurecontainerapps.io`);
+  assert.equal(JSON.parse(release.files['infra/apim-gateway.parameters.json']).parameters.containerImage, undefined);
+  await writeFile(config, JSON.stringify({ schemaVersion: 1, serverId: '66666666-6666-4666-8666-666666666666',
+    endpoint: `https://${input.azure.appName}.synthetic.eastus.azurecontainerapps.io/mcp` }));
+  await assert.rejects(planRecipeReference({ ...options, project: options.output, config,
+    output: path.join(options.workspaceRoot, 'wrong-reference') }), /recipe gateway URL/);
   for (const mutate of [
     x => { x.azure.gateway.audience = x.authentication.audience; },
     x => { x.azure.gateway.path = '../other'; },
@@ -179,6 +184,7 @@ test('Functions preview produces a managed-identity Flex app and separately revi
     x => { x.azure.storage.accountResourceId = x.azure.storage.accountResourceId.replace(x.azure.subscriptionId, x.azure.tenantId); },
     x => { x.azure.storage.deploymentContainer = '../other'; },
     x => { x.azure.storage.connectionString = 'unsupported'; },
+    x => { x.azure.storage.accountResourceId += '-invalid'; },
   ]) {
     const bad = structuredClone(input); mutate(bad); assert.throws(() => compileHostingRecipe(bad));
   }

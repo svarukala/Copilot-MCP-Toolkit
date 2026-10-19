@@ -4,10 +4,40 @@ The recipes use the same Node.js MCP server. Hosting changes; tool logic and
 caller permissions do not. Each operation below is explicit and local unless
 the operator separately chooses to build, publish, deploy or test.
 
-Available local generators: [direct Container Apps](container-apps-recipe.md)
-and [Container Apps behind APIM](apim-gateway-recipe.md). Use the closed
-`mcp-hosting-schema` and `mcp-hosting-plan/create` for either. The original
-`mcp-container-apps-*` commands intentionally remain recipe-1-only.
+| Recipe | Existing prerequisites | Complete synthetic input |
+| --- | --- | --- |
+| [1. Direct Container Apps](container-apps-recipe.md) | Environment, ACR and image-pull identity | `examples/mcp/container-apps-direct.json` |
+| [2. Container Apps with APIM](apim-gateway-recipe.md) | Recipe 1 prerequisites plus APIM, gateway resource app and identity role assignment | `examples/mcp/container-apps-apim.json` |
+| [3. App Service](app-service-recipe.md) | Linux Basic-or-higher plan, ACR and image-pull identity | `examples/mcp/app-service-container.json` |
+| [4. Functions (preview)](functions-recipe.md) | Linux FC1 plan, blob storage/container and storage identity | `examples/mcp/functions-sdk.json` |
+
+All four are implemented for **local generation, release preparation and explicit
+endpoint-reference creation**. Cloud deployment remains an operator workflow;
+real host behavior and Copilot Read-only labels are not yet qualified.
+All currently support Entra delegated callers and one anonymous JSON backend
+with explicitly reviewed, parameter-free GETs. They do not add backend OAuth,
+API keys, username/password, arbitrary arguments or write tools.
+
+## Choose, review and generate
+
+Copy the selected fictional example into an existing private workspace. Replace
+it with actual reviewed settings; never deploy the example as-is. Review the
+host-specific guide above, then:
+
+```powershell
+node .\bin\copilot-mcp.js mcp-hosting-schema --json
+node .\bin\copilot-mcp.js mcp-hosting-plan --workspace-root C:\McpProjects `
+  --config C:\McpProjects\input.json --output C:\McpProjects\server --summary --json
+node .\bin\copilot-mcp.js mcp-hosting-create --workspace-root C:\McpProjects `
+  --config C:\McpProjects\input.json --output C:\McpProjects\server `
+  --approve '<exact current approvalToken after review>' --json
+```
+
+Use the installed `copilot-mcp` command in place of `node .\bin\copilot-mcp.js`
+if installed. The commands below use that shorter form.
+The original `mcp-container-apps-*` commands intentionally remain recipe-1-only.
+These source projects are not part of the terminal wizard or APIM Resume flow.
+Source generation cannot log in, install dependencies or change Azure.
 
 ## Source, release and endpoint are different things
 
@@ -60,7 +90,7 @@ copilot-mcp mcp-recipe-release-bundle --workspace-root C:\McpProjects `
 ```
 
 The output contains source.zip (no installed node_modules), deployment templates,
-parameters and release-review.json. Source licenses/notices are included.
+per-template parameters and release-review.json. Source licenses/notices are included.
 The original source manifest and every file must still match; edited source
 requires a newly reviewed generated project or an independent operator workflow.
 Do not rewrite an old manifest just to pass an integrity check.
@@ -104,3 +134,13 @@ user. Do not run the APIM resource lifecycle on the source or reference.
 For FCC, use only the resulting real observed capture and separately prepared
 SSO registration. Nothing here registers a connector, provisions a WIQD app,
 broadens a rollout audience or proves the UI labels.
+
+## Checks still needed in the real environment
+
+Check the selected host's prerequisites, image/source deployment, actual URL,
+rejection of invalid callers and authorized tools/list. For recipe 2 also check
+gateway-token issuance, inherited policies and direct-host bypass rejection.
+For recipe 4 check preview availability, remote build and the actual Functions
+host. Then separately approve one tool call and inspect annotations and actual
+Copilot Read/Write labels. Preserve failed/unknown attempts; a new source or
+reference does not authorize replay.

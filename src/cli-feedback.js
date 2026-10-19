@@ -123,11 +123,16 @@ export function cliPlanSummary(plan) {
   }
   if (!plan.action) return;
   if (['mcp-recipe-release-bundle', 'mcp-recipe-reference-create'].includes(plan.action)) {
-    writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\nNo Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
+    const detail = plan.origin ? `Endpoint: ${safe(plan.origin.endpoint)}\n`
+      : `Tenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\nAccount: ${safe(plan.review.accountName)}\nArtifact: ${safe(plan.review.artifact.image ?? plan.sourceArchiveSha256)}\n${plan.review.gatewayBackendOrigin ? `Gateway backend: ${safe(plan.review.gatewayBackendOrigin)}\n` : ''}`;
+    writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\n${detail}No Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
     return;
   }
   if (['mcp-container-apps-create', 'mcp-hosting-create'].includes(plan.action)) {
-    writeFeedback(state, `[Container Apps recipe summary]\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nAccess: Entra sign-in required; no APIM\nTools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
+    const gateway = plan.review.target.gateway;
+    const host = gateway ? `APIM: ${safe(gateway.serviceName)}; resource group: ${safe(gateway.resourceGroup)}; path: ${safe(gateway.path)}\nGateway principal: ${safe(gateway.principalId)}; audience: ${safe(gateway.audience)}; role: ${safe(gateway.role)}\n`
+      : plan.review.recipe === 'functions-sdk-v1' ? 'Functions PUBLIC PREVIEW: Linux FC1, managed-identity storage, source-only release.\n' : '';
+    writeFeedback(state, `[SDK hosting recipe summary]\nRecipe: ${safe(plan.review.recipe)}\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\n${host}Access: Entra sign-in required${gateway ? '; independent signed gateway token also required' : '; no APIM'}\nTools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
     return;
   }
   if (plan.action === 'mcp-auth-execution') {

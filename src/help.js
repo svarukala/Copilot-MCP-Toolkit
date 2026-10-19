@@ -69,8 +69,15 @@ Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports
 --summary. Entra v2 delegated callers, anonymous JSON backend and reviewed fixed
-GETs only. No APIM, cloud deployment, image build/push, automatic sign-in or
-new-contract discovery/proof/FCC integration. See docs/container-apps-recipe.md.
+GETs only. No APIM, cloud deployment, image build/push or automatic sign-in.
+mcp-hosting-schema/plan/create additionally support Container Apps behind APIM,
+App Service containers and Functions SDK custom handlers (preview, Linux FC1).
+mcp-recipe-source-plan reviews the sealed source archive. Release plan/bundle
+prepares exact source/template/artifact files; it never deploys. Reference
+plan/create writes a separate unverified existing-MCP project for later
+discovery/proof/FCC, not a fabricated capture. Both require project/config/new
+output, explicit workspace and exact approval for writes.
+See docs/hosting-recipes.md for all four profiles and their live limitations.
 First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinary
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.

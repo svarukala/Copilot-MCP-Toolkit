@@ -22,6 +22,19 @@ workspace/config/new output and exact local-write approval.
 See [shared release and endpoint-reference commands](hosting-recipes.md).
 No authentication change, login, installation or Azure call occurs.
 
+For an explicitly chosen local run from the generated source directory:
+
+```powershell
+npm ci --ignore-scripts --no-audit --fund=false
+$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'
+npm start
+```
+
+Installation is a separate network action. Health is public; `/mcp` still needs
+a real authorized Entra token and may fetch signing keys. There is no local
+authentication bypass, and a tool call can contact the backend. Stop the process
+when finished; do not put tokens in scripts or logs.
+
 ## Review before deployment
 
 Confirm the plan is Linux, in the intended region and supports Always On.

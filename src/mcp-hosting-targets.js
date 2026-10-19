@@ -82,8 +82,7 @@ export function gatewayInfrastructure(input, appTemplate) {
     $schema: appTemplate.$schema, contentVersion: '1.0.0.0',
     metadata: { ...appTemplate.metadata, expectedResourceGroup: gateway.resourceGroup,
       warning: 'Apply separately to the existing APIM resource group only after reviewing inherited policies, gateway identity/role and new API/path absence. No native REST-to-MCP conversion.' },
-    parameters: { containerImage: appTemplate.parameters.containerImage,
-      backendOrigin: { type: 'string', metadata: { description: 'Exact actual HTTPS Container Apps origin from the separately reviewed app deployment readback.' } } },
+    parameters: { backendOrigin: { type: 'string', metadata: { description: 'Exact actual HTTPS Container Apps origin from the separately reviewed app deployment readback.' } } },
     resources: [{
       type: 'Microsoft.ApiManagement/service/apis', apiVersion: '2024-05-01',
       name: `${gateway.serviceName}/${gateway.apiName}`,

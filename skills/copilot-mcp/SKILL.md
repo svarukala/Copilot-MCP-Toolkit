@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps server recipes, prepare custom federated connector onboarding drafts, and safely resume, inspect or preserve MCP evidence with the local copilot-mcp CLI. Not plugin authoring or arbitrary OAuth/server generation.
+description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps, App Service and Functions SDK recipes; prepare custom federated connector drafts and safely resume or preserve MCP evidence. Not plugin authoring or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -14,23 +14,35 @@ installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
 ## New or resume
 
 When the user requests hosting without APIM, or needs server-owned tool
-annotations, first read `docs/container-apps-recipe.md` and
-`mcp-container-apps-schema --json`. Recipe 1 uses separate
-`mcp-container-apps-plan` / `mcp-container-apps-create` commands, an explicit
-private workspace and a new directory. It generates source and deployment files
-only. It is not yet part of the terminal wizard or APIM Resume journey.
+annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
+`mcp-hosting-schema --json`. In order: direct Container Apps, Container Apps behind
+APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
+private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
+Generation is local and is not part of the terminal wizard or APIM Resume.
 
 Explain the current boundary in plain language: Entra sign-in for callers,
 anonymous JSON backend, selected fixed GETs with no arguments, and existing
-Container Apps environment/registry/image-pull identity. Ask for actual resource
+host prerequisites from the guide. Ask for actual resource
 choices and IDs, not fabricated placeholders. Require explicit read-only review;
 do not claim annotations independently prove backend behavior. Use the plan's
 exact `approvalToken` after approval to save files. Never substitute the APIM
-schema or lifecycle, create a compatibility descriptor, install dependencies,
+schema or lifecycle, fabricate a compatibility descriptor, install dependencies,
 build/push an image, sign in, deploy or call the endpoint as part of generation.
-After generation, describe the manual prerequisite/image/deployment reviews in
-the recipe guide, not `mcp-resume`. APIM gateway + Container Apps is recipe 2
-in the backlog, not implemented behavior.
+After generation, use the separate `mcp-recipe-source-plan` and
+`mcp-recipe-release-plan/bundle` only for reviewed local preparation. Deployment
+remains an operator action with separate private identity/prerequisite/what-if
+review, not `mcp-resume`. Recipe 2 requires both a signed gateway token and the
+original delegated caller; never bypass the gateway with a plain header.
+App Service needs the pull identity's client ID as well as its resource ID.
+Functions is an explicit preview opt-in, Linux FC1, stateless custom handler with
+managed-identity blob storage and a source ZIP, not a container.
+
+After separate deployment/readback, an explicitly supplied endpoint can use
+`mcp-recipe-reference-plan/create` to create a new unverified existing-MCP project.
+Use that reference for existing discovery/proof/FCC commands, not the source
+project. Require fresh observed metadata and separate approvals. Never treat
+generated annotations, source manifests, image digests or endpoint assertions
+as consumer qualification, and never use a new reference to replay consumed calls.
 
 Start with the user's intent: a new setup or resuming an existing private project.
 For New, ask source type (REST API or existing MCP) and then source authentication.

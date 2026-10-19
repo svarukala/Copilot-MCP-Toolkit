@@ -4,7 +4,8 @@
 Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
 Management (APIM), and check them in separately approved steps. You can also
 connect to an existing Model Context Protocol (MCP) server, or generate an
-[MCP server for Azure Container Apps](docs/container-apps-recipe.md) without APIM.
+[MCP servers on Container Apps, App Service or Functions](docs/hosting-recipes.md),
+with APIM optional as a gateway.
 
 MCP is a standard way for AI assistants to discover and call tools. For a financial
 services demo, those tools might retrieve public exchange rates or access an
@@ -201,13 +202,21 @@ selected values for your environment.
 | Scenario | Current boundary |
 | --- | --- |
 | REST API through APIM | Selected operations with supported anonymous, Key Vault API-key or limited Entra authentication patterns. Not every API can be converted. |
-| MCP server on Container Apps, without APIM | Generate Node.js server source and deployment files. Entra sign-in; reviewed fixed GETs against an anonymous JSON backend. No automated deployment or live qualification yet. [Recipe 1](docs/container-apps-recipe.md). |
-| Container Apps behind APIM | Recipe 2 in the backlog; not implemented. App Service and Functions follow. |
+| Container Apps, without APIM | SDK server, Entra sign-in, reviewed fixed GETs, Docker/ARM files and reviewed release preparation. [Recipe 1](docs/container-apps-recipe.md). |
+| Container Apps behind APIM | Same SDK server; APIM proxies requests rather than generating tools. Signed gateway identity prevents direct-host bypass. [Recipe 2](docs/apim-gateway-recipe.md). |
+| App Service | Same container on an existing Linux Basic-or-higher plan, with managed-identity image pull. [Recipe 3](docs/app-service-recipe.md). |
+| Azure Functions | SDK custom handler on Linux Flex Consumption, with managed-identity storage. **Public preview.** [Recipe 4](docs/functions-recipe.md). |
 | Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
 | Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
 | Username/password MCP | Backlog only; not implemented. |
 | Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
 | Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |
+
+The four SDK hosting recipes currently generate source, deployment review files
+and local release bundles. **They do not automatically deploy to Azure.** Real
+hosting behavior and Copilot Read-only labels still need live validation.
+Use the [shared workflow](docs/hosting-recipes.md) to connect a separately
+deployed endpoint to the existing discovery and FCC steps.
 
 API keys belong in Azure Key Vault, referenced by configuration, never stored
 as values in toolkit JSON. Some advanced authentication-registration execution
@@ -220,7 +229,7 @@ Testing support is narrower than generation support. Read the
 | Goal | Guide |
 | --- | --- |
 | Follow the guided setup or use Copilot CLI | [Copilot CLI guide](docs/copilot-cli.md) |
-| Generate an MCP server without APIM | [Container Apps recipe 1](docs/container-apps-recipe.md) |
+| Choose an SDK server host or APIM gateway | [Four hosting recipes](docs/hosting-recipes.md) |
 | Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
 | Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
 | Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |

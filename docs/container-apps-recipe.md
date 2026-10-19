@@ -2,7 +2,8 @@
 
 **Status: local source generation; not live-qualified.** This recipe produces a
 small Node.js MCP server and Azure deployment files. It does not deploy them.
-APIM is not required. The separate APIM gateway recipe is next in the backlog.
+APIM is not required. A separate [APIM gateway recipe](apim-gateway-recipe.md)
+is also available for local generation and release review.
 
 The server, not APIM, owns the tool definitions and read-only annotations.
 Changing the hosting service alone does not prove a tool is read-only or that

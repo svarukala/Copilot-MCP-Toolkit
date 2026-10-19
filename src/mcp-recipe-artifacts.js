@@ -166,6 +166,9 @@ async function prepareReference(options) {
   const project = await readRecipeProject(options.project), config = await readControl(path.resolve(options.config));
   requireArtifact(onlyKeys(config, ['schemaVersion', 'serverId', 'endpoint']) && config.schemaVersion === 1,
     'Reference input requires schemaVersion, a new serverId and the explicitly supplied actual HTTPS endpoint.');
+  requireArtifact(typeof config.endpoint === 'string'
+    && (project.runtime.gateway ? config.endpoint === project.runtime.gateway.publicUrl : new URL(config.endpoint).pathname === '/mcp'),
+  'Use the recipe gateway URL, or the actual direct host /mcp endpoint; custom route mappings are not supported.');
   const a = project.runtime.authentication;
   const definition = { schemaVersion: 1, kind: 'existing-mcp', server: { id: config.serverId, name: project.input.name },
     endpoint: config.endpoint, inbound: { type: 'entra', tenantId: a.tenantId, clientId: a.audience,

@@ -54,6 +54,8 @@ function compile(value, hosting) {
   requireRecipe((hosting ? validateHosting : validate)(input) && !secretIssues(savedJson(input)),
     'Use mcp-container-apps-schema with explicit nonsecret target/authentication details.');
   requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
+  if (input.azure.storage) requireRecipe(/\/[a-z0-9]{3,24}$/.test(input.azure.storage.accountResourceId),
+    'Use a valid lowercase 3-24 character storage account name in the resource ID.');
   if (input.azure.gateway) {
     requireRecipe(input.azure.gateway.audience !== input.authentication.audience,
       'Use a separate v2 resource application for the gateway identity, not the delegated caller audience.');
@@ -83,7 +85,7 @@ function compile(value, hosting) {
       && Object.keys(operation).every(key => ['operationId', 'summary', 'description', 'responses', 'parameters',
         'security', 'tags', 'deprecated', 'externalDocs'].includes(key))
       && (operation.security === undefined || Array.isArray(operation.security) && !operation.security.length),
-    'Recipe 1 supports fixed GETs only: no parameters, bodies, callbacks, security, references, alternate servers or mappings.');
+    'SDK hosting recipes support fixed GETs only: no parameters, bodies, callbacks, security, references, alternate servers or mappings.');
     return { name: id, description: operation.description ?? operation.summary ?? id, path: op.path, readOnlyReviewed: true };
   });
   const runtime = validateRuntimeConfig({
