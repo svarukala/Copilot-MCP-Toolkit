@@ -24,7 +24,22 @@ export function hostingSchemas(base) {
   azure.required.push('planResourceId', 'planKind');
   azure.properties.registry.properties.pullIdentityClientId = uuid;
   azure.properties.registry.required.push('pullIdentityClientId');
-  return [base, gateway, appService];
+  const functions = structuredClone(appService);
+  functions.properties.recipe = { const: 'functions-sdk-v1' };
+  const f = functions.properties.azure;
+  delete f.properties.registry;
+  f.required = f.required.filter(key => key !== 'registry');
+  f.properties.planKind = { const: 'linux-flex-consumption-FC1' };
+  f.properties.previewAccepted = { const: true };
+  f.properties.storage = object({
+    accountResourceId: { ...azure.properties.planResourceId,
+      pattern: azure.properties.planResourceId.pattern.replace('Microsoft.Web/serverfarms', 'Microsoft.Storage/storageAccounts') },
+    deploymentContainer: { type: 'string', minLength: 3, maxLength: 63, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
+    identityResourceId: base.properties.azure.properties.registry.properties.pullIdentityResourceId,
+    identityClientId: uuid,
+  });
+  f.required.push('previewAccepted', 'storage');
+  return [base, gateway, appService, functions];
 }
 
 export function gatewaySettings(input) {
@@ -118,5 +133,40 @@ export function appServiceInfrastructure(input) {
     }],
     outputs: { mcpEndpoint: { type: 'string',
       value: `[concat('https://', reference(resourceId('Microsoft.Web/sites', '${a.appName}'), '2023-12-01').defaultHostName, '/mcp')]` } },
+  };
+}
+
+export function functionsInfrastructure(input) {
+  const a = input.azure, storage = a.storage;
+  const blob = `reference('${storage.accountResourceId}', '2023-05-01').primaryEndpoints.blob`;
+  return {
+    $schema: 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#', contentVersion: '1.0.0.0',
+    metadata: { recipe: input.recipe, status: 'review-only-not-deployed', expectedTenantId: a.tenantId,
+      expectedSubscriptionId: a.subscriptionId, expectedResourceGroup: a.resourceGroup,
+      warning: 'Preview: verify existing Linux FC1 plan, selected region, storage container, identity and RBAC. ARM may overwrite an existing app. Source deployment is separate.' },
+    parameters: {},
+    resources: [{
+      type: 'Microsoft.Web/sites', apiVersion: '2024-04-01', name: a.appName, location: a.location, kind: 'functionapp,linux',
+      tags: { 'copilot-mcp-recipe': input.recipe },
+      identity: { type: 'UserAssigned', userAssignedIdentities: { [storage.identityResourceId]: {} } },
+      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true,
+        functionAppConfig: {
+          runtime: { name: 'node', version: '22' },
+          deployment: { storage: { type: 'blobContainer',
+            value: `[concat(${blob}, '${storage.deploymentContainer}')]`,
+            authentication: { type: 'UserAssignedIdentity', userAssignedIdentityResourceId: storage.identityResourceId } } },
+          scaleAndConcurrency: { instanceMemoryMB: 2048, maximumInstanceCount: 40 },
+        },
+        siteConfig: { minTlsVersion: '1.2', scmMinTlsVersion: '1.2', ftpsState: 'Disabled',
+          httpLoggingEnabled: false, detailedErrorLoggingEnabled: false,
+          appSettings: Object.entries({
+            AzureWebJobsFeatureFlags: 'EnableMcpCustomHandlerPreview', MCP_HOST_PLATFORM: 'functions',
+            AzureWebJobsStorage__credential: 'managedidentity', AzureWebJobsStorage__clientId: storage.identityClientId,
+            AzureWebJobsStorage__blobServiceUri: `[${blob}]`,
+          }).map(([name, value]) => ({ name, value })) },
+      },
+    }],
+    outputs: { mcpEndpoint: { type: 'string',
+      value: `[concat('https://', reference(resourceId('Microsoft.Web/sites', '${a.appName}'), '2024-04-01').defaultHostName, '/mcp')]` } },
   };
 }

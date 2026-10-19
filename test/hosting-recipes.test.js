@@ -7,7 +7,8 @@ import { generateKeyPair, SignJWT } from 'jose';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { createTokenVerifier, createGatewayVerifier, createRequestHandler, resolveServerSettings } from '../src/recipes/container-apps/runtime.js';
-import { planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
+import { planRecipeRelease, recipeSourcePlan, writeRecipeRelease } from '../src/mcp-recipe-artifacts.js';
+import { unzipSync } from 'fflate';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
 const direct = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
@@ -138,6 +139,46 @@ test('App Service uses the existing Linux plan, identity client ID and actual pl
     x => { x.azure.planKind = 'windows'; },
     x => { x.azure.planResourceId = x.azure.planResourceId.replace(x.azure.subscriptionId, x.azure.tenantId); },
     x => { delete x.azure.registry.pullIdentityClientId; },
+  ]) {
+    const bad = structuredClone(input); mutate(bad); assert.throws(() => compileHostingRecipe(bad));
+  }
+});
+
+test('Functions preview produces a managed-identity Flex app and separately reviewed source-only release', async t => {
+  const input = JSON.parse(await readFile(new URL('../examples/mcp/functions-sdk.json', import.meta.url)));
+  const options = await setup(t, input), plan = await planHostingRecipe(options);
+  const host = JSON.parse(plan.files['host.json']), template = JSON.parse(plan.files['infra/functions.json']);
+  assert.equal(plan.files.Dockerfile, undefined);
+  assert.equal(host.configurationProfile, 'mcp-custom-handler');
+  assert.deepEqual(host.customHandler.description, { defaultExecutablePath: 'node', arguments: ['server.js'] });
+  assert.equal(host.customHandler.http.routes.find(r => r.route === 'admin/{*route}').authorizationLevel, 'admin');
+  assert.equal(template.resources[0].properties.functionAppConfig.runtime.name, 'node');
+  assert.equal(template.resources[0].properties.functionAppConfig.deployment.storage.authentication.type, 'UserAssignedIdentity');
+  assert.doesNotMatch(plan.files['infra/functions.json'], /listKeys|connectionString|WEBSITE_RUN_FROM_PACKAGE|containerImage/);
+  await writeHostingRecipe({ ...options, approval: plan.approvalToken });
+  const base = { workspaceRoot: options.workspaceRoot, project: options.output };
+  const source = await recipeSourcePlan(base);
+  const config = path.join(options.workspaceRoot, 'release.json');
+  const releaseInput = { schemaVersion: 1, accountName: 'operator@example.com', sourceArchiveSha256: source.sourceArchiveSha256 };
+  await writeFile(config, JSON.stringify(releaseInput));
+  const releaseOptions = { ...base, config, output: path.join(options.workspaceRoot, 'release') };
+  const release = await planRecipeRelease(releaseOptions);
+  await writeRecipeRelease({ ...releaseOptions, approval: release.approvalToken });
+  const zip = unzipSync(await readFile(path.join(releaseOptions.output, 'source.zip')));
+  assert.ok(zip['host.json']); assert.ok(zip['server.js']); assert.ok(zip['package-lock.json']);
+  assert.ok(!Object.keys(zip).some(key => /local.settings|node_modules/.test(key)));
+  assert.deepEqual(JSON.parse(release.files['infra/functions.parameters.json']).parameters, {});
+  await writeFile(config, JSON.stringify({ ...releaseInput, sourceArchiveSha256: `sha256:${'0'.repeat(64)}` }));
+  await assert.rejects(planRecipeRelease({ ...releaseOptions, output: path.join(options.workspaceRoot, 'different') }), /exact source/);
+  assert.deepEqual(resolveServerSettings({ MCP_HOST_PLATFORM: 'functions', FUNCTIONS_CUSTOMHANDLER_PORT: '3456',
+    WEBSITE_HOSTNAME: 'synthetic-functions-unique.azurewebsites.net' }),
+  { port: 3456, publicUrl: 'https://synthetic-functions-unique.azurewebsites.net/mcp' });
+  for (const mutate of [
+    x => { x.azure.previewAccepted = false; },
+    x => { x.azure.planKind = 'consumption'; },
+    x => { x.azure.storage.accountResourceId = x.azure.storage.accountResourceId.replace(x.azure.subscriptionId, x.azure.tenantId); },
+    x => { x.azure.storage.deploymentContainer = '../other'; },
+    x => { x.azure.storage.connectionString = 'unsupported'; },
   ]) {
     const bad = structuredClone(input); mutate(bad); assert.throws(() => compileHostingRecipe(bad));
   }

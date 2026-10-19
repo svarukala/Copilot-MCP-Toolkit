@@ -10,7 +10,8 @@ recipeArtifacts: {
     },
 hostingRecipes: {
       commands: ['mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'],
-      recipes: ['container-apps-direct-v1', 'container-apps-apim-v1', 'app-service-container-v1'],
+      recipes: ['container-apps-direct-v1', 'container-apps-apim-v1', 'app-service-container-v1', 'functions-sdk-v1'],
+      functions: 'public-preview-linux-flex-consumption-stateless-custom-handler',
       gateway: 'inherited-HTTP-proxy-with-independent-signed-managed-identity-and-delegated-caller',
       sourceOnly: true, cloudExecution: false, liveQualified: false,
     },

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
-test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 180000 }, async t => {
+test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 240000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
@@ -103,6 +103,36 @@ await server.close();
     { cwd: consumer, encoding: 'utf8', timeout: 30000 });
   assert.equal(smoke.status, 0, smoke.stderr);
   assert.doesNotMatch(smoke.stdout + smoke.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  assert.equal(invoke(['mcp-hosting-schema']).result.oneOf.length, 4);
+  for (const name of ['container-apps-apim', 'app-service-container', 'functions-sdk']) {
+    const config = path.join(workspace, `${name}.json`), output = path.join(workspace, name);
+    await copyFile(path.join(installed, 'examples', 'mcp', `${name}.json`), config);
+    const args = ['--workspace-root', workspace, '--config', config, '--output', output];
+    const plan = invoke(['mcp-hosting-plan', ...args, '--summary']);
+    assert.ok(plan.stderr.includes(plan.result.approvalToken));
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken]);
+    assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
+    const source = invoke(['mcp-recipe-source-plan', '--workspace-root', workspace, '--project', output]).result;
+    assert.equal(source.deployed, false);
+    if (name === 'functions-sdk') {
+      const releaseConfig = path.join(workspace, 'functions-release.json');
+      await writeFile(releaseConfig, JSON.stringify({ schemaVersion: 1, accountName: 'operator@example.com',
+        sourceArchiveSha256: source.sourceArchiveSha256 }));
+      const releaseArgs = ['--workspace-root', workspace, '--project', output, '--config', releaseConfig,
+        '--output', path.join(workspace, 'functions-release')];
+      const release = invoke(['mcp-recipe-release-plan', ...releaseArgs, '--summary']).result;
+      const written = invoke(['mcp-recipe-release-bundle', ...releaseArgs, '--approve', release.approvalToken]).result;
+      assert.equal(written.status, 'release-prepared-not-deployed');
+    }
+  }
+  const referenceConfig = path.join(workspace, 'recipe-reference.json');
+  await writeFile(referenceConfig, JSON.stringify({ schemaVersion: 1,
+    serverId: '66666666-6666-4666-8666-666666666666', endpoint: 'https://synthetic-mcp.example.com/mcp' }));
+  const referenceArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', referenceConfig,
+    '--output', path.join(workspace, 'recipe-reference')];
+  const reference = invoke(['mcp-recipe-reference-plan', ...referenceArgs, '--summary']).result;
+  assert.equal(invoke(['mcp-recipe-reference-create', ...referenceArgs, '--approve', reference.approvalToken]).result.endpointStatus,
+    'referenced-not-verified');
   const guidedProject = path.join(workspace, 'guided-reference');
   const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
   await writeFile(rehearsal, `

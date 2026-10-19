@@ -148,11 +148,12 @@ export function createProtocolServer(config, { request = fetch, signal, log = ev
 }
 
 export function resolveServerSettings(env) {
-  const port = Number(env.PORT ?? 3000);
+  const functions = env.MCP_HOST_PLATFORM === 'functions';
+  const port = Number((functions ? env.FUNCTIONS_CUSTOMHANDLER_PORT : undefined) ?? env.PORT ?? 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid port.');
-  if (env.MCP_HOST_PLATFORM !== undefined && env.MCP_HOST_PLATFORM !== 'app-service') throw new Error('Unsupported hosting platform.');
+  if (env.MCP_HOST_PLATFORM !== undefined && !['app-service', 'functions'].includes(env.MCP_HOST_PLATFORM)) throw new Error('Unsupported hosting platform.');
   let publicUrl = env.PUBLIC_MCP_URL;
-  if (!publicUrl && env.MCP_HOST_PLATFORM === 'app-service') {
+  if (!publicUrl && ['app-service', 'functions'].includes(env.MCP_HOST_PLATFORM)) {
     if (!/^[a-z0-9][a-z0-9.-]*\.azurewebsites\.net$/.test(env.WEBSITE_HOSTNAME ?? '')) {
       throw new Error('An actual platform-provided WEBSITE_HOSTNAME is required.');
     }

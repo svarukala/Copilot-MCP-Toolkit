@@ -64,7 +64,7 @@ const onlyKeys = (value, names) => value && typeof value === 'object' && !Array.
   && Object.keys(value).every(name => names.includes(name)) && names.every(name => Object.hasOwn(value, name));
 function sourceArchive(files) {
   const source = Object.fromEntries(Object.entries(files)
-    .filter(([name]) => !name.startsWith('infra/') && !name.startsWith('recipe-'))
+    .filter(([name]) => !name.startsWith('infra/') && !name.startsWith('recipe-') && !name.startsWith('local.settings'))
     .map(([name, value]) => [name, [value, { mtime: new Date(2000, 0, 1), level: 0 }]]));
   return Buffer.from(zipSync(source, { level: 0 }));
 }
@@ -103,6 +103,7 @@ async function prepareRelease(options) {
     schemaVersion: 1, kind: 'mcp-recipe-release-review', recipe: project.input.recipe,
     sourceManifestDigest: project.manifest.contentDigest, sourceArchiveSha256: digest(archive),
     target: project.input.azure, accountName: config.accountName,
+    ...(gateway ? { gatewayBackendOrigin: config.backendOrigin } : {}),
     artifact: functions ? { sourceArchiveSha256: config.sourceArchiveSha256 }
       : { image: config.containerImage, imageSourceCorrespondence: 'operator-asserted-not-verified' },
     templateHashes: Object.fromEntries(templates.map(([name, bytes]) => [name, digest(bytes)])),

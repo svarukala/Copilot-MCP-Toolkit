@@ -375,7 +375,7 @@ separately approved. B1's priority and first provider profile remain unset.
 | B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | In progress: local source/runtime generation implemented and offline checked | Entra v2 delegated callers, reviewed fixed GETs, anonymous JSON backend, server-owned annotations and ARM review files. Automated Azure lifecycle, discovery/proof/FCC integration and live consumer qualification remain |
 | B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Requested next after B2; not implemented | Reuse B2's server; APIM proxies MCP rather than generating tools from REST. Review caller/backend authentication, prevent gateway bypass, and qualify annotation preservation and streaming |
 | B4 | Recipe 3: MCP server hosted on Azure App Service | Local generation/runtime/release implemented; offline checked | Existing Linux Basic-or-higher plan; managed-identity image pull and actual platform hostname. Live image pull, routing, authentication and consumer checks remain |
-| B5 | Recipe 4: MCP server hosted on Azure Functions | Requested backlog; not implemented | Review extension versus SDK-based hosting, preview/plan limitations, stateless behavior, annotations and authentication before selecting the supported profile |
+| B5 | Recipe 4: MCP server hosted on Azure Functions | Local SDK custom-handler generation and source release implemented | Public preview, Linux Flex Consumption, stateless JSON, identity-based blob/deployment storage; actual Functions host, remote build and live consumer validation remain |
 
 ### B2-B5: Alternative MCP hosting recipes
 
