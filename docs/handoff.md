@@ -17,9 +17,11 @@ It contains public engineering context only, not credentials or execution author
   fixed parameter-free GETs, request limits, redirect rejection and no retries
   remain. Obvious credential reflection is rejected with generic errors.
   Source/release reviews bind all nonsecret auth choices. Anonymous and historical
-  native APIM profiles remain separate and unchanged. Focused regression and
-  the extended fresh offline packed consumer passed; final repository regression
-  is tracked in the progress tracker as it completes.
+  native APIM profiles remain separate and unchanged. Implementation milestones
+  `d864ed2` and `b6711f7` were pushed to `svarukala-api-key-hosting-recipes`.
+  Final `npm test` passed all **807 offline tests**, including the extended fresh
+  packed CLI/generated-runtime checks; CLI syntax and strict public types passed.
+  See the progress tracker for scope and remaining qualification boundaries.
   No live Azure/provider/M365 operation, image/package publication, installed
   skill update or consumer qualification is implied. Key Vault resolution,
   identity access, safe diagnostics and rotation/restart still need separate

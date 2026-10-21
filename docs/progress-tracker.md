@@ -530,7 +530,7 @@ mixed/optional/unsupported declarations are not silently discarded. Source
 and release reviews include nonsecret backend choices and exact hash binding.
 Anonymous behavior and historical native APIM contracts are preserved.
 
-Initial focused run passed 37 offline tests covering all templates/placements,
+The final focused run passed 38 offline tests covering all templates/placements,
 real SDK protocol calls, local JWT/HTTP authorization, rejection, sealed release
 and approval changes. The extended fresh packed consumer passed after correcting
 a test-loop placement that intentionally hit the existing no-overwrite guard.
@@ -538,13 +538,22 @@ It generates all four API-key examples, independently installs the shared
 generated runtime from cache, exercises real SDK calls/reflection and fails
 actual startup on missing/unresolved references, with runtime networking and
 subprocesses denied. CLI syntax and strict public types passed. Final repository
-regression is pending at this checkpoint. Missing local dependencies were
+regression passed **807 tests**, with zero failures, skips or cancellations
+(about 18 minutes on Windows). This includes the final reserved method/routing/
+platform-identity header rejection and the unchanged native APIM regressions.
+All 86 local links in the affected guides resolve; the PowerShell examples parse
+without execution. Missing local dependencies were
 restored with offline `npm ci`; no dependency versions or lockfiles changed.
 No cloud/provider operation, publication, installed skill modification or
 parent-checkout change occurred. Actual secret resolution, least-privilege
 access, safe diagnostics, refresh/restart and provider/consumer compatibility
 remain separate live qualification. Historical source/release evidence and
 consumed proof reservations are not upgraded or replayed.
+
+Implementation was committed/pushed as `d864ed2` (all four profiles, documentation,
+examples and regressions) and `b6711f7` (reserved-header hardening) on
+`svarukala-api-key-hosting-recipes`. No pull request, merge or parent-branch
+modification was performed.
 
 ### B1: Username/password-authenticated MCP
 
