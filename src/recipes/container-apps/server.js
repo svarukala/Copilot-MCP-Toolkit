@@ -21,6 +21,6 @@ try {
   };
   process.once('SIGTERM', shutdown); process.once('SIGINT', shutdown);
 } catch {
-  process.stderr.write('{"event":"startup-failed","guidance":"Check runtime-config.json, PUBLIC_MCP_URL and PORT. Authentication is never disabled."}\n');
+  process.stderr.write('{"event":"startup-failed","guidance":"Check runtime-config.json, host settings and resolved MCP_BACKEND_API_KEY when configured. Never print credentials. Authentication is never disabled."}\n');
   process.exitCode = 1;
 }

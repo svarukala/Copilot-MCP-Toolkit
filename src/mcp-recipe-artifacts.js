@@ -102,7 +102,7 @@ async function prepareRelease(options) {
   const release = {
     schemaVersion: 1, kind: 'mcp-recipe-release-review', recipe: project.input.recipe,
     sourceManifestDigest: project.manifest.contentDigest, sourceArchiveSha256: digest(archive),
-    target: project.input.azure, accountName: config.accountName,
+    target: project.input.azure, accountName: config.accountName, backend: project.input.backend,
     ...(gateway ? { gatewayBackendOrigin: config.backendOrigin } : {}),
     artifact: functions ? { sourceArchiveSha256: config.sourceArchiveSha256 }
       : { image: config.containerImage, imageSourceCorrespondence: 'operator-asserted-not-verified' },
@@ -111,6 +111,10 @@ async function prepareRelease(options) {
     checkpoints: [
       'Select the exact tenant/subscription/account with a fresh project-private Azure CLI profile; do not copy caches or change the shared profile.',
       'Inspect all existing resources, region, plan/preview requirements, role assignments, DNS, network reachability and safe diagnostics.',
+      ...(project.input.backend.apiKey ? [
+        'Inspect the exact Key Vault resource/secret reference and dedicated identity in the selected tenant/subscription. Confirm pre-existing least-privilege secret Get access without resolving/exporting the secret.',
+        'Review shared backend entitlement and safe header/query logging; verify platform reference resolution and restart/rotation behavior separately. Never weaken caller/gateway authentication or grant roles implicitly.',
+      ] : []),
       'Confirm every newly created resource name is absent. ARM can overwrite resources; these files are not a concurrency/no-overwrite guard.',
       'Review the source, dependencies, base image and final artifact. An image digest does not prove it was built from this source.',
       'Review Azure what-if and pricing, then separately approve the exact target, templates and parameters before deployment.',

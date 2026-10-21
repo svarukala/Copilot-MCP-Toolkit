@@ -215,6 +215,9 @@ selected values for your environment.
 The four SDK hosting recipes currently generate source, deployment review files
 and local release bundles. **They do not automatically deploy to Azure.** Real
 hosting behavior and Copilot Read-only labels still need live validation.
+All four accept anonymous or [Key Vault API-key REST backends](docs/hosting-recipes.md#api-key-backends)
+with a dedicated header or reviewed query parameter and a separate secret-reading
+identity. Callers still require Entra; tools remain fixed, argument-free GETs.
 Use the [shared workflow](docs/hosting-recipes.md) to connect a separately
 deployed endpoint to the existing discovery and FCC steps.
 

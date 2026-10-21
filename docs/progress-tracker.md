@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-18.
+Last updated: 2026-10-21.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -372,7 +372,7 @@ separately approved. B1's priority and first provider profile remain unset.
 | ID | Work | Status | Completion gate |
 | --- | --- | --- | --- |
 | B1 | Support upstream MCP servers requiring username/password authentication | Requested 2026-10-18; not implemented | Review direct HTTP Basic and password-to-token exchange as distinct profiles; agree secure credential storage, caller isolation, token lifecycle and consumer compatibility before implementation |
-| B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | Local generation/runtime/release/reference implemented; offline checked | Entra delegated callers, reviewed fixed GETs, anonymous JSON backend and server-owned annotations. Operator deployment; live qualification and future guarded cloud automation remain |
+| B2 | Recipe 1: MCP server hosted directly on Azure Container Apps, without APIM | Local generation/runtime/release/reference implemented; offline checked | Entra delegated callers, reviewed fixed GETs, anonymous or Key Vault API-key JSON backend and server-owned annotations. Operator deployment; live qualification and future guarded cloud automation remain |
 | B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Local proxy/server/release/reference implemented; offline checked | Independent signed gateway identity plus caller token; inherited HTTP proxy policies, no native tool generation. Live token issuance, policy behavior and consumer labels remain; SSE is not supported by this JSON-only profile |
 | B4 | Recipe 3: MCP server hosted on Azure App Service | Local generation/runtime/release implemented; offline checked | Existing Linux Basic-or-higher plan; managed-identity image pull and actual platform hostname. Live image pull, routing, authentication and consumer checks remain |
 | B5 | Recipe 4: MCP server hosted on Azure Functions | Local SDK custom-handler generation and source release implemented | Public preview, Linux Flex Consumption, stateless JSON, identity-based blob/deployment storage; actual Functions host, remote build and live consumer validation remain |
@@ -501,7 +501,55 @@ Commits were pushed periodically in the approved recipe order. No live
 deployment or scenario validation was attempted. The real-environment checklist
 is in [the shared guide](hosting-recipes.md#checks-still-needed-in-the-real-environment).
 
+#### B2-B5 API-key backend extension
+
+User-directed on 2026-10-21 while the parent checkout was being tested.
+Implemented locally across `container-apps-direct-v1`,
+`container-apps-apim-v1`, `app-service-container-v1` and `functions-sdk-v1`.
+The original direct-only commands also accept this profile. New synthetic
+`examples/mcp/*-api-key.json` inputs cover both dedicated header and query
+placement. The shared guide documents schema, operator/local launch, separate
+identity/access reviews and platform cache/rotation behavior.
+
+The closed API-key shape binds the tenant, vault ARM resource, secret URI,
+dedicated user-assigned identity and exactly one placement name. Shared
+entitlement review is required; query mode additionally requires URL-exposure
+review. Same-subscription/tenant declarations and matching vault hostnames are
+enforced locally; actual Azure metadata/access is not inspected or attested.
+Pull/storage identity reuse is rejected. Existing identities, grants and
+resources are untouched. Container Apps uses `keyVaultUrl`/identity/secretRef;
+App Service and Functions use Key Vault app settings and
+`keyVaultReferenceIdentity`. No credential SDK/dependency was added.
+
+The SDK rejects missing/unresolved/empty/malformed credentials before startup.
+It snapshots the injected value, sends only the configured key plus JSON Accept,
+does not forward caller/gateway tokens, rejects redirects and obvious secret
+reflection, and retains generic errors, request/body/time/concurrency bounds
+and no dispatched-call retry. OpenAPI security must match the reviewed API key;
+mixed/optional/unsupported declarations are not silently discarded. Source
+and release reviews include nonsecret backend choices and exact hash binding.
+Anonymous behavior and historical native APIM contracts are preserved.
+
+Initial focused run passed 37 offline tests covering all templates/placements,
+real SDK protocol calls, local JWT/HTTP authorization, rejection, sealed release
+and approval changes. The extended fresh packed consumer passed after correcting
+a test-loop placement that intentionally hit the existing no-overwrite guard.
+It generates all four API-key examples, independently installs the shared
+generated runtime from cache, exercises real SDK calls/reflection and fails
+actual startup on missing/unresolved references, with runtime networking and
+subprocesses denied. CLI syntax and strict public types passed. Final repository
+regression is pending at this checkpoint. Missing local dependencies were
+restored with offline `npm ci`; no dependency versions or lockfiles changed.
+No cloud/provider operation, publication, installed skill modification or
+parent-checkout change occurred. Actual secret resolution, least-privilege
+access, safe diagnostics, refresh/restart and provider/consumer compatibility
+remain separate live qualification. Historical source/release evidence and
+consumed proof reservations are not upgraded or replayed.
+
 ### B1: Username/password-authenticated MCP
+
+See the separately implemented API-key profile immediately above; API keys do
+not implement username/password or password-to-token authentication.
 
 - Distinguish direct HTTP Basic on the MCP endpoint from a provider token
   endpoint accepting username/password and returning a bearer token. Neither

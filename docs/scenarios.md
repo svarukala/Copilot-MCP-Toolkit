@@ -2,7 +2,7 @@
 
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
-| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; no automatic deployment/live qualification |
+| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous or Key Vault API-key HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; separate secret identity for keys; no automatic deployment/live qualification |
 | Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
 | App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |
 | Functions SDK recipe 4 | Same delegated checks | Same | Explicit public-preview acceptance; Linux FC1 custom handler, stateless JSON, identity-based storage and separately reviewed source ZIP |
@@ -35,6 +35,12 @@ observed evidence. Source projects and local releases are not deployed resources
 A separately approved endpoint reference can use existing discovery/proof/FCC
 flows without fabricating captures. All four need live platform and consumer
 qualification; the Functions host itself has not been run by the offline suite.
+Their API-key profile supports dedicated header/query placement, exact selected
+OpenAPI security matching, a separate pre-existing user-assigned secret identity
+and native host Key Vault references. Shared entitlement and query exposure
+require explicit review. It does not add arbitrary query arguments, OAuth,
+per-user backend credentials, role grants or public callers. This separate
+profile does not widen native APIM key generation or proof support.
 
 ## Public anonymous APIM
 

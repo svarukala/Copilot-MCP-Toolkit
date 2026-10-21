@@ -21,7 +21,7 @@ private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
 Generation is local and is not part of the terminal wizard or APIM Resume.
 
 Explain the current boundary in plain language: Entra sign-in for callers,
-anonymous JSON backend, selected fixed GETs with no arguments, and existing
+anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
 host prerequisites from the guide. Ask for actual resource
 choices and IDs, not fabricated placeholders. Require explicit read-only review;
 do not claim annotations independently prove backend behavior. Use the plan's
@@ -36,6 +36,24 @@ original delegated caller; never bypass the gateway with a plain header.
 App Service needs the pull identity's client ID as well as its resource ID.
 Functions is an explicit preview opt-in, Linux FC1, stateless custom handler with
 managed-identity blob storage and a source ZIP, not a container.
+
+For API-key REST backends on any of these four recipes, read the shared guide's
+API-key section and the selected `examples/mcp/*-api-key.json` format. Collect
+only the explicit tenant, vault resource ID, secret URI and **separate**
+pre-existing user-assigned secret-reader identity ID, plus one dedicated header
+or query name. Never ask for a key value or copy it into tools, files or logs.
+Confirm shared backend entitlement before `sharedAccessReviewed: true`; for
+query keys also require safe backend/intermediary/platform URL logging review
+before `queryExposureReviewed: true`. Prefer a header where the provider permits.
+Match any selected OpenAPI API-key security declaration exactly; reject mixed
+auth rather than stripping it. Never reuse the pull/storage identity or grant
+roles to make this work. Missing/unresolved injected keys fail startup; do not
+suggest anonymous fallback, removing caller checks or retrying a dispatched call.
+Generation/release use native Key Vault references, not a live secret read.
+Local launch needs separate approved, process-only secret resolution/injection;
+read the guide rather than pasting key values into shell commands or settings.
+Rotation/refresh, deployment and actual backend compatibility remain separate
+live checks. Keep installed skill copies unchanged unless explicitly requested.
 
 After separate deployment/readback, an explicitly supplied endpoint can use
 `mcp-recipe-reference-plan/create` to create a new unverified existing-MCP project.

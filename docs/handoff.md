@@ -1,18 +1,37 @@
 # Session handoff
 
-Last updated: 2026-10-18. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-21. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
+- API-key REST backends are now implemented across all four SDK hosting recipes
+  on the isolated API-key branch, without changing the parent's testing checkout.
+  Use `backend.auth: "api-key"` and explicit `backend.apiKey` reference/identity/
+  header-or-query metadata in the [shared guide](hosting-recipes.md#api-key-backends).
+  Shared entitlement and query exposure have explicit review declarations.
+  Native host Key Vault references inject a process-only value using a dedicated
+  existing user-assigned identity, distinct from image-pull/Functions storage.
+  No credentials are resolved by generation/release and no roles are granted.
+  Missing/unresolved/malformed values fail startup; caller/gateway checks,
+  fixed parameter-free GETs, request limits, redirect rejection and no retries
+  remain. Obvious credential reflection is rejected with generic errors.
+  Source/release reviews bind all nonsecret auth choices. Anonymous and historical
+  native APIM profiles remain separate and unchanged. Focused regression and
+  the extended fresh offline packed consumer passed; final repository regression
+  is tracked in the progress tracker as it completes.
+  No live Azure/provider/M365 operation, image/package publication, installed
+  skill update or consumer qualification is implied. Key Vault resolution,
+  identity access, safe diagnostics and rotation/restart still need separate
+  approved live qualification, especially for the Functions preview.
 - Alternative hosting is now an explicit [ordered backlog B2-B5](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes):
   (1) direct Container Apps, (2) Container Apps behind an APIM gateway,
   (3) App Service, (4) Functions. All four local source/release/reference flows
   are implemented and pushed in sequential milestones. Use `mcp-hosting-*` and
   [the shared recipe guide](hosting-recipes.md). The original
   `mcp-container-apps-*` remains direct-only. All share the SDK runtime with
-  Entra delegated checks and reviewed fixed GETs against an anonymous JSON
-  backend. APIM uses an HTTP proxy and independently signed gateway identity;
+  Entra delegated checks and reviewed fixed GETs; the initial anonymous JSON
+  backend profile is now joined by the API-key profile above. APIM uses an HTTP proxy and independently signed gateway identity;
   App Service uses an existing Linux plan; Functions is an explicit Linux FC1
   preview custom-handler profile with identity-based blob storage.
   Sealed source and release reviews are not attestations. An explicit

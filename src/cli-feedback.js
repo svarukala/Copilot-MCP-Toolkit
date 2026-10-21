@@ -2,6 +2,12 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { secretIssues } from './validation.js';
 
 const context = new AsyncLocalStorage();
+function backendSummary(backend) {
+  if (!backend) return '';
+  const key = backend.apiKey;
+  return key ? `Backend: API key in ${key.headerName ? 'header' : 'query'} ${safe(key.headerName ?? key.queryParameterName)}; shared entitlement, not per-user access\nKey Vault: ${safe(key.keyVaultResourceId)}\nSecret reference: ${safe(key.secretIdentifier)}\nSecret identity: ${safe(key.identityResourceId)}; tenant: ${safe(key.tenantId)}\nNo secret resolution or role grants; unresolved credentials prevent startup. Review platform diagnostics and rotation separately.\n`
+    : 'Backend: anonymous JSON; caller authorization remains required.\n';
+}
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
@@ -125,14 +131,14 @@ export function cliPlanSummary(plan) {
   if (['mcp-recipe-release-bundle', 'mcp-recipe-reference-create'].includes(plan.action)) {
     const detail = plan.origin ? `Endpoint: ${safe(plan.origin.endpoint)}\n`
       : `Tenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\nAccount: ${safe(plan.review.accountName)}\nArtifact: ${safe(plan.review.artifact.image ?? plan.sourceArchiveSha256)}\n${plan.review.gatewayBackendOrigin ? `Gateway backend: ${safe(plan.review.gatewayBackendOrigin)}\n` : ''}`;
-    writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\n${detail}No Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
+    writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\n${detail}${backendSummary(plan.review?.backend)}No Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
     return;
   }
   if (['mcp-container-apps-create', 'mcp-hosting-create'].includes(plan.action)) {
     const gateway = plan.review.target.gateway;
     const host = gateway ? `APIM: ${safe(gateway.serviceName)}; resource group: ${safe(gateway.resourceGroup)}; path: ${safe(gateway.path)}\nGateway principal: ${safe(gateway.principalId)}; audience: ${safe(gateway.audience)}; role: ${safe(gateway.role)}\n`
       : plan.review.recipe === 'functions-sdk-v1' ? 'Functions PUBLIC PREVIEW: Linux FC1, managed-identity storage, source-only release.\n' : '';
-    writeFeedback(state, `[SDK hosting recipe summary]\nRecipe: ${safe(plan.review.recipe)}\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\n${host}Access: Entra sign-in required${gateway ? '; independent signed gateway token also required' : '; no APIM'}\nTools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
+    writeFeedback(state, `[SDK hosting recipe summary]\nRecipe: ${safe(plan.review.recipe)}\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\n${host}Access: Entra sign-in required${gateway ? '; independent signed gateway token also required' : '; no APIM'}\n${backendSummary(plan.review.backend)}Tools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
     return;
   }
   if (plan.action === 'mcp-auth-execution') {

@@ -14,19 +14,23 @@ Copilot will display it correctly.
 | Area | Supported scope |
 | --- | --- |
 | Caller sign-in | Microsoft Entra v2 **delegated user** access tokens; exact tenant, resource audience, permission scope and client application allowlist |
-| Source data | One explicitly reviewed, anonymous HTTPS backend returning JSON |
-| Tools | Up to 30 selected OpenAPI 3.0.x fixed GETs, with no arguments, query strings, bodies, callbacks, alternate servers or custom mappings |
+| Source data | One explicitly reviewed HTTPS JSON backend, anonymous or using a dedicated header/query API key from Key Vault |
+| Tools | Up to 30 selected OpenAPI 3.0.x fixed GETs, with no arguments, authored query strings, bodies, callbacks, alternate servers or custom mappings |
 | Read-only labels | Every selected operation must be explicitly reviewed as side-effect-free; tools emit `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: true` |
 | Hosting | A new app in an **existing** resource group and Container Apps environment; an existing Azure Container Registry and user-assigned image-pull identity |
 | Deployment | ARM files for human review; no automatic build, registry push, Azure login or deployment |
 
-Public caller access, backend API keys, delegated backend access, managed-identity
+Public caller access, delegated backend access, managed-identity
 backend calls, username/password, dynamic query arguments and writes are not in
 this first version. Caller tokens and headers are **never forwarded** to the
 backend. The image-pull identity is not a backend data-access identity.
+API-key mode requires an additional, distinct Key Vault reference identity.
 
-All allowed callers can access the selected public data. This version does not
-provide per-user filtering of private source data.
+All allowed callers share access to the selected data and, in API-key mode, the
+backend service entitlement. This version does not provide per-user filtering.
+See [API-key configuration, local launch and rotation](hosting-recipes.md#api-key-backends)
+and `examples/mcp/container-apps-direct-api-key.json`. The host injects the
+resolved secret through `MCP_BACKEND_API_KEY`; no secret value is generated.
 
 ## 1. Prepare the input
 
@@ -93,6 +97,8 @@ $env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'
 npm start
 ```
 
+For API-key mode, use the shared guide's separate approved in-memory
+Key Vault launch pattern instead; a missing or unresolved key prevents startup.
 The generated lock uses public npm URLs with the original integrity hashes.
 Your organization's registry/network policy still applies. Stop on package,
 integrity or TLS errors; do not remove integrity hashes or disable TLS checks.
@@ -127,6 +133,11 @@ An operator must separately review:
 - The existing image registry and the least-privilege user-assigned identity
   allowed to pull this image. Confirm the registry's supported managed-identity
   configuration and role assignments; this recipe creates no roles or grants.
+- For API keys, the exact existing Key Vault and separate secret-reader identity,
+  tenant/subscription, pre-existing secret Get access, resolution and safe logs.
+  The app secret uses `keyVaultUrl`/`identity`, not a literal `value`; the container
+  uses `secretRef`. Versionless references refresh within Azure's documented
+  30-minute window and restart consuming revisions; review rollout separately.
 - The server and dependency sources, dependency licenses, image scanning and
   base-image hardening. Pin an approved base-image digest for production.
 - The complete cost and exposure: HTTPS ingress is externally reachable, but

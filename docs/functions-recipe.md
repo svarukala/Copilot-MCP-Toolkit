@@ -33,6 +33,14 @@ the Functions identity-based host-storage requirements and appropriate Blob Data
 roles. Do not grant broad subscription roles or add account keys to get past an
 error. Identity resource ID and client ID must describe the same identity.
 
+API-key backends use `examples/mcp/functions-sdk-api-key.json` and
+[the shared schema and safeguards](hosting-recipes.md#api-key-backends).
+The app attaches a **different** existing user-assigned Key Vault identity,
+selects it with `keyVaultReferenceIdentity`, and injects `MCP_BACKEND_API_KEY`
+through a native Key Vault app-setting reference. Storage/deployment identities
+and permissions are not changed. Inspect secret Get access and networking
+separately; the template grants no roles and resolves no secret locally.
+
 Use `mcp-hosting-schema` and `mcp-hosting-plan/create`. Generated source includes
 host.json with the preview profile, Node startup and the three intended routes.
 The Functions MCP route is `anonymous` **at the host routing layer only**:
@@ -56,6 +64,17 @@ local.settings.example.json to local.settings.json, start the emulator and run
 Use port 7071 for the Functions host, not the custom-handler port.
 Entra validation is never disabled; unit tests use local synthetic keys, not
 provider tokens. Local settings are excluded from deployment.
+
+For API-key mode, use the shared guide's separately approved in-memory launcher
+with `func start`: do not save the value in local.settings.json. Core Tools does
+not resolve Azure Key Vault reference strings. Missing or unresolved values
+prevent custom-handler startup; the Functions route's anonymous host setting
+does not bypass caller authorization or permit anonymous backend fallback.
+Versionless Key Vault references use the App Service/Functions cache (up to 24
+hours); configuration changes restart/refetch. The SDK retains its startup
+snapshot until worker restart. Pinned versions require a new reviewed
+reference/release. Actual Flex reference resolution, worker refresh and safe
+query/header diagnostics remain live-unqualified.
 
 Use `mcp-recipe-source-plan --workspace-root ABS --project ABS --json` to review
 the deterministic source ZIP hash, then create this private release input:

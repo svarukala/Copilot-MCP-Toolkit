@@ -1,5 +1,13 @@
+import { backendCredentialEnvironment } from './recipes/container-apps/runtime.js';
+
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
+export const backendSecretName = 'mcp-backend-api-key';
+export const backendIdentity = input => input.backend.apiKey ? { [input.backend.apiKey.identityResourceId]: {} } : {};
+const backendReference = input => input.backend.apiKey ? { keyVaultReferenceIdentity: input.backend.apiKey.identityResourceId } : {};
+const backendSettings = input => input.backend.apiKey ? {
+  [backendCredentialEnvironment]: `@Microsoft.KeyVault(SecretUri=${input.backend.apiKey.secretIdentifier})`,
+} : {};
 export function hostingSchemas(base) {
   const gateway = structuredClone(base);
   gateway.properties.recipe = { const: 'container-apps-apim-v1' };
@@ -19,7 +27,7 @@ export function hostingSchemas(base) {
   delete azure.properties.environmentResourceId;
   azure.required = azure.required.filter(key => key !== 'environmentResourceId');
   azure.properties.planResourceId = { ...base.properties.azure.properties.environmentResourceId,
-    pattern: base.properties.azure.properties.environmentResourceId.pattern.replace('Microsoft.App/managedEnvironments', 'Microsoft.Web/serverfarms') };
+    pattern: base.properties.azure.properties.environmentResourceId.pattern.replace('Microsoft\\.App/managedEnvironments', 'Microsoft\\.Web/serverfarms') };
   azure.properties.planKind = { const: 'linux-dedicated-basic-or-higher' };
   azure.required.push('planResourceId', 'planKind');
   azure.properties.registry.properties.pullIdentityClientId = uuid;
@@ -33,7 +41,7 @@ export function hostingSchemas(base) {
   f.properties.previewAccepted = { const: true };
   f.properties.storage = object({
     accountResourceId: { ...azure.properties.planResourceId,
-      pattern: azure.properties.planResourceId.pattern.replace('Microsoft.Web/serverfarms', 'Microsoft.Storage/storageAccounts') },
+      pattern: azure.properties.planResourceId.pattern.replace('Microsoft\\.Web/serverfarms', 'Microsoft\\.Storage/storageAccounts') },
     deploymentContainer: { type: 'string', minLength: 3, maxLength: 63, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
     identityResourceId: base.properties.azure.properties.registry.properties.pullIdentityResourceId,
     identityClientId: uuid,
@@ -115,14 +123,14 @@ export function appServiceInfrastructure(input) {
     resources: [{
       type: 'Microsoft.Web/sites', apiVersion: '2023-12-01', name: a.appName, location: a.location, kind: 'app,linux,container',
       tags: { 'copilot-mcp-recipe': input.recipe },
-      identity: { type: 'UserAssigned', userAssignedIdentities: { [a.registry.pullIdentityResourceId]: {} } },
-      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true,
+      identity: { type: 'UserAssigned', userAssignedIdentities: { [a.registry.pullIdentityResourceId]: {}, ...backendIdentity(input) } },
+      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true, ...backendReference(input),
         siteConfig: { linuxFxVersion: "[concat('DOCKER|', parameters('containerImage'))]",
           acrUseManagedIdentityCreds: true, acrUserManagedIdentityID: a.registry.pullIdentityClientId,
           alwaysOn: true, minTlsVersion: '1.2', scmMinTlsVersion: '1.2', ftpsState: 'Disabled',
           healthCheckPath: '/health', httpLoggingEnabled: false, detailedErrorLoggingEnabled: false,
           appSettings: Object.entries({ PORT: '3000', WEBSITES_PORT: '3000', MCP_HOST_PLATFORM: 'app-service',
-            WEBSITES_ENABLE_APP_SERVICE_STORAGE: 'false', DOCKER_REGISTRY_SERVER_URL: `https://${a.registry.server}` })
+            WEBSITES_ENABLE_APP_SERVICE_STORAGE: 'false', DOCKER_REGISTRY_SERVER_URL: `https://${a.registry.server}`, ...backendSettings(input) })
             .map(([name, value]) => ({ name, value })) },
       },
       resources: ['scm', 'ftp'].map(name => ({
@@ -147,8 +155,8 @@ export function functionsInfrastructure(input) {
     resources: [{
       type: 'Microsoft.Web/sites', apiVersion: '2024-04-01', name: a.appName, location: a.location, kind: 'functionapp,linux',
       tags: { 'copilot-mcp-recipe': input.recipe },
-      identity: { type: 'UserAssigned', userAssignedIdentities: { [storage.identityResourceId]: {} } },
-      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true,
+      identity: { type: 'UserAssigned', userAssignedIdentities: { [storage.identityResourceId]: {}, ...backendIdentity(input) } },
+      properties: { serverFarmId: a.planResourceId, reserved: true, httpsOnly: true, ...backendReference(input),
         functionAppConfig: {
           runtime: { name: 'node', version: '22' },
           deployment: { storage: { type: 'blobContainer',
@@ -162,6 +170,7 @@ export function functionsInfrastructure(input) {
             AzureWebJobsFeatureFlags: 'EnableMcpCustomHandlerPreview', MCP_HOST_PLATFORM: 'functions',
             AzureWebJobsStorage__credential: 'managedidentity', AzureWebJobsStorage__clientId: storage.identityClientId,
             AzureWebJobsStorage__blobServiceUri: `[${blob}]`,
+            ...backendSettings(input),
           }).map(([name, value]) => ({ name, value })) },
       },
     }],

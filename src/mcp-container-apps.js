@@ -8,14 +8,32 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
-import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure } from './mcp-hosting-targets.js';
-import { runtimeSchema, validateRuntimeConfig, toolDefinitions } from './recipes/container-apps/runtime.js';
+import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
+  backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
+import { runtimeSchema, validateRuntimeConfig, toolDefinitions, apiKeyPlacementProperties, apiKeyPlacementChoice,
+  validateApiKeyPlacement, backendCredentialEnvironment } from './recipes/container-apps/runtime.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
 const resourceName = { type: 'string', minLength: 1, maxLength: 90, pattern: '^[A-Za-z0-9_-][A-Za-z0-9_.()-]*$' };
 const resourceId = type => ({ type: 'string', maxLength: 512,
-  pattern: `^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[A-Za-z0-9_.()-]+/providers/${type}/[A-Za-z0-9_-]+$` });
+  pattern: `^/subscriptions/[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}/resourceGroups/[A-Za-z0-9_.()-]+/providers/${type.replaceAll('.', '\\.')}/[A-Za-z0-9_-]+$` });
+const backendSchema = { oneOf: [
+  object({ origin: runtimeSchema.properties.backendOrigin, auth: { const: 'anonymous' } }),
+  object({ origin: runtimeSchema.properties.backendOrigin, auth: { const: 'api-key' },
+    apiKey: { type: 'object', additionalProperties: false,
+      required: ['tenantId', 'keyVaultResourceId', 'identityResourceId', 'secretIdentifier', 'sharedAccessReviewed'],
+      properties: {
+        tenantId: uuid, keyVaultResourceId: resourceId('Microsoft.KeyVault/vaults'),
+        identityResourceId: resourceId('Microsoft.ManagedIdentity/userAssignedIdentities'),
+        secretIdentifier: { type: 'string', maxLength: 256,
+          pattern: '^https://[a-z][a-z0-9-]{1,22}[a-z0-9]\\.vault\\.azure\\.net/secrets/[A-Za-z0-9-]{1,127}(?:/[a-fA-F0-9]{32})?$' },
+        ...apiKeyPlacementProperties,
+        sharedAccessReviewed: { const: true }, queryExposureReviewed: { const: true },
+      }, oneOf: apiKeyPlacementChoice,
+      allOf: [{ if: { required: ['queryParameterName'] }, then: { required: ['queryExposureReviewed'] } }] },
+  }),
+] };
 export const containerAppsSchema = object({
   schemaVersion: { const: 1 }, recipe: { const: 'container-apps-direct-v1' },
   name: runtimeSchema.properties.name,
@@ -30,7 +48,7 @@ export const containerAppsSchema = object({
     }),
   }),
   authentication: runtimeSchema.properties.authentication,
-  backend: object({ origin: runtimeSchema.properties.backendOrigin, auth: { const: 'anonymous' } }),
+  backend: backendSchema,
   document: { type: 'object' },
   operationIds: { type: 'array', minItems: 1, maxItems: 30, uniqueItems: true,
     items: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$' } },
@@ -52,8 +70,20 @@ export function compileHostingRecipe(value) { return compile(value, true); }
 function compile(value, hosting) {
   const input = boundedSnapshot(value);
   requireRecipe((hosting ? validateHosting : validate)(input) && !secretIssues(savedJson(input)),
-    'Use mcp-container-apps-schema with explicit nonsecret target/authentication details.');
+    `Use ${hosting ? 'mcp-hosting-schema' : 'mcp-container-apps-schema'} with explicit nonsecret target/authentication details.`);
   requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
+  const key = input.backend.apiKey;
+  if (key) {
+    validateApiKeyPlacement(key);
+    requireRecipe(key.tenantId === input.azure.tenantId, 'Key Vault identity and deployment tenants must match.');
+    const vault = key.keyVaultResourceId.split('/').at(-1);
+    requireRecipe(/^[a-z][a-z0-9-]{1,22}[a-z0-9]$/.test(vault) && !vault.includes('--')
+      && new URL(key.secretIdentifier).hostname === `${vault}.vault.azure.net`,
+    'The Key Vault secret reference must match the explicit selected vault resource.');
+    requireRecipe(![input.azure.registry?.pullIdentityResourceId, input.azure.storage?.identityResourceId]
+      .some(id => id?.toLowerCase() === key.identityResourceId.toLowerCase()),
+    'Use a separate dedicated Key Vault identity, not the image-pull or Functions storage identity.');
+  }
   if (input.azure.storage) requireRecipe(/\/[a-z0-9]{3,24}$/.test(input.azure.storage.accountResourceId),
     'Use a valid lowercase 3-24 character storage account name in the resource ID.');
   if (input.azure.gateway) {
@@ -65,7 +95,8 @@ function compile(value, hosting) {
     'Use the exact nonsecret gateway Application ID URI.');
   }
   for (const id of [input.azure.environmentResourceId, input.azure.planResourceId, input.azure.registry?.pullIdentityResourceId,
-    input.azure.storage?.accountResourceId, input.azure.storage?.identityResourceId].filter(Boolean)) {
+    input.azure.storage?.accountResourceId, input.azure.storage?.identityResourceId,
+    key?.keyVaultResourceId, key?.identityResourceId].filter(Boolean)) {
     requireRecipe(id.startsWith(`/subscriptions/${input.azure.subscriptionId}/`), 'Existing resources must be in the selected subscription.');
   }
   requireRecipe(JSON.stringify([...input.operationIds].sort()) === JSON.stringify([...input.review.readOnlyOperationIds].sort()),
@@ -74,24 +105,44 @@ function compile(value, hosting) {
   const permittedDocument = new Set(['openapi', 'info', 'paths', 'servers', 'tags', 'externalDocs', 'components', 'security']);
   requireRecipe(Object.keys(document).every(key => permittedDocument.has(key))
     && (document.servers === undefined || document.servers.length === 1 && document.servers[0].url === input.backend.origin
-      && Object.keys(document.servers[0]).every(key => ['url', 'description'].includes(key)))
-    && (document.security === undefined || Array.isArray(document.security) && !document.security.length),
-  'Only a matching fixed backend origin and anonymous backend operations are supported.');
+      && Object.keys(document.servers[0]).every(key => ['url', 'description'].includes(key))),
+  'Only a matching fixed backend origin is supported.');
+  const validateSecurity = security => {
+    if (security === undefined) return;
+    if (!key) {
+      requireRecipe(Array.isArray(security) && !security.length, 'Anonymous backend cannot satisfy OpenAPI security requirements.');
+      return;
+    }
+    requireRecipe(Array.isArray(security) && security.length === 1 && security[0]
+      && typeof security[0] === 'object' && !Array.isArray(security[0]) && Object.keys(security[0]).length === 1,
+    'Declare exactly one matching API-key security scheme, without optional, mixed or alternative security.');
+    const [name, scopes] = Object.entries(security[0])[0];
+    const scheme = document.components?.securitySchemes?.[name];
+    requireRecipe(Array.isArray(scopes) && scopes.length === 0 && scheme?.type === 'apiKey'
+      && Object.keys(scheme).every(field => ['type', 'in', 'name', 'description'].includes(field))
+      && scheme.in === (key.headerName ? 'header' : 'query')
+      && typeof scheme.name === 'string'
+      && (key.headerName ? scheme.name.toLowerCase() === key.headerName.toLowerCase() : scheme.name === key.queryParameterName),
+    'OpenAPI API-key security must exactly match the reviewed backend placement; references and other authentication are unsupported.');
+  };
+  validateSecurity(document.security);
   const tools = input.operationIds.map(id => {
     const op = operations.find(operation => operation.id === id);
     const item = document.paths[op.path], operation = item.get;
     requireRecipe(op.method === 'GET' && op.parameters.length === 0 && op.requestBody === undefined
       && Object.keys(item).every(key => ['get', 'put', 'post', 'delete', 'patch', 'options', 'head', 'trace', 'summary', 'description', 'parameters'].includes(key))
       && Object.keys(operation).every(key => ['operationId', 'summary', 'description', 'responses', 'parameters',
-        'security', 'tags', 'deprecated', 'externalDocs'].includes(key))
-      && (operation.security === undefined || Array.isArray(operation.security) && !operation.security.length),
-    'SDK hosting recipes support fixed GETs only: no parameters, bodies, callbacks, security, references, alternate servers or mappings.');
+        'security', 'tags', 'deprecated', 'externalDocs'].includes(key)),
+    'SDK hosting recipes support fixed GETs only: no parameters, bodies, callbacks, references, alternate servers or mappings.');
+    validateSecurity(operation.security);
     return { name: id, description: operation.description ?? operation.summary ?? id, path: op.path, readOnlyReviewed: true };
   });
   const runtime = validateRuntimeConfig({
     schemaVersion: 1, name: input.name, authentication: input.authentication,
     backendOrigin: input.backend.origin, requestsPerMinute: input.requestsPerMinute, tools,
     ...(input.azure.gateway ? { gateway: gatewaySettings(input) } : {}),
+    ...(key ? { backendAuthentication: { type: 'api-key',
+      ...(key.headerName ? { headerName: key.headerName } : { queryParameterName: key.queryParameterName }) } } : {}),
   });
   return { input, runtime };
 }
@@ -110,18 +161,21 @@ function infrastructure(input) {
     resources: [{
       type: 'Microsoft.App/containerApps', apiVersion: '2025-01-01', name: a.appName, location: a.location,
       tags: { 'copilot-mcp-recipe': input.recipe },
-      identity: { type: 'UserAssigned', userAssignedIdentities: { [a.registry.pullIdentityResourceId]: {} } },
+      identity: { type: 'UserAssigned', userAssignedIdentities: { [a.registry.pullIdentityResourceId]: {}, ...backendIdentity(input) } },
       properties: {
         managedEnvironmentId: a.environmentResourceId,
         configuration: {
           activeRevisionsMode: 'Single',
           ingress: { external: true, targetPort: 3000, transport: 'http', allowInsecure: false },
           registries: [{ server: a.registry.server, identity: a.registry.pullIdentityResourceId }],
+          ...(input.backend.apiKey ? { secrets: [{ name: backendSecretName,
+            keyVaultUrl: input.backend.apiKey.secretIdentifier, identity: input.backend.apiKey.identityResourceId }] } : {}),
         },
         template: {
           containers: [{ name: 'mcp', image: "[parameters('containerImage')]",
             resources: { cpu: 0.25, memory: '0.5Gi' },
-            env: [{ name: 'PORT', value: '3000' }, { name: 'PUBLIC_MCP_URL', value: endpoint }],
+            env: [{ name: 'PORT', value: '3000' }, { name: 'PUBLIC_MCP_URL', value: endpoint },
+              ...(input.backend.apiKey ? [{ name: backendCredentialEnvironment, secretRef: backendSecretName }] : [])],
             probes: ['Liveness', 'Readiness'].map(type => ({
               type, httpGet: { path: '/health', port: 3000, scheme: 'HTTP' },
               initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3,
@@ -215,12 +269,18 @@ This notice is not a complete dependency license audit or a service-content lice
   const review = {
     contractVersion: 1, recipe: input.recipe, status: 'generated-source-review-only',
     producer: { name: producer.name, version: producer.version, buildId: producer.contentDigest },
-    target: input.azure, authentication: input.authentication, toolDefinitions: toolDefinitions(runtime),
+    target: input.azure, authentication: input.authentication, backend: input.backend, toolDefinitions: toolDefinitions(runtime),
     evidence: 'generated-definitions-not-observed-tools-list',
     limitations: [
       'Local generation only; no install, image build/push, cloud operation, token acquisition or backend call.',
       'Entra v2 delegated tokens only. Exact tenant, audience, scope and allowed client application are checked in the server.',
-      'Anonymous JSON backend, fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
+      'Anonymous or Key Vault API-key JSON backend, fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
+      ...(input.backend.apiKey ? [
+        'Dedicated pre-existing Key Vault identity/access and network reachability require separate inspection. No secret resolution or role grants during generation.',
+        'All allowed callers share the backend key entitlement. No per-user source filtering; review licensing and data access.',
+        'Missing/unresolved/malformed injected credentials prevent startup. Credentials are held in process memory until restart; no refresh or dispatched-call retry by this runtime.',
+        'Query keys can appear in upstream/platform URL logs. Review safe diagnostics before deployment; obvious key reflection is rejected, not a general data-loss-prevention guarantee.',
+      ] : []),
       'Requests: 64 KiB; backend JSON: 1 MiB and 10 seconds; 20 concurrent requests; aggregate per-process requests/minute. No tool-call retries.',
       'Existing selected host prerequisites required; no prerequisite resource/identity/role creation or inspection. Review the host-specific guide.',
       functions ? 'Flex preview only; scale-to-zero, up to 40 instances of 2048 MiB. Limits are per process, not global quotas or billing caps.'

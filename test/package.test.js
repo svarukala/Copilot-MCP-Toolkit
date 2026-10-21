@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
-test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 240000 }, async t => {
+test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 300000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
@@ -72,6 +72,7 @@ syncBuiltinESMExports();
   assert.equal(cap.guidedSetup.existingMcpOAuth, 'reference-only');
   assert.equal(cap.containerAppsRecipe.cloudExecution, false);
   assert.equal(cap.containerAppsRecipe.gateway, 'none');
+  assert.deepEqual(cap.hostingRecipes.backendAuthentication, ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query']);
   assert.equal(invoke(['mcp-container-apps-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
   const containerInput = path.join(workspace, 'container-input.json');
   const containerOutput = path.join(workspace, 'container-server');
@@ -129,6 +130,75 @@ await server.close();
       const written = invoke(['mcp-recipe-release-bundle', ...releaseArgs, '--approve', release.approvalToken]).result;
       assert.equal(written.status, 'release-prepared-not-deployed');
     }
+  }
+  const securedProjects = [];
+  for (const name of ['container-apps-direct', 'container-apps-apim', 'app-service-container', 'functions-sdk']) {
+    const config = path.join(workspace, `${name}-api-key.json`), output = path.join(workspace, `${name}-api-key`);
+    await copyFile(path.join(installed, 'examples', 'mcp', `${name}-api-key.json`), config);
+    const args = ['--workspace-root', workspace, '--config', config, '--output', output];
+    const plan = invoke(['mcp-hosting-plan', ...args, '--summary']);
+    assert.match(plan.stderr, /Backend: API key in (header|query)/);
+    assert.ok(plan.stderr.includes(plan.result.review.backend.apiKey.identityResourceId));
+    invoke(['mcp-hosting-create', ...args, '--approve', 'wrong'], [1]);
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken]);
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken], [1]);
+    assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
+    securedProjects.push(output);
+  }
+  execFileSync(process.execPath, [npm, 'ci', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev'],
+    { cwd: securedProjects[0], encoding: 'utf8', timeout: 60000 });
+  const keySmoke = path.join(consumer, 'generated-key-runtime.mjs');
+  await writeFile(keySmoke, `
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import path from 'node:path';
+import { createProtocolServer, createRequestHandler } from ${JSON.stringify(pathToFileURL(path.join(securedProjects[0], 'runtime.js')).href)};
+// All four emitted runtimes above are byte-identical; use their independent cached dependency installation.
+for (const project of ${JSON.stringify(securedProjects)}) {
+  const config = JSON.parse(await readFile(path.join(project, 'runtime-config.json')));
+  assert.throws(() => createRequestHandler(config, 'http://localhost:3000/mcp', { env: {} }), /configuration is unavailable/);
+  const key = 'synthetic-packed-only+credential/42';
+  const calls = [], logs = [];
+  let reflect = false;
+  const server = createProtocolServer(config, { env: { MCP_BACKEND_API_KEY: key }, log: e => logs.push(e),
+    request: async (url, options) => { calls.push({ url, options }); return Response.json(reflect ? { value: key } : { value: 42 }); } });
+  const client = new Client({ name: 'packed-offline', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st); await client.connect(ct);
+    assert.equal((await client.listTools()).tools[0].annotations.readOnlyHint, true);
+    assert.equal(calls.length, 0);
+    const result = await client.callTool({ name: 'get_information', arguments: {} });
+    assert.equal(result.isError, undefined);
+    assert.equal(calls.length, 1);
+    const auth = config.backendAuthentication;
+    if (auth.headerName) assert.deepEqual(calls[0].options.headers, { accept: 'application/json', [auth.headerName]: key });
+    else {
+      assert.equal(new URL(calls[0].url).searchParams.get(auth.queryParameterName), key);
+      assert.deepEqual(calls[0].options.headers, { accept: 'application/json' });
+    }
+    assert.equal(calls[0].options.redirect, 'error');
+    reflect = true;
+    const rejected = await client.callTool({ name: 'get_information', arguments: {} });
+    assert.equal(rejected.isError, true);
+    assert.equal(calls.length, 2);
+    assert.ok(!JSON.stringify({ rejected, logs }).includes(key));
+  } finally { await client.close(); await server.close(); }
+}
+`);
+  const keyResult = spawnSync(process.execPath, ['--require', preload, keySmoke],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(keyResult.status, 0, keyResult.stderr);
+  assert.doesNotMatch(keyResult.stdout + keyResult.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  for (const unresolved of ['', '@Microsoft.KeyVault(SecretUri=https://synthetic-vault.vault.azure.net/secrets/backend-access)']) {
+    const failedStartup = spawnSync(process.execPath, ['--require', preload, path.join(securedProjects[0], 'server.js')],
+      { cwd: consumer, encoding: 'utf8', timeout: 30000, env: { ...process.env, PORT: '3000',
+        PUBLIC_MCP_URL: 'http://localhost:3000/mcp', MCP_BACKEND_API_KEY: unresolved } });
+    assert.equal(failedStartup.status, 1);
+    assert.match(failedStartup.stderr, /startup-failed/);
+    assert.doesNotMatch(failedStartup.stdout + failedStartup.stderr, /vault\.azure\.net|TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
   }
   const referenceConfig = path.join(workspace, 'recipe-reference.json');
   await writeFile(referenceConfig, JSON.stringify({ schemaVersion: 1,

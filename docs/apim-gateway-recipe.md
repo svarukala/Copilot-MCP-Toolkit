@@ -36,6 +36,13 @@ Use `mcp-hosting-schema`, `mcp-hosting-plan` and `mcp-hosting-create` with the
 same explicit workspace/config/new output and exact approval as recipe 1.
 See [shared preparation and reference commands](hosting-recipes.md).
 
+API-key REST backends use `examples/mcp/container-apps-apim-api-key.json` and
+[the shared API-key contract](hosting-recipes.md#api-key-backends). The key is
+resolved by Container Apps using a dedicated Key Vault identity and injected
+only into the SDK process; it is not an APIM named value, subscription key or
+gateway token. The APIM policy is unchanged. Native APIM REST-to-MCP contracts
+remain separate. Review shared backend entitlement and query/header diagnostics.
+
 For a separately approved local startup, install the generated locked dependencies
 with `npm ci --ignore-scripts --no-audit --fund=false`, set
 `$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'`, then run `npm start`.
@@ -44,6 +51,10 @@ caller tokens are still required for MCP; this is not an APIM emulator.
 Repository tests use synthetic local signing keys without weakening generated
 authentication. Do not put real tokens in arguments or files. Stop the local
 process afterward.
+For API-key local runs also use the shared guide's approved process-only secret
+launcher; never put a key in a file or argument. Unresolved references fail
+startup. Container Apps versionless refresh/restart behavior is the same as
+recipe 1 (documented 30-minute window), not APIM named-value refresh behavior.
 
 ## How access works
 
@@ -55,7 +66,7 @@ the exact gateway principal and role, and the caller's delegated access.
 
 A missing, spoofed, expired or wrong-principal gateway token fails closed.
 Simply supplying a header or reaching the public Container Apps hostname does
-not bypass the gateway requirement. Neither token is sent to the public backend.
+not bypass the gateway requirement. Neither token is sent to the REST backend.
 Liveness and public OAuth metadata contain no tools or data and remain public.
 Network isolation can add defense in depth; this recipe does not configure it.
 

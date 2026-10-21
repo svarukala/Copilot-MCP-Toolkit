@@ -68,10 +68,14 @@ Review plan -> exact approval -> one supported phase -> retained status/resume.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports
---summary. Entra v2 delegated callers, anonymous JSON backend and reviewed fixed
+--summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed fixed
 GETs only. No APIM, cloud deployment, image build/push or automatic sign-in.
 mcp-hosting-schema/plan/create additionally support Container Apps behind APIM,
 App Service containers and Functions SDK custom handlers (preview, Linux FC1).
+All four accept a dedicated header or query API key via native Key Vault references
+and a separate explicit user-assigned identity. Never supply a key value in JSON
+or command arguments. Missing/unresolved credentials prevent server startup.
+No secret lookup, identity/role creation, caller-auth bypass or tool-call retries.
 mcp-recipe-source-plan reviews the sealed source archive. Release plan/bundle
 prepares exact source/template/artifact files; it never deploys. Reference
 plan/create writes a separate unverified existing-MCP project for later
