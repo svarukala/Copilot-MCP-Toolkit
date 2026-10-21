@@ -17,7 +17,7 @@ export const backendCredentialEnvironment = 'MCP_BACKEND_API_KEY';
 
 export function validateApiKeyPlacement(value) {
   const name = value.headerName ?? value.queryParameterName;
-  const reserved = /^(?:authorization|proxy-authorization|cookies?|set-cookie|host|connection|keep-alive|transfer-encoding|content-.*|accept(?:-.*)?|user-agent|upgrade|te|trailer|expect|forwarded|via|origin|referer|range|if-.*|traceparent|tracestate|baggage|sec-.*|proxy-.*|x-forwarded-.*|x-copilot-.*|mcp-.*|www-authenticate|proxy-authenticate|access-control-.*)$/i;
+  const reserved = /^(?:authorization|proxy-authorization|cookies?|set-cookie|host|connection|keep-alive|transfer-encoding|content-.*|accept(?:-.*)?|user-agent|upgrade|te|trailer|expect|forwarded|via|origin|referer|range|if-.*|traceparent|tracestate|baggage|sec-.*|proxy(?:-.*)?|x-forwarded-.*|x-copilot-.*|x-http-method(?:-override)?|x-method-override|x-original-.*|x-rewrite-.*|x-real-ip|x-ms-client-principal(?:-.*)?|x-ms-token-.*|mcp-.*|www-authenticate|proxy-authenticate|access-control-.*)$/i;
   const queryReserved = /^(?:authorization|cookies?|password|access[-_]?token|refresh[-_]?token|id[-_]?token|client[-_]?(?:id|secret)|token|scope|code|state|redirect[-_]?uri|url|uri|host|endpoint|method|op)$/i;
   if (reserved.test(name) || !value.headerName && queryReserved.test(name)) {
     throw new Error('Use a dedicated API-key header or query name, not a reserved authorization, transport or routing field.');

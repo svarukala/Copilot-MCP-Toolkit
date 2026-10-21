@@ -63,7 +63,10 @@ There is no per-user credential selection or source-data filtering.
 Header names use letters, digits and hyphens, starting with a letter (100
 characters maximum). Query names also allow dots and underscores. Reserved
 authorization, cookie, gateway-proof, MCP, transport, forwarding and routing
-names are rejected. `Authorization`/Bearer, cookies, custom prefixes, multiple
+names (including method-override and original/rewrite-URL headers) are rejected.
+Provider-specific dedicated names such as `X-API-Key`,
+`Ocp-Apim-Subscription-Key` and `x-functions-key` are allowed.
+`Authorization`/Bearer, cookies, custom prefixes, multiple
 keys and raw credential fields are unsupported. Query values are URL-encoded by
 the runtime, never part of an authored path or tool argument.
 

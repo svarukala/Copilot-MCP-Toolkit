@@ -166,13 +166,21 @@ test('closed key schema rejects literals, malformed/cross-target references, ide
     assert.throws(() => compileHostingRecipe(input), undefined, `${recipe}: ${mutate}`);
   }
   for (const headerName of ['Authorization', 'Proxy-Authorization', 'Cookie', 'Host', 'Content-Length', 'Connection',
-    'Accept', 'Transfer-Encoding', 'X-Copilot-MCP-Gateway-Authorization', 'X-Forwarded-Host', 'Mcp-Session-Id', 'Traceparent']) {
+    'Accept', 'Transfer-Encoding', 'X-Copilot-MCP-Gateway-Authorization', 'X-Forwarded-Host', 'Mcp-Session-Id', 'Traceparent',
+    'Proxy', 'X-HTTP-Method-Override', 'X-HTTP-Method', 'X-Method-Override', 'X-Original-URL', 'X-Rewrite-URL',
+    'X-Real-IP', 'X-MS-Client-Principal', 'X-MS-Token-AAD-Access-Token']) {
     const input = secured(); input.backend.apiKey.headerName = headerName;
     assert.throws(() => compileHostingRecipe(input), /dedicated/);
   }
   for (const queryParameterName of ['authorization', 'access_token', 'client_secret', 'url', 'op', 'code', 'state', 'key&other', 'key=value', 'key#', 'key%20']) {
     const input = secured(recipes[0], 'query'); input.backend.apiKey.queryParameterName = queryParameterName;
     assert.throws(() => compileHostingRecipe(input));
+  }
+  for (const headerName of ['X-API-Key', 'Ocp-Apim-Subscription-Key', 'x-functions-key']) {
+    const input = secured();
+    input.backend.apiKey.headerName = headerName;
+    input.document.components.securitySchemes.backendKey.name = headerName;
+    assert.doesNotThrow(() => compileHostingRecipe(input));
   }
 });
 
