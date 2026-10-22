@@ -5,6 +5,16 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Live qualification began on 2026-10-22 against implementation `47722e8`.
+  One host npm connectivity diagnostic returned `failed` at the `transport`
+  stage, without an HTTP status; root cause is not established. The original
+  intent/result remain private and no automatic retry was attempted. Docker
+  checks await explicit trusted-engine selection. Private ACR pull and
+  interactive discovery/proof await explicit targets/identities and separate
+  approvals. No packages were installed and no cloud, provider, consumer or
+  deployed-pilot operation was performed. See the
+  [qualification record](progress-tracker.md#hosting-pilot-feedback-implementation).
+
 - 2026-10-22: a first implementation pass across all seven consolidated
   hosting/FCC feedback packages is committed on
   `svarukala-custom-federated-connectors`; see the

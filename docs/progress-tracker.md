@@ -78,6 +78,17 @@ declared metadata, not authenticated service attestations. Live qualification
 of image execution, preserving deployment, secret resolution/rotation and
 consumer behavior remains separate from these offline results.
 
+Live qualification attempt on 2026-10-22, using implementation `47722e8`:
+the standalone `host-npm-diagnostic` ran once against its fixed public npm ping
+endpoint and returned `failed` at the `transport` stage, without an HTTP status.
+The bounded intent/result are retained privately; no raw logs or private paths
+are included here. The result does not establish a root cause or provider
+readiness. No automatic retry, package installation or TLS bypass was performed.
+Docker engine/container checks remain pending explicit trusted-engine selection;
+private ACR pull and interactive discovery/proof remain pending explicit project,
+identity, image/endpoint selection and their separate operation approvals.
+No Azure, M365, provider call or deployed-pilot change was performed.
+
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
 See [handoff](handoff.md) for the recorded validation baseline, not a promise that
