@@ -72,9 +72,11 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
-Host operations: schema/plan/run for local engine or fixed host/container npm
+Host operations: schema/plan/run for local engine or reviewed host/container npm
 diagnostics and digest-only private ACR pull. Explicit local Docker socket,
 new output JSON and exact approval; separate local/network/cloud flags.
+Npm probes accept registryProbe with an explicit HTTPS registryUrl and ping or
+package-metadata kind (plus packageName). No npm config/auth import or install.
 Private pull uses host-account-plan/switch on the sealed source project first;
 no shared Docker login, saved registry token, automatic build or pull replay.
 Session: optional terminal-only existing Entra MCP discovery then a separately

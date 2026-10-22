@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "kind": "host-npm-diagnostic",
+  "registryProbe": {
+    "kind": "package-metadata",
+    "registryUrl": "https://packages.example.com/npm/",
+    "packageName": "@example/mcp-runtime"
+  }
+}

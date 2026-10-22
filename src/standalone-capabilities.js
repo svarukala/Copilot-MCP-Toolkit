@@ -3,6 +3,8 @@ export function standaloneCapabilities() { return {
 hostOperations: { commands: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
       kinds: ['engine-diagnostic', 'host-npm-diagnostic', 'container-npm-diagnostic', 'private-image-pull'],
       dockerApi: '1.44', dockerEndpoint: 'explicit-local-pipe-or-socket-only',
+      npmRegistryProbe: { explicitRegistry: true, kinds: ['ping', 'package-metadata'],
+        configurationDiscovery: false, credentials: false, redirects: false, packageInstallation: false },
       registryCredentials: 'process-memory-and-trusted-local-daemon-only', sharedDockerLogin: false,
       automaticRetry: false, automaticBuild: false, providerCalls: false, liveQualified: false, publicLibrary: false },
 interactiveSession: { commands: ['mcp-session-plan', 'mcp-session'], optIn: true,

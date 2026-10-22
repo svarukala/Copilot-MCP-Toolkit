@@ -37,8 +37,8 @@ and only the applicable flags:
 | Kind | Required flags | Scope |
 | --- | --- | --- |
 | `engine-diagnostic` | `--allow-local` | Read the explicitly selected local Docker engine version/platform; do not start it |
-| `host-npm-diagnostic` | `--allow-network` | One fixed public npm DNS/TLS/HTTP probe from Node on the host |
-| `container-npm-diagnostic` | `--allow-local --allow-network` | One fixed npm probe in an already-present reviewed Node builder image, then remove only that owned temporary container |
+| `host-npm-diagnostic` | `--allow-network` | One reviewed registry DNS/TLS/HTTP probe from Node on the host |
+| `container-npm-diagnostic` | `--allow-local --allow-network` | One reviewed registry probe in an already-present reviewed Node builder image, then remove only that owned temporary container |
 | `private-image-pull` | `--allow-local --allow-network --allow-cloud` | Private Azure identity verification, transient ACR credential and exact-digest pull into the selected local daemon; no image execution |
 
 Complete synthetic inputs are
@@ -50,6 +50,40 @@ digests, identity and registry values; examples are not actual available images.
 Diagnostics can use an existing empty private project directory. Private pull
 requires the sealed **container recipe source project**, not its endpoint
 reference; Functions is source-only and has no private-image-pull profile.
+
+Both npm diagnostics accept an optional `registryProbe`. Omission preserves the
+original `https://registry.npmjs.org/-/ping` target; it does **not** select the
+registry configured by npm. In a restricted environment, explicitly select the
+approved feed before planning:
+
+```json
+"registryProbe": {
+  "kind": "package-metadata",
+  "registryUrl": "https://packages.example.com/npm/",
+  "packageName": "@example/mcp-runtime"
+}
+```
+
+This is a synthetic example; replace the feed and package with reviewed values.
+See [the complete configuration](../examples/mcp/approved-registry-diagnostic.json).
+For feeds supporting npm ping, use `kind: "ping"` and omit `packageName`.
+The registry URL must be HTTPS with a trailing slash, without credentials,
+query strings, fragments, IP literals or a nonstandard port. Feed paths are
+preserved; scoped package names are encoded as one path segment.
+The exact derived URL, mode and package are approval-bound and shown in the plan.
+Changing them requires a new plan/output/approval, not a fallback or retry.
+
+The toolkit neither reads npm configuration/authentication nor changes `.npmrc`.
+No Authorization header, credential cache, package download/install or proxy
+configuration is used. Both host and container probes validate all DNS answers
+as public addresses and pin one address, retain certificate verification, and
+reject redirects. Private-address and authenticated feeds are not supported by
+this diagnostic; a 401/403 is not permission to load credentials. A 404 on
+`/-/ping` does not mean HTTPS is broken or the feed cannot serve packages.
+An explicitly selected package-metadata probe checks only the HTTP response
+status: it does not retain or validate package metadata, resolve dependencies or
+qualify `npm ci`. A failed public-npm check is not a general host-network diagnosis
+when policy blocks that registry.
 
 Docker must already be running and support Linux/amd64 and Engine API **1.44**
 (including accepting that API version). Choose the exact local pipe/socket:

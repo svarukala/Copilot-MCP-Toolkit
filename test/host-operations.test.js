@@ -154,9 +154,55 @@ test('host npm diagnostics do not touch Docker or Azure and failures are not bui
   assert.deepEqual(report.result, { stage: 'tls', status: 'failed' });
   assert.equal(report.providerVerified, false);
 });
+test('registry and package changes require new approval and execution receives exactly the reviewed target', async t => {
+  const registryProbe = { kind: 'package-metadata', registryUrl: 'https://packages.example.com/npm/',
+    packageName: '@example/mcp-runtime' };
+  const f = await fixture(t, { schemaVersion: 1, kind: 'host-npm-diagnostic', registryProbe });
+  const original = await planHostOperation(f.options);
+  assert.equal(original.registryProbe.endpoint, 'https://packages.example.com/npm/%40example%2Fmcp-runtime');
+  assert.ok(original.effects[0].includes(original.registryProbe.endpoint));
+  let calls = 0;
+  const dependencies = { npmProbe: async (_signal, target) => {
+    calls++; assert.equal(target.endpoint, 'https://approved.example.com/npm/%40example%2Fchanged');
+    return { status: 'passed', stage: 'http', httpStatus: 200 };
+  } };
+  registryProbe.registryUrl = 'https://approved.example.com/npm/'; await f.save();
+  const changedRegistry = await planHostOperation(f.options);
+  assert.notEqual(changedRegistry.approvalDigest, original.approvalDigest);
+  await assert.rejects(runHostOperation({ ...f.options, approval: original.approvalDigest, allowNetwork: true }, dependencies));
+  registryProbe.packageName = '@example/changed'; await f.save();
+  const changedPackage = await planHostOperation(f.options);
+  assert.notEqual(changedPackage.approvalDigest, changedRegistry.approvalDigest);
+  await assert.rejects(runHostOperation({ ...f.options, approval: changedRegistry.approvalDigest, allowNetwork: true }, dependencies));
+  assert.equal(calls, 0);
+  const result = await runHostOperation({ ...f.options, approval: changedPackage.approvalDigest, allowNetwork: true }, dependencies);
+  assert.equal(calls, 1); assert.equal(result.result.status, 'passed');
+});
+test('registry schema rejects credentials, arbitrary URLs, malformed packages and unrelated operation overrides', async t => {
+  const good = { kind: 'package-metadata', registryUrl: 'https://packages.example.com/npm/', packageName: '@example/runtime' };
+  const f = await fixture(t, { schemaVersion: 1, kind: 'host-npm-diagnostic' });
+  for (const registryProbe of [
+    { ...good, headers: { Authorization: 'synthetic' } },
+    { ...good, endpoint: 'https://packages.example.com/arbitrary' },
+    { ...good, registryUrl: 'https://user:password@packages.example.com/' },
+    { ...good, registryUrl: 'https://packages.example.com/?token=synthetic' },
+    { ...good, registryUrl: 'https://packages.example.com/npm' },
+    { ...good, packageName: '../package' }, { ...good, packageName: '@scope/name/other' },
+    { ...good, packageName: 'name?secret=synthetic' }, { ...good, packageName: '%2e%2e' },
+    { kind: 'package-metadata', registryUrl: good.registryUrl },
+    { ...good, kind: 'ping' },
+  ]) {
+    f.input.registryProbe = registryProbe; await f.save();
+    await assert.rejects(planHostOperation(f.options));
+  }
+  f.input.kind = 'engine-diagnostic'; Object.assign(f.input, engine); f.input.registryProbe = good; await f.save();
+  await assert.rejects(planHostOperation(f.options));
+});
 test('container diagnostics use an existing pinned image and remove only the owned restricted probe', async t => {
   const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine,
-    image: `node:22-bookworm-slim@${hash}` });
+    image: `node:22-bookworm-slim@${hash}`, registryProbe: {
+      kind: 'package-metadata', registryUrl: 'https://packages.example.com/npm/', packageName: '@example/runtime',
+    } });
   const plan = await planHostOperation(f.options);
   const id = 'b'.repeat(64);
   let creates = 0, removes = 0;
@@ -169,6 +215,8 @@ test('container diagnostics use an existing pinned image and remove only the own
       assert.equal(opts.body.HostConfig.Privileged, undefined);
       assert.deepEqual(opts.body.Env, []);
       assert.match(opts.body.Cmd[1], /rejectUnauthorized:true/);
+      assert.ok(opts.body.Cmd[1].includes(plan.registryProbe.endpoint));
+      assert.ok(!opts.body.Cmd[1].includes('registry.npmjs.org'));
       return jsonResponse({ Id: id }, 201);
     }
     if (route.endsWith('/start')) return { status: 204, text: '' };

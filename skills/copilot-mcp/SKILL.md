@@ -39,7 +39,12 @@ create-template reuse. A successful ARM result may precede a ready revision;
 observe exact metadata rather than redeploying.
 
 Use `mcp-host-schema/plan/run` for separately approved engine, host/container npm
-diagnostics or private ACR pulls. Read the guide's exact local socket, existing
+diagnostics. Confirm the approved registry first; do not assume public npm is
+allowed. Set `registryProbe.registryUrl` explicitly for another feed, with
+`kind: "ping"` or `kind: "package-metadata"` plus a reviewed `packageName` when
+ping is unsupported. The plan binds the exact URL; do not import registry
+credentials, install a package or change `.npmrc` to test connectivity.
+Use the same command family for private ACR pulls. Read the guide's exact local socket, existing
 image and local/network/cloud flags. Never start Docker, auto-pull a probe image,
 disable TLS/integrity or turn a failed local diagnostic into paid build approval.
 Private pull requires `mcp-host-account-plan/switch` on the sealed source project,

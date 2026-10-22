@@ -110,10 +110,29 @@ existing `.npmrc` already selects that alternative. One bounded, credential-free
 HTTPS comparison against the configured feed's `/-/ping` path received HTTP 404
 with certificate verification enabled and redirects disabled. HTTPS reached the
 feed, but that is not a successful npm ping, package restore or toolkit diagnostic
-qualification. Both built-in host/container npm probes hardcode public npm, so
-approval-bound alternative-registry diagnostics remain an implementation gap.
+qualification. Both built-in host/container npm probes initially hardcoded
+public npm. The follow-up implements optional approval-bound `registryProbe`
+selection for an explicit HTTPS feed and either ping or a package-metadata URL.
+Omission retains the original target; no npm configuration/authentication is
+imported, and no fallback, redirect or install is performed. Both execution
+paths check public DNS and pin the selected address. The exact URL/mode/package
+are shown in the plan and bound to its approval.
 Do not replace the approved feed or bypass policy. Docker availability and
 explicit cloud/auth selections remain outstanding; original results are intact.
+
+The updated `mcp-host-plan/run` subsequently completed a new, explicit
+package-metadata connectivity probe against the approved feed with **HTTP 200**.
+Its intent/result are retained privately, separately from the previous failures.
+This is live host connectivity evidence only: no package was installed, response
+content retained, Docker engine contacted or Azure/provider operation executed.
+Container execution and private-pull/session qualification remain outstanding.
+Validation of the registry change passed **18 focused offline tests** plus the
+fresh offline packed-consumer test with runtime networking/subprocesses denied.
+Coverage includes default-target compatibility, exact registry/package approval
+binding, scoped-path encoding, credential/query rejection, DNS pinning, mixed
+private/public DNS denial, redirects, TLS protocol errors, and the actual
+container probe script under synthetic transports. CLI syntax and strict public
+types passed. The full repository suite was not rerun for this change.
 
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).

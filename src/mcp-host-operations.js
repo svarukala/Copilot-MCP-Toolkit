@@ -2,8 +2,6 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { lookup } from 'node:dns/promises';
-import { request } from 'node:https';
 import { lstat, mkdir } from 'node:fs/promises';
 import { assertProjectPath, withCliWorkspace } from './config.js';
 import { boundedSnapshot, metadataDigest, requireMetadata } from './anonymous-metadata.js';
@@ -12,17 +10,18 @@ import { readRecipeProject } from './mcp-recipe-artifacts.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { readAzureIdentity, azureIdentityGuard, validateAzureAccountTarget, planAzureAccountSwitch, switchAzureAccount } from './azure-identity.js';
 import { runAzureCommand } from './azure.js';
-import { publicHttpsTransport } from './anonymous-network.js';
 import { dockerSocketSchema, dockerEngineRequest, dockerJson, dockerError, registryAuthHeader } from './docker-engine.js';
+import { registryProbeSchema, registryProbeTarget, npmProbe, registryContainerCode } from './npm-registry-diagnostic.js';
 
-const object = properties => ({ type: 'object', additionalProperties: false, properties, required: Object.keys(properties) });
+const object = (properties, optional = {}) => ({ type: 'object', additionalProperties: false,
+  properties: { ...properties, ...optional }, required: Object.keys(properties) });
 const base = { schemaVersion: { const: 1 } };
 const engine = { dockerSocket: dockerSocketSchema, localEngineTrusted: { const: true } };
 export const hostOperationSchema = { oneOf: [
   object({ ...base, kind: { const: 'engine-diagnostic' }, ...engine }),
-  object({ ...base, kind: { const: 'host-npm-diagnostic' } }),
+  object({ ...base, kind: { const: 'host-npm-diagnostic' } }, { registryProbe: registryProbeSchema }),
   object({ ...base, kind: { const: 'container-npm-diagnostic' }, ...engine,
-    image: { type: 'string', pattern: '^node:22-bookworm-slim@sha256:[a-f0-9]{64}$' } }),
+    image: { type: 'string', pattern: '^node:22-bookworm-slim@sha256:[a-f0-9]{64}$' } }, { registryProbe: registryProbeSchema }),
   object({ ...base, kind: { const: 'private-image-pull' }, ...engine,
     image: { type: 'string', maxLength: 512, pattern: '^[a-z0-9]+\\.azurecr\\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$' },
     accountName: { type: 'string', format: 'email', maxLength: 254 } }),
@@ -30,15 +29,7 @@ export const hostOperationSchema = { oneOf: [
 const ajv = new Ajv(); addFormats(ajv);
 const valid = ajv.compile(hostOperationSchema);
 const digest = value => metadataDigest(boundedSnapshot(value));
-const pingUrl = 'https://registry.npmjs.org/-/ping';
 const api = '/v1.44';
-const probeCode = `const https=require('node:https');
-const timer=setTimeout(()=>process.exit(4),10000);
-const req=https.get('https://registry.npmjs.org/-/ping',{rejectUnauthorized:true},res=>{
-  const code=res.statusCode>=200&&res.statusCode<300?0:5;res.destroy();clearTimeout(timer);process.exit(code);
-});
-req.on('error',e=>{clearTimeout(timer);process.exit(['ENOTFOUND','EAI_AGAIN'].includes(e.code)?2:
-  /CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/.test(e.code||'')?3:1);});`;
 async function absent(filename) {
   await assertProjectPath(filename);
   try { await lstat(filename); throw Object.assign(new Error('Output or prior pull reservation exists; preserve it and reconcile, never overwrite or replay.'),
@@ -50,6 +41,8 @@ async function prepare(options) {
   requireMetadata((await lstat(projectDir)).isDirectory(), 'INVALID_CONFIG');
   const input = await readControl(path.resolve(options.config));
   requireMetadata(valid(input), 'INVALID_CONFIG');
+  const registryProbe = ['host-npm-diagnostic', 'container-npm-diagnostic'].includes(input.kind)
+    ? registryProbeTarget(input.registryProbe) : undefined;
   const output = await assertProjectPath(path.resolve(options.output));
   requireMetadata(path.extname(output) === '.json' && (await lstat(path.dirname(output))).isDirectory(), 'INVALID_CONFIG');
   await absent(output); await absent(`${output}.intent.json`);
@@ -66,6 +59,7 @@ async function prepare(options) {
     await absent(reservation);
   }
   const body = { action: 'mcp-host-run', projectDir, output, input,
+    ...(registryProbe ? { registryProbe } : {}),
     ...(identity ? { identity, sourceManifestDigest, reservation } : {}),
     producerBuild: (await getLibraryInfo()).contentDigest,
     maximumMs: input.kind === 'private-image-pull' ? 600000 : 60000,
@@ -78,8 +72,8 @@ async function prepare(options) {
         'Keep credentials only in process memory and the local daemon request; never print/save them. No image execution.',
         'Timeout or ambiguous response stays consumed. A new output name does not authorize another pull.']
       : [input.kind === 'container-npm-diagnostic'
-        ? 'Run a previously present, explicitly reviewed Node image as a temporary restricted container; one fixed npm TLS probe, then remove only that owned container.'
-        : input.kind === 'host-npm-diagnostic' ? 'One fixed public npm DNS/TLS probe from this Node process; no package installation.'
+        ? `Run a previously present, explicitly reviewed Node image as a temporary restricted container; one ${registryProbe.kind} HTTPS probe to ${registryProbe.endpoint}, then remove only that owned container.`
+        : input.kind === 'host-npm-diagnostic' ? `One ${registryProbe.kind} DNS/TLS/HTTP probe to ${registryProbe.endpoint} from this Node process; no package installation.`
           : 'Read only the explicitly selected local Docker engine version; no process start or context change.',
       'No auto-pull, build, TLS bypass, dependency install, provider call or paid cloud fallback.'] };
   return boundedSnapshot({ ...body, approvalDigest: digest(body) });
@@ -97,30 +91,6 @@ export async function hostingAccount(projectDir, requested, options = {}, execut
   return (execute ? switchAzureAccount : planAzureAccountSwitch)(source.projectDir, target, options);
 }
 
-async function npmProbe(signal) {
-  let stage = 'dns';
-  const probeSignal = AbortSignal.any([signal, AbortSignal.timeout(15000)]);
-  const transport = publicHttpsTransport({ allowErrorStatus: true,
-    requestPolicy: endpoint => { requireMetadata(endpoint === pingUrl, 'NETWORK_BLOCKED'); return new URL(endpoint); },
-    lookupImpl: async (...args) => { const result = await lookup(...args); stage = 'tls'; return result; },
-    requestImpl: (...args) => {
-      const req = request(...args);
-      req.on('error', error => {
-        if (!/CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/.test(error.code ?? '')) stage = 'transport';
-      });
-      return req;
-    } });
-  try {
-    const response = await transport(pingUrl, { method: 'GET', redirect: 'error',
-      headers: { Accept: 'application/json' }, signal: probeSignal });
-    stage = 'http';
-    await response.body?.cancel();
-    return { status: response.ok ? 'passed' : 'failed', stage: 'http', httpStatus: response.status };
-  } catch (error) {
-    return { status: 'failed', stage: probeSignal.aborted ? 'cancelled-or-timeout' : error.httpStatus ? 'http' : stage,
-      ...(error.httpStatus ? { httpStatus: error.httpStatus } : {}) };
-  }
-}
 async function inspectEngine(call) {
   const value = dockerJson(await call('/version'));
   requireMetadata(value.Os === 'linux' && ['amd64', 'x86_64'].includes(value.Arch)
@@ -129,7 +99,7 @@ async function inspectEngine(call) {
       && Number(value.MinAPIVersion.split('.')[1]) <= 44), 'DOCKER_PLATFORM_UNSUPPORTED');
   return { status: 'passed', os: 'linux', architecture: 'amd64', apiVersion: value.ApiVersion };
 }
-async function containerProbe(input, call, cleanupCall, owner) {
+async function containerProbe(input, target, call, cleanupCall, owner) {
   const image = dockerJson(await call(`${api}/images/${encodeURIComponent(input.image)}/json`));
   requireMetadata(image.Os === 'linux' && image.Architecture === 'amd64'
     && image.RepoDigests?.some(value => [input.image.replace('node:22-bookworm-slim@', 'node@'),
@@ -139,7 +109,7 @@ async function containerProbe(input, call, cleanupCall, owner) {
   try {
     attempted = true;
     const created = dockerJson(await call(`${api}/containers/create?name=${name}`, { method: 'POST', body: {
-      Image: input.image, Entrypoint: ['node'], Cmd: ['-e', probeCode], User: '65532:65532',
+      Image: input.image, Entrypoint: ['node'], Cmd: ['-e', registryContainerCode(target)], User: '65532:65532',
       Env: [], WorkingDir: '/', Labels: { 'copilot-mcp-probe': owner }, NetworkDisabled: false,
       HostConfig: { ReadonlyRootfs: true, CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges'],
         NetworkMode: 'bridge', Memory: 134217728, NanoCpus: 1000000000, PidsLimit: 32,
@@ -153,7 +123,7 @@ async function containerProbe(input, call, cleanupCall, owner) {
     }));
     requireMetadata(!waited.Error && Number.isInteger(waited.StatusCode), 'DOCKER_RESPONSE_INVALID');
     result = { status: waited.StatusCode === 0 ? 'passed' : 'failed',
-      stage: ({ 0: 'http', 2: 'dns', 3: 'tls', 4: 'timeout', 5: 'http' })[waited.StatusCode] ?? 'container-execution' };
+      stage: ({ 0: 'http', 2: 'dns', 3: 'tls', 4: 'timeout', 5: 'http', 6: 'network-policy' })[waited.StatusCode] ?? 'container-execution' };
   } catch (error) { failure = error; }
   if (attempted) {
     try {
@@ -244,9 +214,9 @@ export const runHostOperation = (options, dependencies = {}) => scoped(options, 
         result = plan.input.kind === 'private-image-pull'
           ? await privatePull(plan, call, dependencies.runAzure ?? runAzureCommand, signal, reserve)
           : plan.input.kind === 'host-npm-diagnostic'
-            ? await (dependencies.npmProbe ?? npmProbe)(signal)
+            ? await (dependencies.npmProbe ?? npmProbe)(signal, plan.registryProbe)
             : plan.input.kind === 'container-npm-diagnostic'
-              ? await containerProbe(plan.input, call, cleanupCall, plan.approvalDigest)
+              ? await containerProbe(plan.input, plan.registryProbe, call, cleanupCall, plan.approvalDigest)
               : { status: 'passed', stage: 'engine', os: 'linux', architecture: 'amd64' };
       } catch (error) {
         const known = /^(?:DOCKER_[A-Z_]+|AZURE_[A-Z_]+|REGISTRY_CREDENTIAL_INVALID|METADATA_MISMATCH)$/.test(error.code ?? '');

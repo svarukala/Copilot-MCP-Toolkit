@@ -11,9 +11,17 @@ It contains public engineering context only, not credentials or execution author
   HTTPS check to that feed's `/-/ping` path received HTTP 404 with certificate
   verification enabled. This establishes an HTTPS response, not npm ping or
   package-install success, and supersedes the general host-connectivity blocker.
-  Both built-in npm diagnostics still hardcode public npm; configurable,
-  approval-bound registry diagnostics remain a gap. Do not switch the repository
-  to public npm or bypass the network policy.
+  Both built-in npm diagnostics initially hardcoded public npm. They now accept
+  an explicit approval-bound `registryProbe` for ping or a package-metadata URL,
+  preserving the old default without importing npm settings or credentials.
+  Host and container probes retain TLS/public-DNS checks and never install
+  packages. See the [operator guide](hosting-recipes.md#environment-diagnostics-and-private-image-pulls).
+  The updated toolkit's separately planned host package-metadata probe against
+  the approved feed returned HTTP 200. This qualifies that host connectivity
+  check only, not package installation, container connectivity or provider use.
+  All 18 focused registry/host checks and the fresh offline packed-consumer test
+  passed, as did CLI syntax and public types. No full-suite rerun was performed.
+  Do not switch the repository to public npm or bypass the network policy.
   One host npm connectivity diagnostic returned `failed` at the `transport`
   stage, without an HTTP status; root cause is not established. The original
   intent/result remain private and no automatic retry was attempted. Docker
