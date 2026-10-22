@@ -9,6 +9,27 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Hosting pilot feedback implementation
+
+The owner reported completing the API Ninjas / direct Container Apps end-to-end
+pilot on 2026-10-22. This is owner-reported acceptance, not an independent audit
+of consumer execution, UI labels, legal readiness or rollout. Private artifacts
+and identities are not copied here; consumed proofs remain consumed.
+
+| Package | Feedback IDs | Implementation status |
+| --- | --- | --- |
+| Correct FCC onboarding | R14, R15, R20 | Implemented: shared qualified portal scope, route guidance and bounded wrong-resource troubleshooting. 137 focused offline tests passed, including historical bundle compatibility |
+| Operations and waiting states | R04, R07, R10, R22 | In progress |
+| Image hardening and provenance | R02, R05 | Pending |
+| Preserving updates and migration | R16, R17, R18, R19 | Pending |
+| Supported operator path | R01, R03, R08, R11 | Pending |
+| Authentication and milestone UX | R06, R13, R21, R23 | Pending |
+| First-call assertions and closeout | R09, R12 | Pending |
+
+These R01-R23 identifiers refer to the pilot retrospective, not the older `R1`
+archive backlog. Implementation authorizes no live mutation, sign-in, call,
+registration, publication or cleanup of the deployed pilot.
+
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
 See [handoff](handoff.md) for the recorded validation baseline, not a promise that

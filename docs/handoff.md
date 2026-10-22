@@ -5,6 +5,14 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- 2026-10-22: seven consolidated hosting/FCC feedback packages are being
+  implemented; see the progress tracker. The API-key implementation has been
+  fast-forwarded into this branch. The first package adds qualified portal
+  scopes and route guidance while preserving legacy auth bundle verification.
+  The owner reports the direct Container Apps API Ninjas end-to-end pilot
+  completed; no new live verification or consumer/read-only-label claim is
+  inferred here. Keep private testing files, deployments and proofs untouched.
+
 - API-key REST backends are now implemented across all four SDK hosting recipes
   on the isolated API-key branch, without changing the parent's testing checkout.
   Use `backend.auth: "api-key"` and explicit `backend.apiKey` reference/identity/

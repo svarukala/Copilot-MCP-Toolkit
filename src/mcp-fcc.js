@@ -10,6 +10,7 @@ import { secretIssues } from './validation.js';
 import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 import { readAuthRegistrationBundle, registrationIdSchema, validApplicationIdUri } from './mcp-auth-registration.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
+import { portalSsoScope, ssoScopeInstructions } from './mcp-sso-scope.js';
 
 export const fccTokenStoreClientId = RESTRICTED_DISCOVERY_CLIENT_ID;
 const maximumBytes = 1048576;
@@ -162,7 +163,8 @@ function manualSetup(input, descriptor) {
         field('MCP endpoint URL', descriptor.endpoint),
         field('Tenant ID', descriptor.inbound.tenantId),
         field('Resource application client ID', descriptor.inbound.clientId),
-        field('Delegated scope', descriptor.inbound.scope),
+        field('API permission name (runtime scp)', descriptor.inbound.scope),
+        portalSsoScope(auth.applicationIdUri ?? descriptor.inbound.applicationIdUri, descriptor.inbound.scope),
         field('Endpoint Application ID URI', descriptor.inbound.applicationIdUri),
         field('Registration Application ID URI', auth.applicationIdUri),
         field('Web consent redirect URI', 'https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect'),
@@ -181,6 +183,7 @@ function manualSetup(input, descriptor) {
       'Missing developer fields and declared placeholder policies block submission, not local draft writing. Never invent developer names or legal URLs to fill gaps. Finalize policies before submission; this offline planner does not fetch or verify pages.',
       'A registration reference is caller-supplied, not verified by this bundle. Do not substitute an app/client ID, invent an ID or include credentials.',
       'After registration or metadata changes, update the private input and review a new plan/output. Never overwrite historical bundles or reuse their approvals.',
+      ...(isSso ? ssoScopeInstructions : []),
     ],
   };
 }

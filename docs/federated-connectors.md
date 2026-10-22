@@ -20,6 +20,15 @@ still-unqualified direct FCC creation API.
 
 ## FCC-only route: no agent project
 
+Copy **Portal OAuth scope (fully qualified)** into the portal Scope field, not
+**API permission name (runtime scp)**. For example, a synthetic registered URI
+`api://22222222-2222-4222-8222-222222222222` and permission `access_as_user`
+produce `api://22222222-2222-4222-8222-222222222222/access_as_user`.
+Check the URI against the resource app first; a supplied reference is not a
+directory readback. Do not change the runtime scope or token audience GUID.
+The shared-auth handoff uses the same formatter and explains the wrong-resource
+`AADSTS650053` error without suggesting Graph permission changes.
+
 A custom FCC does not require a WIQD project, declarative agent, plugin package,
 or agent provisioning. An existing Entra-secured MCP endpoint already has a
 resource app; obtain its actual nonsecret client ID, tenant, scope, Application

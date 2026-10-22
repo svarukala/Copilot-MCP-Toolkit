@@ -37,6 +37,21 @@ preparation format, create an app, or require a later portal restriction change.
 
 ## Local workflow
 
+New preparations include `handoffVersion: 2`: route-specific guidance and a
+**Portal OAuth scope (fully qualified)** field shared with FCC preparation.
+For a short permission `access_as_user`, use the supplied registered Application
+ID URI followed by `/access_as_user` in the portal. Keep the runtime's short
+`scp` check unchanged. The registration reference URI takes precedence over
+the descriptor URI, but neither is independently verified by local preparation.
+Missing or malformed values are not guessed. Previously written version-1
+preparations still verify against their original rendering and digest.
+
+If `AADSTS650053` says the custom permission was requested on Microsoft Graph,
+check the portal Scope resource first. A scope-only correction does not require
+Graph permissions, another app, an image rebuild or another provider proof.
+Other `invalid_client` errors require their own diagnosis. Never provide tokens,
+authorization codes, secrets or a full callback URL for troubleshooting.
+
 Use an existing private workspace containing a toolkit-generated or referenced
 `server/mcp-server.json` descriptor. No installed-code directory, credentials,
 authentication cache or recovery archive belongs in that workspace's handoff.
