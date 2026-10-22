@@ -89,6 +89,19 @@ private ACR pull and interactive discovery/proof remain pending explicit project
 identity, image/endpoint selection and their separate operation approvals.
 No Azure, M365, provider call or deployed-pilot change was performed.
 
+After the owner requested continued investigation, separate bounded diagnostic
+requests narrowed the Node HTTPS failure to `EPROTO`; the selected DNS address
+was IPv4. A direct Windows HTTP client comparison also failed with
+`HttpRequestException`. An explicit TLS 1.2 comparison also failed with
+`EPROTO` / `alert handshake failure`. These observations do not establish the
+underlying network/TLS cause. Certificate verification remained enabled, redirects were
+disabled, and no proxy settings were changed. Local pipe-directory inspection
+found neither supported Windows Docker pipe; no Docker API was contacted or
+engine started. Qualification is blocked on host connectivity and Docker
+availability, in addition to the explicit cloud/auth target selections above.
+The original failed toolkit result remains unchanged; follow-up observations
+are retained separately and privately.
+
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
 See [handoff](handoff.md) for the recorded validation baseline, not a promise that

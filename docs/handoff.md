@@ -14,6 +14,13 @@ It contains public engineering context only, not credentials or execution author
   approvals. No packages were installed and no cloud, provider, consumer or
   deployed-pilot operation was performed. See the
   [qualification record](progress-tracker.md#hosting-pilot-feedback-implementation).
+  A user-directed follow-up narrowed the Node HTTPS error to `EPROTO`; a direct
+  Windows HTTPS comparison also failed. An explicit TLS 1.2 comparison returned
+  `alert handshake failure`; underlying cause remains unknown, with certificate
+  verification preserved. Neither supported Windows Docker pipe was present
+  during local directory inspection, so engine/container qualification is also
+  blocked on engine availability. Follow-up observations are separate from the
+  immutable original result; no Docker API or cloud target was contacted.
 
 - 2026-10-22: a first implementation pass across all seven consolidated
   hosting/FCC feedback packages is committed on
