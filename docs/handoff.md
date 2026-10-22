@@ -5,6 +5,17 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Docker qualification update on 2026-10-22: after the owner approved starting
+  Docker if needed, both supported Windows pipes were available. No start or
+  restart was needed. The toolkit's separately planned engine diagnostic passed
+  against the explicit Docker Desktop Linux pipe: Linux/amd64 and compatible
+  with API 1.44. The immutable intent/result remain private. A separate read-only
+  lookup found the required `node:22-bookworm-slim` builder image absent; no image
+  was downloaded or executed. Engine availability is no longer a blocker.
+  Container connectivity still needs an explicitly reviewed available image and
+  execution approval. ACR/private identity and interactive MCP session gates
+  remain separate; no Azure, M365 or provider call was performed.
+
 - Live qualification began on 2026-10-22 against implementation `47722e8`.
   Correction after owner clarification: public npm is intentionally blocked;
   the repository already configures an approved alternative registry. A bounded

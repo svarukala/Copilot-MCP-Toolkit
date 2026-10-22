@@ -134,6 +134,17 @@ private/public DNS denial, redirects, TLS protocol errors, and the actual
 container probe script under synthetic transports. CLI syntax and strict public
 types passed. The full repository suite was not rerun for this change.
 
+Docker follow-up on 2026-10-22: the owner approved starting Docker if necessary.
+The supported Windows pipes were already available, so no start/restart or
+context change was performed. A new `mcp-host-plan/run` engine diagnostic on
+the explicit Docker Desktop Linux pipe **passed**, establishing Linux/amd64
+and the required API 1.44 compatibility checks. Its intent/result remain private.
+A separate read-only image inspection found `node:22-bookworm-slim` absent;
+no pull or container execution was attempted. The earlier engine-availability
+blocker is resolved, but container connectivity still needs a reviewed available
+image and execution approval. Private ACR pulls and interactive authentication/
+proof remain unqualified and require their own targets and approvals.
+
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
 See [handoff](handoff.md) for the recorded validation baseline, not a promise that
