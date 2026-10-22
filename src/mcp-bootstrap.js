@@ -105,10 +105,10 @@ export function compileBootstrap(input) {
       'Record dispatch before each external build/deployment. Validate and what-if, deploy once, then observe readiness and authorization rejection before separate discovery/proof.',
     ],
     diagnostics: [
-      { check: 'Docker engine/path/context', effects: 'local-only-if-separately-run' },
-      { check: 'npm DNS/TLS from host and container', effects: 'network-probe-requires-separate-review', never: 'disable TLS or integrity' },
+      { check: 'Docker engine via explicit local socket, not ambient CLI context', command: 'mcp-host-plan/run', effects: 'local-only-if-separately-run' },
+      { check: 'npm DNS/TLS from host and container', command: 'mcp-host-plan/run', effects: 'network-probe-requires-separate-review', never: 'disable TLS or integrity' },
       { check: 'ACR cloud build alternative', effects: 'paid-cloud-operation-not-authorized-by-local-failure' },
-      { check: 'private registry pull', effects: 'operator-supplied-memory-only-credential-helper-required', never: 'shared docker login or copied credential cache' },
+      { check: 'private registry pull', command: 'mcp-host-plan/run', effects: 'separate-private-identity-and-digest-pull-review', never: 'shared docker login or copied credential cache' },
       { check: 'Azure/Graph on Windows', effects: 'reuse toolkit native Azure launcher; do not interpolate Graph URLs through az.cmd' },
     ],
     closeout: ['Inventory exact created resources and grants; preserve evidence, unrelated resources and soft-delete protections.',
@@ -116,7 +116,7 @@ export function compileBootstrap(input) {
     limitations: ['Public Azure direct Container Apps infrastructure only; generated templates are not live API compatibility evidence.',
       'Key Vault network policy is explicitly public-network-enabled with RBAC; review organization policy/private networking before creation.',
       'Directory operations reuse existing guarded commands; actual IDs are pending until readback. No placeholder app IDs, automatic consent or broad rollout.',
-      'Diagnostics and private-image pulls remain operator-run; this bundle does not start Docker, install tools, copy credentials or execute probes.'],
+      'Diagnostics and private-image pulls use separately reviewed mcp-host-* execution; this bundle does not start Docker, install tools, copy credentials or execute probes.'],
   };
 }
 async function prepare(options) {

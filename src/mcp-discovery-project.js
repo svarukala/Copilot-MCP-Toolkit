@@ -6,7 +6,7 @@ import { readMcpServerProject, planMcpServerCapture } from './mcp-lifecycle.js';
 import { boundedSnapshot, metadataDigest, requireMetadata, savedJson } from './anonymous-metadata.js';
 import { planMcpDiscovery, planMcpReadOnlyProof, discoverMcpToolsWithGuard, runMcpReadOnlyProofWithGuard,
   planMcpProjectMappedProof, runMcpProjectMappedProof, planMcpQualifiedProof, runMcpQualifiedProof,
-  planMcpAcceptedProof, runMcpAcceptedProof } from './mcp-discovery.js';
+  planMcpAcceptedProof, runMcpAcceptedProof, runMcpSessionOperation } from './mcp-discovery.js';
 import { planNativeGetMapping, verifyNativeGetMapping, nativeProofFailure } from './mcp-native-proof.js';
 import { readMcpProofHistory, assertMcpProofHistory } from './mcp-proof-history.js';
 import { validateMcpObservedCapture } from './mcp-discovery.js';
@@ -255,3 +255,9 @@ export const discoverMcpProjectTools = (projectDir, options) => execute(projectD
 export const runMcpProjectProof = (projectDir, options, { runAzure } = {}) => execute(projectDir, options, true, undefined, runAzure);
 export const runMcpProjectQualification = (projectDir, options) => execute(projectDir, options, 'qualification');
 export const executeMcpProjectForTest = (projectDir, options, proof, run, runAzure) => execute(projectDir, options, proof, run, runAzure);
+export const runMcpProjectSessionOperation = (projectDir, options, session, proof = false) =>
+  execute(projectDir, options, proof, (source, execution, guard, hooks) => {
+    requireMetadata(source.kind === 'existing-mcp' && source.inbound.type === 'entra' && !hooks.mapping,
+      'AUTH_CONFIG_INVALID');
+    return runMcpSessionOperation(source, execution, proof, session, guard, hooks);
+  });

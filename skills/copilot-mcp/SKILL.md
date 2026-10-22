@@ -38,9 +38,24 @@ secret metadata and cost/closeout. Existing-resource migration is not safe
 create-template reuse. A successful ARM result may precede a ready revision;
 observe exact metadata rather than redeploying.
 
+Use `mcp-host-schema/plan/run` for separately approved engine, host/container npm
+diagnostics or private ACR pulls. Read the guide's exact local socket, existing
+image and local/network/cloud flags. Never start Docker, auto-pull a probe image,
+disable TLS/integrity or turn a failed local diagnostic into paid build approval.
+Private pull requires `mcp-host-account-plan/switch` on the sealed source project,
+an exact digest and trusted nondebug local daemon. No shared Docker login or
+saved registry credential. Preserve result/intent and pull reservations; unknown
+dispatch is not retried under a new output name. Unconfirmed cleanup is a blocker.
+
 Use `mcp-terminal-handoff` for exact quoted discovery/proof commands, each with
 its own review, in a real terminal. No browser automation, challenge transcripts
 or token-cache sharing. Cross-process sign-ins remain separate.
+The optional `session` phase / `mcp-session-plan` uses the dedicated session
+config for existing Entra MCP references, an explicit expected user and a
+15-minute in-memory lifetime. After discovery, the user must approve the newly
+displayed exact proof digest; do not preapprove, auto-answer or infer that grant
+from discovery approval. Blank declines. Expiry/cancellation never refreshes,
+restarts login or replays a sent/unknown call automatically.
 For a future unused existing-MCP first proof, a reviewed `resultAssertion`
 json-array-string-field-v1 can check a bounded array/string contract in that
 same call. Never retrofit it by repeating an already consumed call.

@@ -112,7 +112,8 @@ async function endpoint(plan, options, dependencies, toolCall) {
     const endpointOptions = { ...options, toolCall, beforeRequest: dependencies?.beforeRequest,
       beforeToolCall: dependencies?.beforeToolCall, beforeToolDispatch: dependencies?.beforeToolDispatch,
       assessToolResult: dependencies?.assessToolResult };
-    return dependencies ? discoverEntraEndpointForTest(plan, endpointOptions, dependencies)
+    return dependencies?.entraSession ? dependencies.entraSession.run(plan, endpointOptions)
+      : dependencies ? discoverEntraEndpointForTest(plan, endpointOptions, dependencies)
       : discoverEntraEndpoint(plan, endpointOptions);
   }
   const transport = dependencies?.mcpTransport ?? publicHttpsTransport();
@@ -144,7 +145,7 @@ function safeFailure(error, signal) {
   const diagnostics = safeEntraDiagnostics(error.diagnostics) ?? safeMcpDiagnostics(error.rpcDiagnostics);
   const code = signal?.aborted ? 'ABORTED'
     : ['AUTH_CONFIG_INVALID', 'AUTHENTICATION_FAILED', 'AUTHENTICATION_REJECTED', 'AUTHENTICATION_TIMEOUT',
-      'TOKEN_EXPIRED', 'LIMIT', 'SENSITIVE_INPUT', 'NETWORK_BLOCKED', 'METADATA_INVALID',
+      'TOKEN_EXPIRED', 'AUTH_SESSION_EXPIRED', 'LIMIT', 'SENSITIVE_INPUT', 'NETWORK_BLOCKED', 'METADATA_INVALID',
       'METADATA_STALE', 'DISCOVERY_TIMEOUT'].includes(error.code) ? error.code
       : error.message === 'Probe timeout.' ? 'DISCOVERY_TIMEOUT' : 'DISCOVERY_FAILED';
   return Object.assign(new Error(code), { name: 'AnonymousMetadataError', code,
@@ -371,3 +372,6 @@ export const runMcpReadOnlyProofWithGuard = (value, options, beforeRequest, hook
 export const runMcpProjectMappedProof = (value, options, mapping, dependencies) => proof(value, options, dependencies, mapping);
 export const runMcpQualifiedProof = (value, options, qualification, dependencies) => proof(value, options, dependencies, undefined, qualification);
 export const runMcpAcceptedProof = (value, options, dependencies) => proof(value, options, dependencies, undefined, undefined, true);
+
+export const runMcpSessionOperation = (value, options, isProof, entraSession, beforeRequest, hooks) =>
+  (isProof ? proof : discover)(value, options, { ...hooks, entraSession, beforeRequest });

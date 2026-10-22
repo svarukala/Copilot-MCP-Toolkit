@@ -8,11 +8,11 @@ function backendSummary(backend) {
   return key ? `Backend: API key in ${key.headerName ? 'header' : 'query'} ${safe(key.headerName ?? key.queryParameterName)}; shared entitlement, not per-user access\nKey Vault: ${safe(key.keyVaultResourceId)}\nSecret reference: ${safe(key.secretIdentifier)}\nSecret identity: ${safe(key.identityResourceId)}; tenant: ${safe(key.tenantId)}\nNo secret resolution or role grants; unresolved credentials prevent startup. Review platform diagnostics and rotation separately.\n`
     : 'Backend: anonymous JSON; caller authorization remains required.\n';
 }
-const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
+const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
   'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan',
-  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan'];
+  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -129,6 +129,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (['mcp-host-run', 'mcp-session'].includes(plan.action)) {
+    writeFeedback(state, `[separate operation review]\nOperation: ${safe(plan.action)} / ${safe(plan.input?.kind ?? 'discovery-then-separate-proof')}\nProject: ${safe(plan.projectDir)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalDigest: ${safe(plan.approvalDigest)}\nReview all targets, effects and bounds on stdout. This plan does not execute anything.\n`);
+    return;
+  }
   if (['mcp-recipe-release-bundle', 'mcp-recipe-reference-create'].includes(plan.action)) {
     const detail = plan.origin ? `Endpoint: ${safe(plan.origin.endpoint)}\n`
       : `Tenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\nAccount: ${safe(plan.review.accountName)}\nArtifact: ${safe(plan.review.artifact.image ?? plan.sourceArchiveSha256)}\n${plan.review.gatewayBackendOrigin ? `Gateway backend: ${safe(plan.review.gatewayBackendOrigin)}\n` : ''}`;

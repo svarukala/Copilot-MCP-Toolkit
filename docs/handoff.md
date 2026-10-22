@@ -20,8 +20,14 @@ It contains public engineering context only, not credentials or execution author
   focused hosting/artifact checks passed afterward, as did CLI syntax and strict
   public types. The full suite was not rerun after that narrow correction.
   These are local preparation/review capabilities, not new cloud executors.
-  Automated diagnostics/private-registry pull helpers, optional single-process
-  auth continuity and host scheduler enforcement of waiting remain future work.
+  A follow-up now implements separately approved `mcp-host-*` diagnostics and
+  private ACR pulls, plus optional `mcp-session-plan/session` sign-in continuity.
+  Initial expanded offline coverage passed 139 checks; final regression is
+  pending. See the shared guide for flags, private source-project account
+  selection, local socket/Docker API requirements, synthetic examples, cleanup
+  bounds and immutable pull reservations. The session is terminal-only,
+  15-minute, exact-user and memory-only; proof still needs its own new approval.
+  Host scheduler enforcement of waiting remains outside this repository.
   Actual image builds/scans, Azure updates/Key Vault resolution and new consumer
   scenarios still need separate qualification. New container source without
   explicit digest-pinned `imageBuild` inputs intentionally has no Dockerfile;

@@ -217,6 +217,10 @@ now includes prerequisite templates, immutable operation records, preserving-upd
 reviews, real-terminal handoffs and separate cost/cleanup planning. Container
 Dockerfiles require reviewed builder/runtime image digests; no mutable base image
 is selected automatically. These tools prepare and record work, not deploy it.
+Separate [host operations](docs/hosting-recipes.md#environment-diagnostics-and-private-image-pulls)
+can diagnose Docker/npm connectivity or pull an exact private image without
+shared Docker login. An opt-in terminal session can reuse one in-memory sign-in
+across discovery and a separately approved proof; it never skips that approval.
 
 The four SDK hosting recipes currently generate source, deployment review files
 and local release bundles. **They do not automatically deploy to Azure.** Real

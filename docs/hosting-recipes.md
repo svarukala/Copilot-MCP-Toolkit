@@ -18,11 +18,91 @@ fabricated UUIDs or runnable placeholders.
 
 The bundle includes ordered diagnostics, build alternatives, permission intents
 and secret-entry handoff. It does not start Docker, install tools, perform network
-probes, pull private images or execute deployment. A private registry credential
-helper remains operator-supplied; never replace it with shared Docker login.
+probes, pull private images or execute deployment. Use the separate
+`mcp-host-*` operations below for diagnostics and private pulls; never replace
+them with shared Docker login.
 Use the existing Windows-safe Azure launcher rather than raw `az.cmd` string
 interpolation. Inspect policy/costs/name absence, validate and what-if each
 template separately. A local TLS failure never authorizes a paid cloud build.
+
+## Environment diagnostics and private image pulls
+
+`mcp-host-schema` describes four deliberately separate operations. Plan with
+`mcp-host-plan --workspace-root <private-root> --project <private-project>
+--config <operation.json> --output <new-result.json> --json --summary`.
+The plan names every target, effect, time bound and required permission flag.
+Run `mcp-host-run` with the same arguments, exact `--approve <approvalDigest>`
+and only the applicable flags:
+
+| Kind | Required flags | Scope |
+| --- | --- | --- |
+| `engine-diagnostic` | `--allow-local` | Read the explicitly selected local Docker engine version/platform; do not start it |
+| `host-npm-diagnostic` | `--allow-network` | One fixed public npm DNS/TLS/HTTP probe from Node on the host |
+| `container-npm-diagnostic` | `--allow-local --allow-network` | One fixed npm probe in an already-present reviewed Node builder image, then remove only that owned temporary container |
+| `private-image-pull` | `--allow-local --allow-network --allow-cloud` | Private Azure identity verification, transient ACR credential and exact-digest pull into the selected local daemon; no image execution |
+
+Complete synthetic inputs are
+[engine](../examples/mcp/host-engine-diagnostic.json),
+[host npm](../examples/mcp/host-npm-diagnostic.json),
+[container npm](../examples/mcp/container-npm-diagnostic.json) and
+[private pull](../examples/mcp/private-image-pull.json). Replace synthetic
+digests, identity and registry values; examples are not actual available images.
+Diagnostics can use an existing empty private project directory. Private pull
+requires the sealed **container recipe source project**, not its endpoint
+reference; Functions is source-only and has no private-image-pull profile.
+
+Docker must already be running and support Linux/amd64 and Engine API **1.44**
+(including accepting that API version). Choose the exact local pipe/socket:
+`\\.\pipe\docker_engine`, `\\.\pipe\dockerDesktopLinuxEngine`,
+`/var/run/docker.sock`, or `/run/user/<numeric-uid>/docker.sock`.
+TCP/SSH endpoints and ambient `DOCKER_HOST`/Docker CLI context are not used.
+`localEngineTrusted: true` is the owner's review of this privileged local
+daemon and its administration/logging boundary, not toolkit attestation.
+No Docker CLI installation, context change, engine start or implicit image
+download is performed. The container probe requires an already-present
+`node:22-bookworm-slim@sha256:...` image; it has no credentials, mounts, writable
+root filesystem or retained logs, drops capabilities, runs as nonroot and has
+bounded CPU/memory/process/time limits.
+
+Before a private pull, select the exact tenant/subscription/user through
+`mcp-host-account-plan` and separately approved `mcp-host-account-switch`,
+using `--workspace-root`, the same sealed `--project`, `--tenant-id`,
+`--subscription-id` and `--account-name`. Optional `--use-device-code` belongs
+on both account commands and needs a real terminal. These reuse the existing
+project-private Azure launcher/account guard; they neither switch the shared
+account nor adopt a copied cache. Authentication does not grant ACR access.
+
+The pull helper internally uses
+[`az acr login --expose-token`](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-authentication#use-az-acr-login-without-docker-daemon)
+with Azure CLI file logging and dynamic extension installation disabled. It
+passes the credential only in memory through `X-Registry-Auth` to the reviewed
+local Docker API, never through command arguments, shell output, Docker login
+or a Docker config file. Debug-enabled daemons and non-loopback insecure-registry
+CIDRs are rejected; review daemon/registry diagnostics independently. Identity
+is checked again before the pull. Success additionally requires local inspection
+of the exact requested repository digest and Linux/amd64 platform; it does not
+establish image safety, source provenance, deployment or provider readiness.
+
+Every run writes a new `<output>.intent.json` and a bounded result. Private pull
+also creates an exclusive project reservation immediately before pull dispatch.
+Diagnostics have a 60-second work budget; a container probe additionally allows
+at most 20 seconds for owned-container inspection/removal. Private pull has a
+10-minute work budget and waits for owned Azure process termination on cancel.
+Empty/malformed output, daemon error or timeout after that boundary remains
+`unknown-no-replay`; changing output filename cannot replay the same image/engine
+purpose. Preserve the reservation and reconcile local image metadata manually.
+A preflight failure is `blocked-before-pull`: no pull reservation was created,
+so remediation can be followed by a separately approved new plan/output.
+There is never an automatic retry. A failed or unconfirmed temporary-container
+cleanup reports its unique name; it does not silently claim cleanup or delete
+another container.
+
+Diagnostics distinguish engine availability/platform, DNS, TLS, HTTP and
+container-execution failures without returning raw logs. Passing a connectivity
+probe does not verify `npm ci`, dependency compatibility or a provider API/key.
+Local image building, paid ACR building, scanning and deployment remain separate
+operator-reviewed operations. Do not disable TLS/integrity or authorize a
+cloud build because a diagnostic failed.
 
 ## Terminal and consumer handoff
 
@@ -31,7 +111,31 @@ template separately. A local TLS failure never authorizes a paid cloud build.
 plan plus a PowerShell-quoted command. Nothing is launched. Run once in a real
 terminal only after the plan's separate approval. Do not transcript challenges.
 Use a separate `proof` handoff after metadata review. Protected steps still
-use fresh process-local sign-in; cross-step token reuse is not implemented.
+use fresh process-local sign-in by default.
+
+For an explicit single-process alternative, use
+[`interactive-session.json`](../examples/mcp/interactive-session.json) with
+`mcp-session-plan --workspace-root <private-root> --project <endpoint-reference>
+--config <session.json> --json`. This profile supports only an existing Entra MCP
+reference and requires the exact discovery client and expected user. The `proof`
+section names the intended tool, arguments, safety review and optional
+`resultAssertion`, but contains no capture or preapproved proof digest.
+`mcp-terminal-handoff --phase session` can emit its exact quoted command.
+
+After separate approval, run `mcp-session` with the same arguments,
+`--approve <session-plan-digest> --allow-network --interactive` in a real
+terminal. It performs discovery, displays the **new exact proof plan** on stderr,
+and asks for that proof's approval digest; blank or any different answer stops
+without a call. It then re-lists tools and uses the normal write-ahead proof
+journal before at most one call. Discovery approval is not proof approval.
+The access token remains in memory for at most 15 minutes and must still be
+valid for the metadata budget. Tenant, client, audience/scopes, expected user,
+source descriptor and endpoint must all match. Expiration, cancellation,
+identity changes, failure or session exit clear the session; there is no
+automatic refresh, relogin, cross-process cache or unknown-call replay.
+The final stdout is bounded JSON with evidence references, never challenges,
+tokens or provider response content. Native mapped/accepted/qualification proof
+profiles retain their existing separate commands.
 
 FCC `review.pocPolicyDeferral: true` can record a nonfinal policy deferral.
 It never clears a placeholder/submission gate, but `phaseReadiness` explains

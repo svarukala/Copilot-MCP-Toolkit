@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "kind": "engine-diagnostic",
+  "dockerSocket": "\\\\.\\pipe\\docker_engine",
+  "localEngineTrusted": true
+}

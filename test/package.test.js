@@ -75,6 +75,9 @@ syncBuiltinESMExports();
   assert.deepEqual(cap.hostingRecipes.backendAuthentication, ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query']);
   assert.equal(cap.operatorJournal.cloudExecution, false);
   assert.equal(cap.terminalHandoff.persistentTokens, false);
+  assert.equal(cap.interactiveSession.separateProofApproval, true);
+  assert.equal(cap.hostOperations.sharedDockerLogin, false);
+  assert.equal(invoke(['mcp-host-schema']).result.oneOf.length, 4);
   assert.equal(invoke(['mcp-operator-schema']).result.oneOf.length, 6);
   assert.equal(invoke(['mcp-recipe-review-schema']).result.oneOf.length, 7);
   assert.equal(invoke(['mcp-bootstrap-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
@@ -98,6 +101,14 @@ syncBuiltinESMExports();
   const containerWritten = invoke(['mcp-container-apps-create', ...containerArgs, '--approve', containerPlan.result.approvalToken]).result;
   assert.equal(containerWritten.status, 'generated-not-deployed');
   assert.ok(!containerWritten.files.includes('mcp-server.json'));
+  const hostConfig = path.join(workspace, 'host-diagnostic.json');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'host-engine-diagnostic.json'), hostConfig);
+  const hostArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', hostConfig,
+    '--output', path.join(workspace, 'host-result.json')];
+  const hostPlan = invoke(['mcp-host-plan', ...hostArgs, '--summary']);
+  assert.ok(hostPlan.stderr.includes(hostPlan.result.approvalDigest));
+  assert.equal(hostPlan.result.networkRequired, false);
+  invoke(['mcp-host-run', ...hostArgs, '--approve', hostPlan.result.approvalDigest], [1]);
   const eventConfig = path.join(workspace, 'operator-event.json');
   await writeFile(eventConfig, JSON.stringify({ schemaVersion: 1, action: 'wait', phase: 'Owner resource review',
     reason: 'owner-unavailable', resumeWhen: 'Owner supplies resource review' }));

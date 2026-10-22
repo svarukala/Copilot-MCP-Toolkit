@@ -1,4 +1,6 @@
 export const commandFamilies = {
+  hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
+  interactiveSession: ['mcp-session-plan', 'mcp-session'],
   terminal: ['mcp-terminal-handoff'],
   bootstrap: ['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'],
   recipeReviews: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
@@ -50,6 +52,7 @@ ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands
 --use-device-code         Account plan/switch or resume: separately approved headless Azure login.
 --allow-cloud             Explicit approved inspection/app apply opt-in where required.
 --allow-network           Explicit approved MCP discovery/proof/rejection opt-in.
+--allow-local             Host run: explicitly reviewed local Docker access.
 --allow-provider          Explicit auth-provider phase opt-in (Linux tmpfs only).
 --confirm-identity        Registration only: confirm reviewed ATK account/organization.
 --interactive             Protected MCP runtime sign-in; terminal required, not Azure login.
@@ -69,6 +72,15 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Host operations: schema/plan/run for local engine or fixed host/container npm
+diagnostics and digest-only private ACR pull. Explicit local Docker socket,
+new output JSON and exact approval; separate local/network/cloud flags.
+Private pull uses host-account-plan/switch on the sealed source project first;
+no shared Docker login, saved registry token, automatic build or pull replay.
+Session: optional terminal-only existing Entra MCP discovery then a separately
+reviewed proof, reusing one unexpired token in memory for at most 15 minutes.
+Exact expected user is required. New proof approval is requested after discovery;
+no automatic refresh/relogin, persistent cache, extra call or changed default.
 Bootstrap: separate direct Container Apps prerequisite review before source
 generation. Explicit existing/new resources, separate group/resource templates,
 existing mcp-app-* directory handoff and pending actual IDs. Plan/bundle need

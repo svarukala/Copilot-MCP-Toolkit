@@ -20,7 +20,8 @@ function print(value, json) {
 export async function main(args = process.argv.slice(2), dependencies = {}) {
   return withCliFeedback(() => mainWithFeedback(args, dependencies));
 }
-async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider } = {}) {
+async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider,
+  hostOperationDependencies, sessionDependencies, sessionProofApproval } = {}) {
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
@@ -30,7 +31,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       options: Object.fromEntries([
         ...['project', 'output', 'config', 'workspace-root', 'phase', 'tenant-id', 'approve',
           'subscription-id', 'account-name', 'archive', 'sha256', 'persistence'].map(key => [key, { type: 'string' }]),
-        ...['json', 'help', 'version', 'interactive', 'allow-cloud', 'allow-network', 'allow-provider', 'confirm-identity',
+        ...['json', 'help', 'version', 'interactive', 'allow-cloud', 'allow-network', 'allow-local', 'allow-provider', 'confirm-identity',
           'experimental-configuration', 'use-device-code', 'progress', 'summary'].map(key => [key, { type: 'boolean' }]),
       ]),
     });
@@ -53,12 +54,13 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       && !evidenceCommands.includes(command) && !(command === 'mcp-resume' && options.archive === undefined && options.sha256 === undefined)) {
       throw new Error('--archive/--sha256 are evidence-only; --persistence is evidence/resume-only.');
     }
-    if (options['use-device-code'] !== undefined && !['mcp-account-plan', 'mcp-account-switch', 'mcp-resume'].includes(command)) {
+    if (options['use-device-code'] !== undefined && !['mcp-account-plan', 'mcp-account-switch', 'mcp-host-account-plan', 'mcp-host-account-switch', 'mcp-resume'].includes(command)) {
       throw new Error('--use-device-code is supported only for explicit Azure or standalone MCP account plan/switch commands.');
     }
     if (options['experimental-configuration'] !== undefined && !['mcp-reconcile-plan', 'mcp-reconcile'].includes(command)) throw new Error('--experimental-configuration is supported only for explicit v3 reconciliation/refresh.');
-    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
-    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
+    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
+    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
+    if (options['allow-local'] !== undefined && command !== 'mcp-host-run') throw new Error('--allow-local applies only to reviewed local Docker operations.');
     if ((options['allow-provider'] !== undefined || options['confirm-identity'] !== undefined) && command !== 'mcp-auth-execute') {
       throw new Error('--allow-provider/--confirm-identity are supported only for explicit mcp-auth-execute phases.');
     }
@@ -68,10 +70,68 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run'].includes(command)) {
+      const schema = command.endsWith('-schema'), planning = command.endsWith('-plan');
+      const allowed = schema ? ['json'] : ['workspace-root', 'project', 'config', 'output', 'json',
+        ...(planning ? ['summary'] : ['approve', 'allow-local', 'allow-network', 'allow-cloud'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!workspaceRoot || !options.project || !options.config || !options.output)) {
+        throw new Error('Host operations require explicit --workspace-root, --project, --config and new --output JSON. Run requires exact --approve and applicable --allow-local/--allow-network/--allow-cloud.');
+      }
+      const host = await import('../src/mcp-host-operations.js');
+      if (schema) { print(host.hostOperationSchema, true); return 0; }
+      const controller = new AbortController(), cancel = () => controller.abort();
+      process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+      try {
+        const result = await (planning ? host.planHostOperation : host.runHostOperation)({
+          workspaceRoot, project: options.project, config: options.config, output: options.output,
+          approval: options.approve, allowLocal: options['allow-local'], allowNetwork: options['allow-network'],
+          allowCloud: options['allow-cloud'], signal: controller.signal,
+        }, { runAzure, ...hostOperationDependencies });
+        print(result, true);
+        return planning || ['passed', 'pulled-digest-verified-not-executed'].includes(result.result.status) ? 0 : 2;
+      } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+    }
+    if (['mcp-session-plan', 'mcp-session'].includes(command)) {
+      const planning = command.endsWith('-plan');
+      const allowed = ['workspace-root', 'project', 'config', 'json', ...(planning ? ['summary'] : ['approve', 'allow-network', 'interactive'])];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || !workspaceRoot || !options.project || !options.config) {
+        throw new Error('Session plan/run requires explicit --workspace-root, --project and --config. Run additionally requires --approve, --allow-network and --interactive in a real terminal.');
+      }
+      const session = await import('../src/mcp-interactive-session.js');
+      const input = { workspaceRoot, project: options.project, config: options.config };
+      if (planning) { print(await session.planInteractiveSession(input), true); return 0; }
+      if (!options.interactive || (!sessionProofApproval || !onMcpDeviceCode) && (!process.stdin.isTTY || !process.stderr.isTTY)) {
+        throw new Error('Single-process discovery/proof needs a real terminal for sign-in and a separate exact proof approval.');
+      }
+      const controller = new AbortController(), cancel = () => { controller.abort(); prompter?.close(); };
+      process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+      try {
+        const result = await session.runInteractiveSession({ ...input, approval: options.approve,
+          allowNetwork: options['allow-network'], signal: controller.signal,
+          onDeviceCode: onMcpDeviceCode ?? (({ verificationUri, userCode, expiresAt }) => {
+            process.stderr.write(`MCP sign-in: ${verificationUri}\nCode: ${userCode}\nExpires: ${expiresAt}\nDo not save or transcript this challenge.\n`);
+          }),
+          approveProof: sessionProofApproval ?? (async (proof, signal) => {
+            process.stderr.write(`Discovery completed. Separate exact proof review:\n${JSON.stringify(proof, null, 2)}\n`);
+            prompter = createPrompter();
+            const abort = () => prompter?.close();
+            signal.addEventListener('abort', abort, { once: true });
+            try {
+              if (signal.aborted) abort();
+              return await prompter.ask('Paste the exact proof approvalDigest to approve this one call, or leave blank to stop', { optional: true });
+            } finally { signal.removeEventListener('abort', abort); prompter.close(); prompter = undefined; }
+          }),
+        }, sessionDependencies);
+        print(result, true);
+        return result.status === 'protocol-success'
+          && (!result.backendAssertion || result.backendAssertion.status === 'passed') ? 0 : 2;
+      } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+    }
     if (command === 'mcp-terminal-handoff') {
       if (Object.keys(options).some(key => !['workspace-root', 'project', 'config', 'phase', 'json'].includes(key))
-        || !workspaceRoot || !options.project || !options.config || !['discovery', 'proof'].includes(options.phase)) {
-        throw new Error('Terminal handoff needs --workspace-root, --project, --config and --phase discovery|proof; it does not launch a terminal or authenticate.');
+        || !workspaceRoot || !options.project || !options.config || !['discovery', 'proof', 'session'].includes(options.phase)) {
+        throw new Error('Terminal handoff needs --workspace-root, --project, --config and --phase discovery|proof|session; it does not launch a terminal or authenticate.');
       }
       const { terminalHandoff } = await import('../src/mcp-terminal-handoff.js');
       print(await terminalHandoff({ workspaceRoot, project: options.project, config: options.config, phase: options.phase }), true);
@@ -443,14 +503,20 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
         if (controller) { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
       }
     }
-    if (['mcp-account-plan', 'mcp-account-switch'].includes(command)) {
+    if (['mcp-account-plan', 'mcp-account-switch', 'mcp-host-account-plan', 'mcp-host-account-switch'].includes(command)) {
       if (!options.project) throw new Error('Pass --project for the reviewed private Azure authentication context.');
-
+      const hosting = command.startsWith('mcp-host-');
+      if (hosting && (!workspaceRoot || Object.keys(options).some(key => !['workspace-root', 'project', 'tenant-id',
+        'subscription-id', 'account-name', 'use-device-code', 'json',
+        ...(command.endsWith('-plan') ? ['summary'] : ['approve', 'progress'])].includes(key)))) {
+        throw new Error('Hosting account selection requires an explicit workspace, sealed recipe project and exact tenant/subscription/account; sign-in has its own approval.');
+      }
       const projectDir = await assertProjectPath(path.resolve(options.project));
       const requested = { tenantId: options['tenant-id'], subscriptionId: options['subscription-id'], accountName: options['account-name'] };
       const lifecycle = await import('../src/mcp-lifecycle.js');
-      const planAccount = lifecycle.planMcpServerAccount;
-      const switchAccount = lifecycle.switchMcpServerAccount;
+      const host = hosting ? await import('../src/mcp-host-operations.js') : undefined;
+      const planAccount = hosting ? host.hostingAccount : lifecycle.planMcpServerAccount;
+      const switchAccount = hosting ? (dir, target, opts) => host.hostingAccount(dir, target, opts, true) : lifecycle.switchMcpServerAccount;
       const useDeviceCode = options['use-device-code'] === true;
       if (command.endsWith('-plan')) { print(await planAccount(projectDir, requested, { useDeviceCode }), true); return 0; }
       const controller = useDeviceCode ? new AbortController() : undefined;
@@ -515,6 +581,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       AUTH_REJECTION_BLOCKED: 'A prior auth-rejection attempt or unsupported applicability blocks execution. Read mcp-status and preserve the journal; no automatic replay or historical/manual result import is supported.',
       MCP_NETWORK_LOCKED: 'An active or interrupted standalone network lock exists. Do not remove an active lock or start concurrent discovery, proof or auth checks. Preserve interrupted evidence for owner inspection.',
       AUTHENTICATION_TIMEOUT: 'Device authentication expired. For a proof, run mcp-proof-plan again with the unchanged selection and inspect proofHistory: only validated not-dispatched evidence permits a separately approved, user-directed restart. For tools-list discovery, review a fresh discovery plan. Do not edit history, change the reason to evade replay protection, or retry any sent/unknown call.',
+      AUTH_SESSION_EXPIRED: 'The bounded in-memory session expired or closed. No automatic refresh, login or call was attempted. Inspect retained proof history before separately reviewing a fresh authentication operation.',
       CLOUD_APPROVAL_REQUIRED: 'Review the native fixed-GET mapping and exact read-only ARM requests in mcp-proof-plan; both --allow-cloud and --allow-network are required for this project-only proof.',
       APIM_PROOF_MAPPING_MISMATCH: 'Native mapping inspection failed; a read/parse/local-state error is not proof of cloud drift. Inspect safe stage diagnostics and the exact reviewed resources before another device sign-in. Do not edit captures, approve guessed mappings, erase proof history or replay uncertain attempts.',
     };

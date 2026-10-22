@@ -22,8 +22,8 @@ and identities are not copied here; consumed proofs remain consumed.
 | Operations and waiting states | R04, R07, R10, R22 | Implemented local operator journal: exact-purpose reservation, pre-dispatch unknown state, metadata outcome records, immutable chained history, waiting/resume and derived milestones. Five offline tests passed. No cloud executor or host scheduler change; host must honor waiting |
 | Image hardening and provenance | R02, R05 | Implemented: explicit digest-pinned multistage/distroless nonroot generation, no mutable default, source/image-bound scan/SBOM/smoke review and optional release import. 35 targeted offline checks passed. Actual image build/run and signed attestation verification remain separately qualified |
 | Preserving updates and migration | R16, R17, R18, R19 | Implemented local review profiles: additive Entra patch/semantic readback, separate Container Apps image-only template, exact-preview checks, asynchronous readiness and auth-impact stages. Six focused checks passed. No automatic mutation or live baseline attestation |
-| Supported operator path | R01, R03, R08, R11 | Implemented first pass: direct bootstrap templates, existing/new choices, guarded directory-command handoff with pending actual IDs, diagnostics/runbook and metadata-only secret review. Automated diagnostics, private registry pull helper and cloud executor remain outside this pass |
-| Authentication and milestone UX | R06, R13, R21, R23 | Implemented: exact real-terminal command handoff, phase-aware policy deferral and independent owner-reported milestones. No token/cache sharing; optional single-process auth continuity remains unimplemented |
+| Supported operator path | R01, R03, R08, R11 | Implemented: direct bootstrap, guarded directory handoff, metadata-only secret review, separate engine/host/container diagnostics and exact-digest private ACR pull with private identity and memory-only registry credentials. Cloud build/deployment remain separate operator actions; live qualification pending |
+| Authentication and milestone UX | R06, R13, R21, R23 | Implemented: real-terminal handoff, phase-aware policy deferral, owner-reported milestones and optional 15-minute single-process discovery/proof auth reuse with a separate exact proof approval. Default separate commands remain unchanged; no persistent/shared token cache |
 | First-call assertions and closeout | R09, R12 | Implemented: bounded same-call array/string profile for an unused existing-MCP proof, anti-retrofit/replay checks, explicit new-source scale-to-zero, cost/ownership/closeout review. No actual teardown or new provider call |
 
 These R01-R23 identifiers refer to the pilot retrospective, not the older `R1`
@@ -49,10 +49,19 @@ checks passed; `npm run check`, `npm run test:types` and `git diff --check` also
 passed. The full suite was not rerun after that narrow correction. No actual
 container was built/scanned and no Azure, M365 or provider operation was run.
 
-This is a bounded first pass across the seven packages, not complete automation
-of every retrospective request. Remaining implementation work includes
-automated diagnostics/private-registry pull helpers and optional single-process
-auth continuity. The calling host must enforce waiting; the toolkit does not
+Follow-up implementation adds `mcp-host-schema/plan/run`,
+`mcp-host-account-plan/switch` and `mcp-session-plan/session`, with a `session`
+terminal-handoff phase. Initial expanded offline coverage passed 139 checks for
+host operations, discovery/proof, private identity, device code and bootstrap;
+final regression is pending. All new examples are synthetic. The private pull
+uses the local Docker API, rejects insecure/debug daemon profiles, writes a
+reservation before dispatch, checks the returned digest/platform and retains
+unknown results without retry. Container diagnostics cannot auto-pull images
+and clean up only their labeled temporary container. In-memory auth continuity
+requires the exact expected user and cannot bypass re-listing or proof history.
+
+These packages do not automate every retrospective request. The calling host
+must enforce waiting; the toolkit does not
 control its scheduler. Imported scans, baselines and owner results remain
 declared metadata, not authenticated service attestations. Live qualification
 of image execution, preserving deployment, secret resolution/rotation and

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "kind": "private-image-pull",
+  "dockerSocket": "\\\\.\\pipe\\docker_engine",
+  "localEngineTrusted": true,
+  "image": "exampleacr.azurecr.io/mcp@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "accountName": "operator@example.com"
+}

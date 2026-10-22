@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "kind": "container-npm-diagnostic",
+  "dockerSocket": "\\\\.\\pipe\\docker_engine",
+  "localEngineTrusted": true,
+  "image": "node:22-bookworm-slim@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

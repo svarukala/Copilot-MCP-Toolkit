@@ -1,6 +1,15 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
-terminalHandoff: { commands: ['mcp-terminal-handoff'], phases: ['discovery', 'proof'],
+hostOperations: { commands: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
+      kinds: ['engine-diagnostic', 'host-npm-diagnostic', 'container-npm-diagnostic', 'private-image-pull'],
+      dockerApi: '1.44', dockerEndpoint: 'explicit-local-pipe-or-socket-only',
+      registryCredentials: 'process-memory-and-trusted-local-daemon-only', sharedDockerLogin: false,
+      automaticRetry: false, automaticBuild: false, providerCalls: false, liveQualified: false, publicLibrary: false },
+interactiveSession: { commands: ['mcp-session-plan', 'mcp-session'], optIn: true,
+      surface: 'existing-entra-mcp', maximumSessionMs: 900000, maximumProofCalls: 1,
+      separateProofApproval: true, persistentTokens: false, refreshTokens: false,
+      automaticLoginRestart: false, publicLibrary: false },
+terminalHandoff: { commands: ['mcp-terminal-handoff'], phases: ['discovery', 'proof', 'session'],
       launchesTerminal: false, persistentTokens: false, tokenContinuity: false, networkCalls: false, publicLibrary: false },
 boundedResultAssertion: { kind: 'json-array-string-field-v1', surface: 'existing-mcp-unused-first-proof',
       sameCall: true, rawResultRetained: false, businessCorrectnessVerified: false, proofReplayAuthorized: false },
