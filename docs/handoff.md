@@ -6,6 +6,14 @@ It contains public engineering context only, not credentials or execution author
 ## Decisions and current baseline
 
 - Live qualification began on 2026-10-22 against implementation `47722e8`.
+  Correction after owner clarification: public npm is intentionally blocked;
+  the repository already configures an approved alternative registry. A bounded
+  HTTPS check to that feed's `/-/ping` path received HTTP 404 with certificate
+  verification enabled. This establishes an HTTPS response, not npm ping or
+  package-install success, and supersedes the general host-connectivity blocker.
+  Both built-in npm diagnostics still hardcode public npm; configurable,
+  approval-bound registry diagnostics remain a gap. Do not switch the repository
+  to public npm or bypass the network policy.
   One host npm connectivity diagnostic returned `failed` at the `transport`
   stage, without an HTTP status; root cause is not established. The original
   intent/result remain private and no automatic retry was attempted. Docker

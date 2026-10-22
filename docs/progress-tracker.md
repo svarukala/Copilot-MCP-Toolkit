@@ -97,10 +97,23 @@ was IPv4. A direct Windows HTTP client comparison also failed with
 underlying network/TLS cause. Certificate verification remained enabled, redirects were
 disabled, and no proxy settings were changed. Local pipe-directory inspection
 found neither supported Windows Docker pipe; no Docker API was contacted or
-engine started. Qualification is blocked on host connectivity and Docker
-availability, in addition to the explicit cloud/auth target selections above.
+engine started. At that point, qualification was treated as blocked on host
+connectivity and Docker availability, in addition to the explicit cloud/auth
+target selections above; the registry clarification below supersedes the
+general host-connectivity conclusion.
 The original failed toolkit result remains unchanged; follow-up observations
 are retained separately and privately.
+
+Registry clarification later on 2026-10-22: the owner confirmed public npm is
+blocked by policy and an approved alternative registry is used. The repository's
+existing `.npmrc` already selects that alternative. One bounded, credential-free
+HTTPS comparison against the configured feed's `/-/ping` path received HTTP 404
+with certificate verification enabled and redirects disabled. HTTPS reached the
+feed, but that is not a successful npm ping, package restore or toolkit diagnostic
+qualification. Both built-in host/container npm probes hardcode public npm, so
+approval-bound alternative-registry diagnostics remain an implementation gap.
+Do not replace the approved feed or bypass policy. Docker availability and
+explicit cloud/auth selections remain outstanding; original results are intact.
 
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
