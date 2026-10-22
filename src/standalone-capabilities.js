@@ -2,7 +2,8 @@ import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
 recipeOperatorReview: {
       contractVersion: 1, commands: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
-      kinds: ['image-qualification'], provenance: 'operator-evidence-not-service-attestation',
+      kinds: ['image-qualification', 'container-app-image-update', 'container-app-readiness',
+        'entra-sso-update', 'authentication-impact'], provenance: 'operator-evidence-not-service-attestation',
       cloudExecution: false, networkCalls: false, publicLibrary: false,
     },
 operatorJournal: {

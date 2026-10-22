@@ -8,16 +8,17 @@ import { getLibraryInfo } from './machine-contract.js';
 import { secretIssues } from './validation.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
 import { imageReviewSchema, reviewImage } from './mcp-image-review.js';
+import { updateSchemas, reviewUpdate } from './mcp-update-review.js';
 
-export const recipeReviewSchema = { oneOf: [imageReviewSchema] };
+export const recipeReviewSchema = { oneOf: [imageReviewSchema, ...updateSchemas] };
 const digest = value => metadataDigest(boundedSnapshot(value));
 function requireReview(ok, code, message) {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_RECIPE_REVIEW_${code}` });
 }
 function review(project, input) {
   requireReview(!secretIssues(savedJson(input)), 'INPUT', 'Only nonsecret bounded review metadata is supported.');
-  requireReview(input?.kind === 'image-qualification', 'INPUT', 'Use mcp-recipe-review-schema for supported review kinds.');
-  return reviewImage(project, input);
+  requireReview(input?.kind, 'INPUT', 'Use mcp-recipe-review-schema for supported review kinds.');
+  return input.kind === 'image-qualification' ? reviewImage(project, input) : reviewUpdate(project, input);
 }
 async function prepare(options) {
   requireReview(typeof options.config === 'string' && typeof options.output === 'string', 'INPUT',

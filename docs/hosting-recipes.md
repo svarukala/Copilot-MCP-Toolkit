@@ -45,6 +45,33 @@ reviewed qualification step.
 
 ## Operator records and resumable handoffs
 
+### Preserving updates, not create-template reuse
+
+`mcp-recipe-review-*` also supports these local review kinds:
+
+| Kind | Required operator input | Result |
+| --- | --- | --- |
+| `container-app-image-update` | Fresh writable resource baseline, concrete ETag, baseline digest and selected-registry image | Separate template changing only the named `mcp` container image; preserves all supplied settings. Optional complete normalized preview must match exactly |
+| `container-app-readiness` | Exact resource/image/revision, deadline and metadata observation | Waiting, timeout/unknown, failure or matched healthy 100%-traffic readiness; never redeploys |
+| `entra-sso-update` | Exact tenant/app object, baseline projection/digest, actual registration URI and existing enabled scope ID | Additive identifier URI, redirect and token-store preauthorization PATCH; never touches credentials or assignment restrictions |
+| `authentication-impact` | Prior runtime authentication and whether correction is portal-only | Ordered required stages; preserves old artifacts and consumed proof |
+
+The baseline must be a reviewed **writable resource**, not an unfiltered Azure
+GET containing read-only fields or secret values. Keep its source receipt
+privately. A copied/imported baseline, preview or readback is not authenticated
+Azure evidence. Reinspect the exact baseline immediately before any separately
+approved mutation; use supported conditional writes where available. ARM
+what-if is not an atomic concurrency guard. Missing defaults must not be
+silently discarded during a create-style redeployment.
+
+For Entra reconciliation, known unordered identifier/redirect/client collections
+are compared semantically. Unexpected changes, including service-generated
+settings outside the expected projection, remain a mismatch for review; do not
+ignore arbitrary differences or repeat PATCH. An old ready revision after ARM
+success is not a failed deployment. Readiness observation may continue only
+within its reviewed metadata budget and never authorizes a new deployment,
+rollback, traffic change or provider call.
+
 `mcp-operator-schema` describes a separate, local operator journal. Use
 `mcp-operator-plan --workspace-root <private-root> --project <private-project>
 --config <event.json> --json`, then `mcp-operator-record` with the same arguments
