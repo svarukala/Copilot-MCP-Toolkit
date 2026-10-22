@@ -54,7 +54,7 @@ private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Au
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
 | Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
 | Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
-| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding. Config-only `allowAnyAppValidationPlaceholder` opt-in is limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
+| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact phase approval/effect flags; Linux-isolated mode or explicit `windows-user-managed` mode with `sharedProfileReviewed: true` for secretless SSO. Live Windows registration remains unqualified. `allowAnyAppValidationPlaceholder` remains limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
@@ -109,11 +109,17 @@ no config and preserves consumed attempts. No other phase accepts those effect
 flags. Plans support `--summary`; status is local-only. Registration results can
 be imported into preparation with `source.registrationResultFile`; a supplied
 reference/result cannot trigger another registration. See the auth runbook for
-Linux prerequisites, terminal-only login and unknown-attempt reconciliation.
+mode-specific prerequisites, terminal-only login and unknown-attempt reconciliation.
+Native Windows SSO uses the normal ATK profile with explicit shared-profile
+review, not a copied/redirected credential cache. Plans disclose login replacement,
+provider-owned persistent caches/logs, and a per-user toolkit operation lock.
+Close removes only owned Windows job files, never shared credentials or logouts.
+Custom OAuth execution still requires Linux. Historical Linux sessions stay
+Linux-isolated; changing configuration cannot adopt them into Windows mode.
 Login/register summaries also disclose ATK's ancillary experimentation-service
 request and machine-derived client metadata; the provider's telemetry flag does
 not disable that request. Browser callbacks may use separately verified
-Windows-to-WSL localhost forwarding; no automatic host switch is performed.
+Windows-to-WSL localhost forwarding for Linux mode; no automatic host switch is performed.
 ATK may launch the Windows default browser under WSL. The login summary discloses
 that browser cookies/history are outside the toolkit's private-cache boundary.
 

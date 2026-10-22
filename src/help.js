@@ -156,15 +156,19 @@ provider OAuth exchange. FCC can select the
 output via source.authenticationBundleFile; imported references remain unverified.
 Auth execution: separate mcp-auth-execution-plan / mcp-auth-execute --phase
 initialize | login | register | close, with --workspace-root, --project and --config
-(config not needed for close). Requires reviewed ATK 1.1.17, Linux owner-only tmpfs,
+(config not needed for close). Requires reviewed ATK 1.1.17 and either Linux
+owner-only tmpfs (default) or explicit windows-user-managed authenticationMode
+with sharedProfileReviewed: true (secretless Entra SSO only). Windows uses the
+normal ATK profile/broker, not isolated credentials; login may replace prior ATK
+sign-in and close does not log out or erase shared caches. Both modes require
 --allow-provider and exact phase approval. Login requires --interactive and
 --allow-network; register requires --confirm-identity and --allow-network, plus
---allow-cloud only for a selected private Key Vault identity. No shared login,
+--allow-cloud only for a selected private Key Vault identity on Linux. No implicit shared login,
 automatic install, Docker startup, registration retry, consent or publication.
 Execution config may opt into allowAnyAppValidationPlaceholder for Entra SSO
 with explicit HomeTenant / AnyApp and no supplied app ID. The unused ATK validation
 placeholder is disclosed in initialize/login/register plans; it creates no app. SpecificApp still
-requires a real intended app ID. This option does not enable Windows execution.
+requires a real intended app ID. Windows requires its separate explicit mode/review.
 Use mcp-auth-execution-status for local retained state. A created-unverified result
 can feed preparation through source.registrationResultFile; settings still need review.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.

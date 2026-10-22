@@ -7,9 +7,17 @@ extension is implemented by this document. Track work in
 2026-10-15 approved scope addition: [shared auth preparation](auth-registration.md)
 now exports explicit SSO/OAuth settings and nonsecret FCC/plugin reference data.
 This narrow implementation is not H1/H3's endpoint/tool contract and does not
-invoke WIQD. A separate Linux-only public ATK execution adapter now implements
+invoke WIQD. A separate public ATK execution adapter initially implemented
 reviewed SSO/OAuth registration and unverified result import. Real
 Linux/provider qualification and package/runtime compatibility remain unverified.
+
+2026-10-22 update: native Windows **ATK** secretless SSO execution is implemented
+as an explicitly reviewed user-managed profile mode. Linux/WSL remains optional
+for isolated SSO; custom OAuth execution remains on Linux. This is not a
+project-isolated WIQD adapter or the H1 endpoint/tool handoff. The Windows spike
+established owner-reported sign-in/no Teams disruption, not completed registration.
+See [Windows execution](auth-registration.md#native-windows-sso-user-managed-profile)
+for mode selection, shared-profile effects and remaining live qualification.
 
 Subsequent Windows investigation: WIQD 0.18.0 Core offers an account picker and
 browser-authentication switch without ATK's unconditional interactive logout.

@@ -17,7 +17,7 @@
 | Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor and local FCC form/reference draft only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
 | Custom federated connector onboarding | Matching Entra SSO, anonymous public-data declaration or OAuth reference | Existing toolkit descriptor | Local human copy/paste form/auth fields; OAuth reference drafts stay blocked with discovery/import unsupported; not tenant registration or consumer verification |
 | Shared authentication registration preparation | Matching Entra or OAuth descriptor | Resource/provider-owned | Local explicit SSO/OAuth settings, PKCE or versioned Key Vault reference, and FCC/plugin metadata; no provider execution or secret resolution |
-| Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate Linux tmpfs initialize/login/register/close approvals; SSO, PKCE or private versioned Key Vault secret; created-unverified receipts and no replay; real Linux/provider qualification outstanding, Windows/macOS refused |
+| Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate initialize/login/register/close approvals; native Windows user-managed profile for secretless SSO with explicit shared-profile review, or isolated Linux tmpfs for SSO/PKCE/private Key Vault secret. Created-unverified receipts, no replay, no macOS adapter; complete native Windows registration remains live-unqualified |
 
 Anonymous **backend** does not automatically make generated inbound anonymous.
 Entra remains the guided default; public access is a separate explicit choice.

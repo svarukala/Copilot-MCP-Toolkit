@@ -328,11 +328,19 @@ This is local preparation, not login or registration.
 For separately requested registration execution, read the auth runbook first.
 Use `mcp-auth-execution-plan` and `mcp-auth-execute` for independent
 initialize/login/register/close approvals, never the preparation token.
-Execution requires a trusted Linux host, owner-only tmpfs, an explicitly selected
-ATK 1.1.17 installation and real app ID unless the compatibility option below is
-explicitly selected. Windows/macOS are refused; never invoke
-ATK against shared credentials, install a provider or start Docker as a shortcut.
-Do not retain login URLs. ATK may launch the Windows default browser under WSL;
+Offer native Windows for secretless Entra SSO using explicit
+`authenticationMode: "windows-user-managed"` and `sharedProfileReviewed: true`.
+Explain that ATK uses its normal profile, Credential Manager and possibly the
+broker, may replace its prior sign-in, and retains provider-owned caches/logs.
+This is not project-isolated authentication. Do not copy caches, automate account
+selection, clear shared credentials, or run concurrent ATK authentication commands.
+Linux/WSL remains optional for isolated SSO; omission of the mode retains the
+historical Linux-only default, not an automatic Windows fallback.
+Custom OAuth execution still requires Linux owner-only tmpfs. Both modes require
+an explicitly selected ATK 1.1.17 installation and real app ID unless the
+compatibility option below is explicitly selected. macOS is unsupported; never
+install a provider or start Docker as a shortcut.
+Do not retain login URLs. In Linux mode ATK may launch the Windows default browser under WSL;
 the toolkit does not isolate browser cookies/history or select the browser account.
 The browser must reach the Linux loopback callback. A Windows browser may use separately verified WSL localhost forwarding;
 do not assume that forwarding or browser authentication works from WSL presence.
@@ -351,13 +359,16 @@ the reviewed provider mapping sends an empty M365 app binding. Do not create a
 dummy app, supply that UUID as a real app ID, or first register `SpecificApp`
 and ask the owner to broaden it later. The option is rejected for `SpecificApp`,
 `AnyTenant`, OAuth or supplied app IDs. Review its disclosure in each phase plan;
-all Linux isolation, identity and exact approval gates remain. Do not change
+all selected-mode review, identity and exact approval gates remain. Do not change
 the historical preparation format or infer live qualification from this option.
 
 Use local `mcp-auth-execution-status` after failures; never replay registration
 or remove consumed reservations. Unconfirmed termination retains the operation
 lock and owned process PID; do not clean up the runtime until reconciled.
-Normal close removes only the owned runtime, retaining journals. Import a
+Normal close removes only the owned runtime, retaining journals. Windows close
+does not log out or remove the normal-profile credentials, cache or logs.
+Unconfirmed Windows termination also retains the per-user toolkit operation lock;
+never remove that lock to retry before reconciling the owned process tree. Import a
 successful `created-unverified` result through preparation's
 `source.registrationResultFile`, never as readiness or publication authority.
 

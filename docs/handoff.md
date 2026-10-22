@@ -5,6 +5,31 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Native Windows SSO implementation (2026-10-22): `mcp-auth-execution-*` now
+  supports explicit `authenticationMode: "windows-user-managed"` with
+  `sharedProfileReviewed: true` for secretless Entra SSO. It uses the normal
+  ATK 1.1.17 profile/broker, not isolated or copied credentials. Linux/WSL
+  remains optional for isolated SSO and required for custom OAuth execution;
+  omitted mode retains the historical Linux default. The Windows spike was
+  sign-in evidence only, not a completed registration executor to merge.
+  New code adds direct Windows Node invocation, owned-tree cancellation,
+  per-user toolkit operation locking, normal-profile account/tenant review,
+  and cleanup limited to owned disk-backed job files. Shared caches/logs and
+  existing authentication are never cleared on close. Exact phase approvals,
+  identity confirmation and cross-mode consumed-target barriers remain.
+  See [Windows SSO](auth-registration.md#native-windows-sso-user-managed-profile).
+  The platform restrictions described in older investigation sections below
+  are historical: native Windows is now explicitly supported without claiming
+  project isolation. No live login, registration or tenant mutation was run for
+  this implementation; complete Windows registration remains live-unqualified.
+  Final focused offline validation passed **111/111** tests with no failures,
+  skips or cancellations: both authentication modes, historical preparation and
+  result contracts, CLI feedback and a fresh packed consumer. The 11 Windows
+  provider checks include actual native execution/termination of a synthetic
+  Node child and owned-runtime cleanup, without ATK or network access. CLI syntax,
+  strict public types and 86 local documentation links also passed. The full
+  repository suite was not rerun for this change.
+
 - Docker qualification update on 2026-10-22: after the owner approved starting
   Docker if needed, both supported Windows pipes were available. No start or
   restart was needed. The toolkit's separately planned engine diagnostic passed
@@ -433,8 +458,9 @@ The user then directed continued autonomous implementation. The separate
 `mcp-auth-execution-status` now implement AUTH3/AUTH4:
 
 - Independent initialize/login/register/close approvals using public ATK 1.1.17.
-  Only Linux owner-only `/dev/shm` tmpfs is admitted. D-Bus keyrings and ambient
-  provider overrides are excluded; Windows/macOS execution is refused.
+  At this historical milestone only Linux owner-only `/dev/shm` tmpfs was
+  admitted. The explicit native Windows SSO mode described at the top of this
+  handoff now complements that isolated path; macOS remains unsupported.
 - Terminal-only browser sign-in URL with a same-host loopback callback.
   Public account output plus selected-tenant metadata is not issuer attestation;
   registration requires separate human identity confirmation.
@@ -493,7 +519,8 @@ still needs a reviewed Linux ATK installation and browser/callback setup before
 separately approved live work. Do not claim Windows isolation is impossible in
 a separate OS boundary, or that WSL presence alone qualifies authentication.
 Read [the assessment](auth-registration.md#windows-first-isolation-check).
-Keep the current Windows guard; no automatic cross-platform login/retry exists.
+The later Windows mode requires explicit shared-profile review; no automatic
+cross-platform login/retry exists.
 
 ### Resolved WSL setup and callback precheck
 
@@ -521,8 +548,9 @@ helper may automatically launch the Windows default browser under WSL, despite
 does not isolate browser cookies/history. No real browser/sign-in was exercised.
 
 This completes the local Windows-first/fallback precheck, not live authentication.
-Keep Windows execution blocked, retain the Linux provider and its independent
-phase approvals, and obtain real app/identity review before live operations.
+The Windows guard remained at that milestone; the later user-managed SSO mode
+is a separate implementation, not isolation evidence. Retain independent phase
+approvals and real app/identity review before live operations.
 Do not transfer this private tooling or any future account cache as repository
 evidence. See the auth runbook for exact validation scope.
 
@@ -547,9 +575,10 @@ entry, independent of its home-relative token files. The inspected code can
 fall back to unencrypted content when no encryption key is available. No
 private key-namespace override was found. No WIQD authentication/status command,
 credential-store access, settings change or token transfer was performed.
-Native Windows registration remains unimplemented: qualify a supported private
-credential boundary and registration-only interface before replacing the
-executor. See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
+A project-isolated native WIQD executor remains unimplemented. The separate
+native Windows ATK SSO mode now uses an explicitly reviewed normal profile,
+not a new private credential boundary.
+See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
 
 Further source inspection found WIQD's separate cache-free CI refresh-token
 backend. It requires an explicit tenant and a caller-provided fresh delegated

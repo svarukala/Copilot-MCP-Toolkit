@@ -9,6 +9,41 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Native Windows SSO implementation
+
+2026-10-22: the owner prioritized native Windows SSO with Linux/WSL optional.
+The separate spike demonstrated owner-reported Windows sign-in/no Teams
+disruption; it did not implement or complete a registration executor.
+
+The existing `mcp-auth-execution-*` phases now accept explicit
+`authenticationMode: "windows-user-managed"` plus `sharedProfileReviewed: true`.
+This admits secretless Entra SSO through pinned ATK 1.1.17 using its normal
+profile, Credential Manager and possible broker. It is **not project-isolated**.
+Linux remains the isolated SSO/custom-OAuth path; omission of the mode preserves
+the historical Linux default. No automatic fallback, credential copying,
+shared Azure account change, provider installation or Docker requirement exists.
+
+Windows execution uses the public Node CLI entry directly, with bounded
+noninteractive output, exact-PID/tree cancellation, per-user toolkit phase
+locking and explicit account/selected-tenant review. Unconfirmed termination
+retains both locks and job files. Close deletes only the owned job directory,
+never shared caches/logs, Credential Manager contents or the user's sign-in.
+Preparations and historical Linux sessions/receipts remain readable. Changing
+mode or session does not reopen a consumed registration target.
+The complete native Windows registration journey remains live-unqualified.
+
+Final focused offline validation passed **111/111** tests with zero failures,
+skips or cancellations. Coverage includes both modes' SSO/AnyApp-to-FCC flows,
+Linux OAuth compatibility, cross-mode consumption, identity and termination
+failures, historical preparation/result contracts, CLI feedback and a fresh
+packed consumer. The 11 Windows provider tests include actual native execution
+and exact-PID termination of a synthetic Node child, plus owned filesystem
+cleanup; no real ATK, credential store or provider endpoint is used. The packed
+CLI initializes, inspects and closes a synthetic Windows session while runtime
+networking/provider subprocesses are denied. CLI syntax, strict public types
+and 86 local documentation links passed. No full-suite rerun, live sign-in,
+registration, dependency installation or installed-skill update was performed.
+
 ### Hosting pilot feedback implementation
 
 The owner reported completing the API Ninjas / direct Container Apps end-to-end

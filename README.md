@@ -232,8 +232,10 @@ Use the [shared workflow](docs/hosting-recipes.md) to connect a separately
 deployed endpoint to the existing discovery and FCC steps.
 
 API keys belong in Azure Key Vault, referenced by configuration, never stored
-as values in toolkit JSON. Some advanced authentication-registration execution
-requires Linux; that is not a prerequisite for the local quick start.
+as values in toolkit JSON. [Native Windows SSO registration](docs/auth-registration.md#native-windows-sso-user-managed-profile)
+uses an explicitly reviewed normal ATK profile; Linux/WSL is optional for SSO
+and remains the isolated execution option. Custom OAuth execution still uses
+the Linux adapter. Neither Docker nor Linux is required for the local quick start.
 Testing support is narrower than generation support. Read the
 [scenario matrix](docs/scenarios.md) before choosing a production use case.
 

@@ -295,6 +295,8 @@ if (await main(args) !== 2) throw Error('Expected a blocked local Resume report,
   assert.ok(cap.commands.includes('mcp-auth-execution-plan'));
   assert.equal(cap.authRegistrationExecution.liveQualified, false);
   assert.equal(cap.authRegistrationExecution.automaticRetry, false);
+  assert.equal(cap.authRegistrationExecution.windowsExecution, true);
+  assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].projectIsolatedCredentials, false);
   assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'register', 'close']);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.schemaVersion.const, 1);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.allowAnyAppValidationPlaceholder.type, 'boolean');
@@ -392,6 +394,31 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.ok(executionPlan.stderr.includes(executionPlan.result.approvalToken));
   invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
   assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
+  await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
+    providerRoot, allowAnyAppValidationPlaceholder: true, authenticationMode: 'windows-user-managed', sharedProfileReviewed: true }));
+  const windowsSession = path.join(fccWorkspace, 'windows-auth-session');
+  const windowsArgs = [...fccBase, '--project', windowsSession, '--config', executionConfig];
+  const windowsPlan = invoke(['mcp-auth-execution-plan', ...windowsArgs, '--phase', 'initialize', '--summary']);
+  assert.equal(windowsPlan.result.authenticationMode, 'windows-user-managed');
+  assert.ok(windowsPlan.stderr.includes('NOT project-isolated'));
+  if (process.platform === 'win32') {
+    assert.equal(windowsPlan.result.status, 'planned');
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'initialize',
+      '--approve', windowsPlan.result.approvalToken, '--allow-provider']);
+    assert.equal(invoke(['mcp-auth-execution-status', ...fccBase, '--project', windowsSession]).result.authenticationMode, 'windows-user-managed');
+    const loginPlan = invoke(['mcp-auth-execution-plan', ...windowsArgs, '--phase', 'login', '--summary']);
+    assert.ok(loginPlan.stderr.includes('may replace'));
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'login', '--approve', loginPlan.result.approvalToken,
+      '--allow-provider', '--interactive'], [1]);
+    const closeArgs = [...fccBase, '--project', windowsSession, '--phase', 'close'];
+    const close = invoke(['mcp-auth-execution-plan', ...closeArgs]);
+    invoke(['mcp-auth-execute', ...closeArgs, '--approve', close.result.approvalToken, '--allow-provider']);
+    assert.equal(invoke(['mcp-auth-execution-status', ...fccBase, '--project', windowsSession]).result.status, 'closed');
+  } else {
+    assert.ok(windowsPlan.result.gaps.includes('WINDOWS_REQUIRED'));
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'initialize',
+      '--approve', windowsPlan.result.approvalToken, '--allow-provider'], [1]);
+  }
   await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
     providerRoot, allowAnyAppValidationPlaceholder: true }));
   const compatiblePlan = invoke(['mcp-auth-execution-plan', ...executionArgs, '--summary']);

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "providerRoot": "C:\\tools\\atk\\node_modules\\@microsoft\\m365agentstoolkit-cli",
+  "authenticationMode": "windows-user-managed",
+  "sharedProfileReviewed": true
+}

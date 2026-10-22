@@ -19,7 +19,7 @@ const appId = '33333333-3333-4333-8333-333333333333';
 const registrationId = '+opaque/synthetic==';
 const opaqueUri = 'api://synthetic.example.com/token-store';
 const secretUri = 'https://synthetic-vault.vault.azure.net/secrets/oauth-client/0123456789abcdef0123456789abcdef';
-async function fixture(t, type = 'entra-sso') {
+async function fixture(t, type = 'entra-sso', windows = false) {
   await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
   const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'auth-execution-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -39,10 +39,11 @@ async function fixture(t, type = 'entra-sso') {
     review: { metadataApprovedForExport: true },
   };
   const execution = { schemaVersion: 1, registrationConfig: 'registration.json', providerRoot: path.join(root, 'synthetic-provider') };
+  if (windows) Object.assign(execution, { authenticationMode: 'windows-user-managed', sharedProfileReviewed: true });
   const options = { workspaceRoot: root, project: path.join(root, 'session'), config: path.join(root, 'execution.json') };
   const calls = [];
   const provider = {
-    platform: () => 'linux',
+    platform: () => windows ? 'win32' : 'linux',
     inspect: async () => ({ root: execution.providerRoot, name: '@microsoft/m365agentstoolkit-cli', version: '1.1.17', files: { code: 'synthetic' } }),
     path: owner => path.join(owner.project, 'synthetic-runtime'),
     async open(owner) { calls.push('initialize'); await mkdir(this.path(owner)); return this.path(owner); },
@@ -70,6 +71,10 @@ async function fixture(t, type = 'entra-sso') {
   await writeFile(path.join(root, 'descriptor.json'), JSON.stringify(descriptor));
   await save();
   const deps = { provider };
+  if (windows) provider.acquireProfileLease = async () => {
+    calls.push('profile-lock');
+    return async () => { calls.push('profile-release'); };
+  };
   async function run(phase, extra = {}) {
     const selected = { ...options, phase, ...extra };
     const plan = await planAuthExecution(selected, deps);
@@ -83,8 +88,8 @@ async function fixture(t, type = 'entra-sso') {
   return { root, descriptor, input, execution, options, provider, calls, deps, save, run, signedIn };
 }
 
-for (const compatibility of [false, true]) test(`isolated phases create one SSO registration and feed its real reference into FCC without readiness claims${compatibility ? ' with explicit AnyApp compatibility' : ''}`, async t => {
-  const f = await fixture(t);
+for (const windows of [false, true]) for (const compatibility of [false, true]) test(`${windows ? 'user-managed Windows' : 'isolated Linux'} phases create one SSO registration and feed its reference into FCC${compatibility ? ' with explicit AnyApp compatibility' : ''}`, async t => {
+  const f = await fixture(t, 'entra-sso', windows);
   if (compatibility) {
     f.input.registration.applicableToApps = 'AnyApp';
     delete f.input.registration.appId;
@@ -103,9 +108,15 @@ for (const compatibility of [false, true]) test(`isolated phases create one SSO 
   const loginPlan = await planAuthExecution({ ...f.options, phase: 'login' }, f.deps);
   assert.ok(loginPlan.effects.some(effect => effect.includes('https://default.exp-tas.com/vscode/ab')
     && effect.includes('--telemetry false does not disable')));
-  assert.ok(loginPlan.effects.some(effect => effect.includes('Windows-to-WSL forwarding')));
-  assert.ok(loginPlan.effects.some(effect => effect.includes('may open the Windows default browser')
-    && effect.includes('cookies/history are not isolated')));
+  if (windows) {
+    assert.equal(loginPlan.authenticationMode, 'windows-user-managed');
+    assert.ok(loginPlan.effects.some(effect => effect.includes('NOT project-isolated') && effect.includes('may replace')));
+    assert.ok(!loginPlan.effects.some(effect => effect.includes('fresh private cache')));
+  } else {
+    assert.ok(loginPlan.effects.some(effect => effect.includes('Windows-to-WSL forwarding')));
+    assert.ok(loginPlan.effects.some(effect => effect.includes('may open the Windows default browser')
+      && effect.includes('cookies/history are not isolated')));
+  }
   await f.run('login');
   const registrationPlan = await planAuthExecution({ ...f.options, phase: 'register' }, f.deps);
   assert.ok(registrationPlan.effects.some(effect => effect.includes('https://default.exp-tas.com/vscode/ab')));
@@ -139,6 +150,11 @@ for (const compatibility of [false, true]) test(`isolated phases create one SSO 
   assert.equal(reference.reference.applicationIdUri, opaqueUri);
   await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
   await f.run('close');
+  if (windows) {
+    assert.equal(f.calls.filter(c => c === 'profile-lock').length, 2);
+    assert.equal(f.calls.filter(c => c === 'profile-release').length, 2);
+    assert.equal((await readAuthExecutionStatus(f.options)).authenticationMode, 'windows-user-managed');
+  }
   assert.equal((await readAuthExecutionStatus(f.options)).status, 'closed');
   assert.equal((await readdir(path.join(f.root, '.auth-registration-attempts'))).length, 1);
   f.input.source.registrationResultFile = 'session/result.json'; await f.save();
@@ -240,6 +256,51 @@ test('Windows or missing real app ID remains blocked before any effect', async t
   assert.deepEqual(plan.gaps, ['LINUX_TMPFS_REQUIRED', 'REAL_M365_APP_ID_REQUIRED']);
   await assert.rejects(f.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
   assert.deepEqual(f.calls, []);
+});
+
+test('native Windows mode requires explicit shared-profile review, Windows and secretless SSO', async t => {
+  const f = await fixture(t, 'entra-sso', true);
+  delete f.execution.sharedProfileReviewed; await f.save();
+  await assert.rejects(f.run('initialize'), { code: 'MCP_AUTH_EXECUTION_INPUT' });
+  f.execution.sharedProfileReviewed = true; f.provider.platform = () => 'linux'; await f.save();
+  assert.deepEqual((await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps)).gaps, ['WINDOWS_REQUIRED']);
+  assert.deepEqual(f.calls, []);
+  const oauth = await fixture(t, 'oauth', true);
+  assert.deepEqual((await planAuthExecution({ ...oauth.options, phase: 'initialize' }, oauth.deps)).gaps, ['WINDOWS_SSO_ONLY']);
+  await assert.rejects(oauth.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  oauth.execution.secretIdentityProject = 'azure'; await oauth.save();
+  await assert.rejects(oauth.run('initialize'), { code: 'MCP_AUTH_EXECUTION_INPUT' });
+  assert.deepEqual(oauth.calls, []);
+});
+
+test('Windows authentication mode is approval/session bound and does not reset consumed targets', async t => {
+  const f = await fixture(t, 'entra-sso', true);
+  const reviewed = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
+  delete f.execution.authenticationMode; delete f.execution.sharedProfileReviewed; f.provider.platform = () => 'linux'; await f.save();
+  await assert.rejects(executeAuthPhase({ ...f.options, phase: 'initialize',
+    approval: reviewed.approvalToken, allowProvider: true }, f.deps), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  await f.signedIn();
+  f.provider.register = async () => { throw new Error('synthetic dispatch failure'); };
+  await assert.rejects(f.run('register'));
+  f.options.project = path.join(f.root, 'windows-session');
+  Object.assign(f.execution, { authenticationMode: 'windows-user-managed', sharedProfileReviewed: true });
+  f.provider.platform = () => 'win32'; await f.save(); await f.signedIn();
+  await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  delete f.execution.authenticationMode; delete f.execution.sharedProfileReviewed; await f.save();
+  await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CHANGED' });
+});
+
+test('Windows close only discloses job cleanup and uncertain process termination retains both locks', async t => {
+  const f = await fixture(t, 'entra-sso', true);
+  await f.run('initialize');
+  const close = await planAuthExecution({ ...f.options, phase: 'close' }, f.deps);
+  assert.ok(close.effects[0].includes('Do NOT log out'));
+  f.provider.login = async () => { throw Object.assign(new Error('synthetic'), { code: 'ATK_TERMINATION_UNCONFIRMED', pid: 12345 }); };
+  await assert.rejects(f.run('login'), { code: 'ATK_TERMINATION_UNCONFIRMED' });
+  assert.equal(f.calls.filter(c => c === 'profile-release').length, 0);
+  const lock = JSON.parse(await readFile(path.join(f.options.project, '.auth-operation.lock')));
+  assert.equal(lock.providerProcessId, 12345);
+  await assert.rejects(f.run('close'), { code: 'EEXIST' });
 });
 
 test('AnyApp without explicit compatibility opt-in remains blocked', async t => {
