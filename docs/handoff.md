@@ -1,20 +1,38 @@
 # Session handoff
 
-Last updated: 2026-10-21. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-22. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
-- 2026-10-22: seven consolidated hosting/FCC feedback packages are being
-  implemented; see the progress tracker. The API-key implementation has been
-  fast-forwarded into this branch. The first package adds qualified portal
-  scopes and route guidance while preserving legacy auth bundle verification.
+- 2026-10-22: a first implementation pass across all seven consolidated
+  hosting/FCC feedback packages is committed on
+  `svarukala-custom-federated-connectors`; see the
+  [implementation tracker](progress-tracker.md#hosting-pilot-feedback-implementation)
+  and [operator guide](hosting-recipes.md). The API-key implementation has been
+  fast-forwarded into this branch. New capabilities cover qualified FCC portal
+  scopes, immutable operator/waiting records, digest-pinned minimal images and
+  image reviews, preserving update/readiness reviews, direct-host bootstrap,
+  real-terminal auth handoff, phase-aware policy status, same-call result
+  assertions and cost/closeout reviews. Historical auth bundles remain readable.
+  The full offline suite at `89406f4` passed all 831 tests. The final architecture
+  correction at `4b531e6` restricts container builds to `linux/amd64`; all 22
+  focused hosting/artifact checks passed afterward, as did CLI syntax and strict
+  public types. The full suite was not rerun after that narrow correction.
+  These are local preparation/review capabilities, not new cloud executors.
+  Automated diagnostics/private-registry pull helpers, optional single-process
+  auth continuity and host scheduler enforcement of waiting remain future work.
+  Actual image builds/scans, Azure updates/Key Vault resolution and new consumer
+  scenarios still need separate qualification. New container source without
+  explicit digest-pinned `imageBuild` inputs intentionally has no Dockerfile;
+  old sealed projects are never rewritten.
   The owner reports the direct Container Apps API Ninjas end-to-end pilot
   completed; no new live verification or consumer/read-only-label claim is
   inferred here. Keep private testing files, deployments and proofs untouched.
 
-- API-key REST backends are now implemented across all four SDK hosting recipes
-  on the isolated API-key branch, without changing the parent's testing checkout.
+- API-key REST backends were implemented across all four SDK hosting recipes
+  on the isolated API-key branch and are now integrated here, without changing
+  the user's testing checkout.
   Use `backend.auth: "api-key"` and explicit `backend.apiKey` reference/identity/
   header-or-query metadata in the [shared guide](hosting-recipes.md#api-key-backends).
   Shared entitlement and query exposure have explicit review declarations.

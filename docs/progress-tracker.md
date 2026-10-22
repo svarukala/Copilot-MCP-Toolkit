@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-21.
+Last updated: 2026-10-22.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -29,6 +29,34 @@ and identities are not copied here; consumed proofs remain consumed.
 These R01-R23 identifiers refer to the pilot retrospective, not the older `R1`
 archive backlog. Implementation authorizes no live mutation, sign-in, call,
 registration, publication or cleanup of the deployed pilot.
+
+Implementation milestones on `svarukala-custom-federated-connectors`:
+
+| Commit | Scope |
+| --- | --- |
+| `8f233e0` | Qualified FCC scope and versioned, backward-compatible auth handoffs |
+| `6b7fb1c` | Immutable operation journal and explicit waiting/resume handoffs |
+| `8f799b3` | Reviewed digest-pinned image inputs and image-bound qualification metadata |
+| `632b511` | Preserving update previews, semantic readback, readiness and migration review |
+| `89406f4` | Bootstrap, terminal/policy/milestone UX, same-call assertions and closeout |
+| `4b531e6` | Restrict container image inputs to the supported `linux/amd64` profile |
+
+Validation: the full offline `npm test` run at `89406f4` passed **831/831**
+tests with zero failures, skips or cancellations (about 19 minutes), including
+the fresh packed consumer with runtime networking/subprocesses denied. After
+the architecture correction, **22/22** focused hosting, image-review and artifact
+checks passed; `npm run check`, `npm run test:types` and `git diff --check` also
+passed. The full suite was not rerun after that narrow correction. No actual
+container was built/scanned and no Azure, M365 or provider operation was run.
+
+This is a bounded first pass across the seven packages, not complete automation
+of every retrospective request. Remaining implementation work includes
+automated diagnostics/private-registry pull helpers and optional single-process
+auth continuity. The calling host must enforce waiting; the toolkit does not
+control its scheduler. Imported scans, baselines and owner results remain
+declared metadata, not authenticated service attestations. Live qualification
+of image execution, preserving deployment, secret resolution/rotation and
+consumer behavior remains separate from these offline results.
 
 All toolkit rows below refer to the initial independent implementation
 [`6463fea`](https://github.com/svarukala/Copilot-MCP-Toolkit/commit/6463fea8e6b6449b8631644cccdae6d8a9a8dea8).
