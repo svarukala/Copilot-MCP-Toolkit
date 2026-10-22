@@ -101,8 +101,11 @@ these placeholders are not accepted inputs):
 
 The multistage Dockerfile installs locked dependencies with scripts disabled,
 then copies only runtime dependencies, application files and notices into the
-distroless nonroot runtime. Review platform compatibility and refresh base
-digests; no image is downloaded or declared safe by generation.
+distroless nonroot runtime. The container recipes accept only `linux/amd64`;
+[Container Apps requires this architecture](https://learn.microsoft.com/en-us/azure/container-apps/containers#limitations),
+and the App Service recipe uses the same bounded image profile. ARM64 and
+Windows images are rejected before generation. Review and refresh base digests;
+no image is downloaded or declared safe by generation.
 
 Use `mcp-recipe-review-schema` and the `image-qualification` input for a
 separate `mcp-recipe-review-plan/bundle` (explicit private workspace, sealed

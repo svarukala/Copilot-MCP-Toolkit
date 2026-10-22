@@ -3,13 +3,29 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { TOOLKIT_ROOT } from '../src/config.js';
-import { planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
+import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
 import { planRecipeReview, writeRecipeReview } from '../src/mcp-recipe-review.js';
 import { reviewImage } from '../src/mcp-image-review.js';
 const hash = `sha256:${'a'.repeat(64)}`;
 const build = { builderImage: `node:22-bookworm-slim@${hash}`,
   runtimeImage: `gcr.io/distroless/nodejs22-debian12:nonroot@${hash}`, platform: 'linux/amd64' };
+test('container recipes require linux/amd64 images and Functions remains source-only', async () => {
+  for (const recipe of ['container-apps-direct', 'container-apps-apim', 'app-service-container', 'functions-sdk']) {
+    const input = JSON.parse(await readFile(new URL(`../examples/mcp/${recipe}.json`, import.meta.url)));
+    input.imageBuild = structuredClone(build);
+    if (recipe === 'functions-sdk') {
+      assert.throws(() => compileHostingRecipe(input), /source-only remote build/);
+      continue;
+    }
+    const compiled = compileHostingRecipe(input);
+    assert.equal(compiled.input.imageBuild.platform, 'linux/amd64');
+    for (const platform of ['linux/arm64', 'windows/amd64']) {
+      input.imageBuild.platform = platform;
+      assert.throws(() => compileHostingRecipe(input), { code: 'MCP_CONTAINER_APPS_INPUT' });
+    }
+  }
+});
 async function fixture(t) {
   await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
   const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'recipe-review-'));
@@ -36,6 +52,7 @@ async function fixture(t) {
 }
 test('minimal image inputs and all qualification receipts bind to a newly sealed source and exact digest', async t => {
   const f = await fixture(t);
+  assert.equal(f.generated.files.Dockerfile.match(/FROM --platform=linux\/amd64 /g).length, 2);
   assert.match(f.generated.files.Dockerfile, /AS dependencies/);
   assert.match(f.generated.files.Dockerfile, /USER 65532:65532/);
   assert.match(f.generated.files.Dockerfile, /ENTRYPOINT \["\/nodejs\/bin\/node"\]/);
@@ -62,6 +79,7 @@ test('image review rejects mismatched images, source/build, stale database and f
     q => { q.smoke.image = `other.azurecr.io/server@${hash}`; },
     q => { q.sourceManifestDigest = `sha256:${'b'.repeat(64)}`; },
     q => { q.build.platform = 'linux/arm64'; },
+    q => { q.build.runtimeImage = q.build.runtimeImage.replace(hash, `sha256:${'b'.repeat(64)}`); },
     q => { q.scan.databaseUpdatedAt = '2020-01-01T00:00:00.000Z'; },
     q => { q.scan.scannedAt = '2099-01-01T00:00:00.000Z'; },
     q => { q.scan.critical = 1; }, q => { q.smoke.networkDisabled = false; },
