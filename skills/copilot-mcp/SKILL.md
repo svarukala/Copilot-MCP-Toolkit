@@ -235,6 +235,19 @@ blocker or claiming the whole journey is complete. Local handoff completion,
 human FCC submission, admin Ready status and attributed consumer execution are
 separate outcomes.
 
+For recipe operator work, use the separate `mcp-operator-*` journal when an owner
+has approved local recording. Reserve the exact reviewed operation, record
+dispatch BEFORE running the separately approved external command, and reconcile
+missing/ambiguous output through metadata instead of resubmitting. No journal
+entry is itself an executor or service attestation.
+Use `wait` once if the owner is unavailable. Honor `repeatPrompt: false`: stop
+until substantive owner input, not a generic continuation reminder. Record a
+matching `resume` with the new input digest; never mark incomplete work done to
+escape a host loop. Owner reports belong to specific `owner-result` milestones.
+The host integration must implement waiting; the compiler cannot enforce host
+scheduling. When the request changes, finish that separate deliverable without
+repeating an unrelated blocked registration question.
+
 Use the reference-aware registration checklist: preserve an existing ID exactly
 and do not create another registration. Preserve old descriptor-bound receipts
 when a new registration URI requires a new reference descriptor. Supply the

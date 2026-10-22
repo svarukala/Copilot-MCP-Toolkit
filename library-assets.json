@@ -95,6 +95,7 @@
     "src/mcp-lifecycle.js",
     "src/mcp-mapped-get.js",
     "src/mcp-native-proof.js",
+    "src/mcp-operator.js",
     "src/mcp-prerequisites.js",
     "src/mcp-proof-history.js",
     "src/mcp-protocol.js",

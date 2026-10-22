@@ -1,5 +1,32 @@
 # MCP hosting recipes
 
+## Operator records and resumable handoffs
+
+`mcp-operator-schema` describes a separate, local operator journal. Use
+`mcp-operator-plan --workspace-root <private-root> --project <private-project>
+--config <event.json> --json`, then `mcp-operator-record` with the same arguments
+and the exact `--approve` token. Read it with `mcp-operator-status`.
+Each event is immutable; writes are serialized and bound to the current head.
+This is an operator-declaration record, not an Azure attestation or executor.
+
+Reserve the exact tenant/account/target, purpose, input digest and reviewed
+authorization digest. **Record dispatch before running an external command.**
+Missing stdout, malformed output, timeout and lost responses stay unknown.
+Record separately obtained metadata digests to reconcile; never resubmit merely
+because parsing failed. A reserved purpose stays consumed even if inputs change.
+Deployment stages distinguish provisioned, revision-ready, traffic-ready and
+endpoint-checked; no stage itself changes traffic or triggers a provider call.
+Existing proof journals remain the authority for tool-call consumption.
+
+At an unavailable-owner gate, record one `wait` event with a specific phase,
+reason and resume trigger. Repeated waiting/dispatch records are refused.
+The host must honor `repeatPrompt: false` and stop rather than poll or falsely
+complete. An explicit `resume` references the waiting receipt and the digest
+of new owner input. `owner-result` records a named milestone as owner-reported:
+authorization success cannot make FCC save, admin Ready, audience, consumer
+execution or UI labels verified. Read-only status always carries the selected
+private workspace through the command's explicit arguments.
+
 The recipes use the same Node.js MCP server. Hosting changes; tool logic and
 caller permissions do not. Each operation below is explicit and local unless
 the operator separately chooses to build, publish, deploy or test.

@@ -19,7 +19,7 @@ and identities are not copied here; consumed proofs remain consumed.
 | Package | Feedback IDs | Implementation status |
 | --- | --- | --- |
 | Correct FCC onboarding | R14, R15, R20 | Implemented: shared qualified portal scope, route guidance and bounded wrong-resource troubleshooting. 137 focused offline tests passed, including historical bundle compatibility |
-| Operations and waiting states | R04, R07, R10, R22 | In progress |
+| Operations and waiting states | R04, R07, R10, R22 | Implemented local operator journal: exact-purpose reservation, pre-dispatch unknown state, metadata outcome records, immutable chained history, waiting/resume and derived milestones. Five offline tests passed. No cloud executor or host scheduler change; host must honor waiting |
 | Image hardening and provenance | R02, R05 | Pending |
 | Preserving updates and migration | R16, R17, R18, R19 | Pending |
 | Supported operator path | R01, R03, R08, R11 | Pending |

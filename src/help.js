@@ -1,4 +1,5 @@
 export const commandFamilies = {
+  operator: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
   containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
   hosting: ['mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'],
   recipeArtifacts: ['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
@@ -65,6 +66,11 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Operator records: explicit private workspace/project; schema gives reserve,
+dispatch, observe, wait, resume and owner-result events. Plan/record take --config;
+record needs exact --approve. This append-only operator-declaration journal never
+executes cloud commands or authorizes a proof. Record dispatch BEFORE external
+execution; empty output is unknown, not permission to retry. Status is read-only.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports

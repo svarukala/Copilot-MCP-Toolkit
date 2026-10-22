@@ -1,5 +1,11 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+operatorJournal: {
+      contractVersion: 1, commands: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
+      provenance: 'operator-declared-not-service-attested', storage: 'append-only-hash-chain',
+      waiting: 'durable-owner-handoff-host-must-honor', automaticRetry: false,
+      cloudExecution: false, networkCalls: false, proofReplayAuthorized: false, publicLibrary: false,
+    },
 recipeArtifacts: {
       contractVersion: 1, source: 'sealed-generated-files', release: 'source-archive-and-exact-template-parameters',
       commands: ['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',

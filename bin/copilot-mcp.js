@@ -68,6 +68,21 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'].includes(command)) {
+      const schema = command.endsWith('-schema'), status = command.endsWith('-status'), planning = command.endsWith('-plan');
+      const allowed = schema ? ['json'] : ['project', 'workspace-root', 'json',
+        ...(status ? [] : ['config', ...(planning ? [] : ['approve'])])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!workspaceRoot || !options.project || !status && !options.config)) {
+        throw new Error('Operator schema accepts --json; plan/record/status require --workspace-root and --project. Plan/record need --config; record needs exact --approve. Local journal only, no execution.');
+      }
+      const operator = await import('../src/mcp-operator.js');
+      print(schema ? operator.operatorSchema : await (status ? operator.operatorStatus
+        : planning ? operator.planOperatorRecord : operator.writeOperatorRecord)({
+        workspaceRoot, project: options.project, config: options.config, approval: options.approve,
+      }), true);
+      return 0;
+    }
     if (['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
       'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'].includes(command)) {
       const source = command === 'mcp-recipe-source-plan', planning = command.endsWith('-plan');
