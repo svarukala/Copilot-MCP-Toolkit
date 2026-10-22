@@ -1,5 +1,83 @@
 # MCP hosting recipes
 
+## Starting with no infrastructure
+
+Use `mcp-bootstrap-schema`, then `mcp-bootstrap-plan --workspace-root
+<private-root> --config <choices.json> --output <new-review.json> --json`.
+Write with `mcp-bootstrap-bundle` and the exact plan approval token.
+Choose existing/new group, environment, registry, vault and separate pull/reader
+identities explicitly. This direct Container Apps bootstrap works **before**
+source generation and emits separate resource-group and resource templates.
+See the complete synthetic input in
+[`container-apps-bootstrap.json`](../examples/mcp/container-apps-bootstrap.json);
+replace its identities and choices rather than treating them as real resources.
+Existing resources are omitted, not recreated. Directory setup uses existing
+guarded `mcp-app-*` commands; actual returned client/object/scope/principal IDs
+must be collected before the dependent step. Pending IDs are null/missing, not
+fabricated UUIDs or runnable placeholders.
+
+The bundle includes ordered diagnostics, build alternatives, permission intents
+and secret-entry handoff. It does not start Docker, install tools, perform network
+probes, pull private images or execute deployment. A private registry credential
+helper remains operator-supplied; never replace it with shared Docker login.
+Use the existing Windows-safe Azure launcher rather than raw `az.cmd` string
+interpolation. Inspect policy/costs/name absence, validate and what-if each
+template separately. A local TLS failure never authorizes a paid cloud build.
+
+## Terminal and consumer handoff
+
+`mcp-terminal-handoff --workspace-root <private-root> --project <endpoint-reference>
+--config <selection.json> --phase discovery --json` emits the exact reviewed
+plan plus a PowerShell-quoted command. Nothing is launched. Run once in a real
+terminal only after the plan's separate approval. Do not transcript challenges.
+Use a separate `proof` handoff after metadata review. Protected steps still
+use fresh process-local sign-in; cross-step token reuse is not implemented.
+
+FCC `review.pocPolicyDeferral: true` can record a nonfinal policy deferral.
+It never clears a placeholder/submission gate, but `phaseReadiness` explains
+that separately authorized authentication troubleshooting can continue.
+Provider shared-key entitlement and rollout permission remain distinct; a PoC
+label is not a bypass. Use operator milestones for owner-reported authorization,
+FCC save, Ready, audience, consumer execution and UI labels independently.
+
+## First-call result shape and closeout
+
+For a future **unused existing-MCP first proof**, add this to the proof selection:
+
+```json
+{
+  "resultAssertion": {
+    "kind": "json-array-string-field-v1",
+    "field": "fact",
+    "maxItems": 1,
+    "maxStringLength": 4096
+  }
+}
+```
+
+It requires one MCP text content item containing a nonempty bounded JSON array;
+each object must contain only that nonempty string field. Review the provider's
+actual contract first. The selection is approval-bound and evaluated in memory
+on the same call, never a second call to retrofit evidence. Output retains only
+the structural verdict/digest, not content. It rejects error, ambiguous,
+non-JSON and extra-field envelopes. A pass establishes neither fact accuracy
+nor credential identity, legal entitlement or consumer acceptance. Consumed
+proofs stay consumed even if the assertion is changed or removed.
+
+The `secret-reference-review` recipe review checks operator-supplied enabled/
+expiry metadata against the exact source reference and dedicated identity.
+It does not read a secret, verify host resolution or grant permissions.
+The `cost-closeout` review records exact ownership/dispositions and known versus
+unquoted prices. Unavailable pricing is null, never zero. It proposes no removal
+of pre-existing/unknown-owned resources and executes no cleanup.
+
+Container Apps source may explicitly set `scaleProfile: "scale-to-zero"` (default
+`"always-warm"`). This changes the minimum replica count to zero in **new**
+reviewed source only; max replicas stays one. Review consumer cold-start limits
+and all noncompute charges. App Service/Functions do not accept this setting.
+Review temporary grants, directory objects and billing resources at closeout;
+no guaranteed free tier, automatic teardown or proof reset is implied.
+
 ## Minimal images and qualification
 
 New container source generation requires an explicit `imageBuild` object to

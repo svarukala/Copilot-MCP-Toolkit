@@ -195,6 +195,9 @@ export async function readMcpProofHistory(projectDir, legacyPlan, excludeAttempt
       else if (legacyTimeout(record, legacyPlans, projectDir)) { status = 'not-dispatched'; evidence = 'legacy-authentication-timeout'; }
     }
     return { attemptId: name, status, ...(evidence ? { evidence } : {}),
+      ...(status === 'completed' && proof.resultAssertion ? { assertedProof: {
+        sourceDigest: proof.sourceDigest, toolName: proof.toolName, argumentsDigest: proof.argumentsDigest,
+      } } : {}),
       ...(!qualification && status === 'completed' && proof.toolName === 'tavily_search'
         ? { tavilySearchSourceDigest: proof.sourceDigest } : {}),
       ...(qualification ? { qualification: intent.qualification, ...(proof ? { backendAssertion: proof.backendAssertion } : {}) } : {}),
@@ -216,6 +219,10 @@ export function assertMcpProofHistory(history, approvalDigest, operationDigest, 
   requireMetadata(!history.attempts.some(item => item.status === 'unresolved'), 'PROOF_OUTCOME_UNRESOLVED');
   requireMetadata(!history.attempts.some(item => item.status === 'completed'
     && (item.approvalDigest === approvalDigest || item.operationDigest === operationDigest)), 'PROOF_REPLAY_BLOCKED');
+  requireMetadata(!operation || !history.attempts.some(item => item.assertedProof
+    && item.assertedProof.sourceDigest === operation.source.descriptorDigest
+    && item.assertedProof.toolName === operation.tool.name
+    && item.assertedProof.argumentsDigest === digest(operation.arguments)), 'PROOF_REPLAY_BLOCKED');
   requireMetadata(!history.attempts.some(item => item.qualification && item.status === 'completed'
     && (operation?.qualification || operation?.tool.name === 'tavily_search'
       && operation.source.descriptorDigest === item.qualification.sourceDigest)), 'QUALIFICATION_CONSUMED');

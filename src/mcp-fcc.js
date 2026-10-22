@@ -39,6 +39,7 @@ export const fccInputSchema = object({
     dataAccess: { enum: ['public-data', 'shared-authorized-data', 'user-scoped'] },
     dataAccessReason: text(1000),
     legalPolicies: { enum: ['not-reviewed', 'placeholder', 'reviewed'] },
+    pocPolicyDeferral: { type: 'boolean' },
     tools: { type: 'array', maxItems: 1000, items: object({
       name: text(128), readOnly: { const: true }, reason: text(1000),
     }) },
@@ -231,6 +232,8 @@ async function prepare(options) {
   }
   const legalPolicies = { status: input.review.legalPolicies ?? 'not-reviewed',
     evidence: 'caller-declaration-not-verified' };
+  requireFcc(!input.review.pocPolicyDeferral || legalPolicies.status !== 'reviewed',
+    'INPUT', 'PoC policy deferral cannot also declare finalized reviewed policies.');
   if (legalPolicies.status === 'placeholder') {
     gap('LEGAL_POLICIES_PLACEHOLDER', 'The supplied privacy/terms pages are declared placeholders. Finalize policies covering this connector before submission; URL presence is not legal readiness.');
   }
@@ -290,6 +293,13 @@ async function prepare(options) {
     evidence: { discovery, legalPolicies, configuration: 'not-verified', protocolProof: 'not-assessed',
       consumerExecution: 'not-verified', executionReadiness: false, proofReplayAuthorized: false },
     readiness: { status: gaps.length ? 'blocked' : 'manual-checkpoints-required', gaps },
+    phaseReadiness: {
+      localPreparation: 'available',
+      authorizationTroubleshooting: 'separate-review-required-not-blocked-by-policy-deferral',
+      policyDisposition: input.review.pocPolicyDeferral ? 'owner-deferred-not-finalized' : 'not-deferred',
+      submission: gaps.length ? 'blocked' : 'manual-checkpoints-required',
+      rollout: 'separate-explicit-review-required',
+    },
     checklist: [...authenticationChecklist(input.authentication), ...checklist],
     references: {
       setup: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/connectors/set-up-custom-federated-connectors',

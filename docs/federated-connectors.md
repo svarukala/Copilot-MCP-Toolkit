@@ -20,6 +20,12 @@ still-unqualified direct FCC creation API.
 
 ## FCC-only route: no agent project
 
+For explicit PoC policy deferral, set `review.pocPolicyDeferral: true` while
+keeping `legalPolicies: "placeholder"` or `"not-reviewed"` truthful. The bundle
+retains submission blockers and exposes independent `phaseReadiness`, so a
+separately authorized scope diagnosis need not loop on the legal reminder.
+Deferral is not finalized policy, entitlement or rollout authorization.
+
 Copy **Portal OAuth scope (fully qualified)** into the portal Scope field, not
 **API permission name (runtime scp)**. For example, a synthetic registered URI
 `api://22222222-2222-4222-8222-222222222222` and permission `access_as_user`

@@ -22,9 +22,9 @@ and identities are not copied here; consumed proofs remain consumed.
 | Operations and waiting states | R04, R07, R10, R22 | Implemented local operator journal: exact-purpose reservation, pre-dispatch unknown state, metadata outcome records, immutable chained history, waiting/resume and derived milestones. Five offline tests passed. No cloud executor or host scheduler change; host must honor waiting |
 | Image hardening and provenance | R02, R05 | Implemented: explicit digest-pinned multistage/distroless nonroot generation, no mutable default, source/image-bound scan/SBOM/smoke review and optional release import. 35 targeted offline checks passed. Actual image build/run and signed attestation verification remain separately qualified |
 | Preserving updates and migration | R16, R17, R18, R19 | Implemented local review profiles: additive Entra patch/semantic readback, separate Container Apps image-only template, exact-preview checks, asynchronous readiness and auth-impact stages. Six focused checks passed. No automatic mutation or live baseline attestation |
-| Supported operator path | R01, R03, R08, R11 | Pending |
-| Authentication and milestone UX | R06, R13, R21, R23 | Pending |
-| First-call assertions and closeout | R09, R12 | Pending |
+| Supported operator path | R01, R03, R08, R11 | Implemented first pass: direct bootstrap templates, existing/new choices, guarded directory-command handoff with pending actual IDs, diagnostics/runbook and metadata-only secret review. Automated diagnostics, private registry pull helper and cloud executor remain outside this pass |
+| Authentication and milestone UX | R06, R13, R21, R23 | Implemented: exact real-terminal command handoff, phase-aware policy deferral and independent owner-reported milestones. No token/cache sharing; optional single-process auth continuity remains unimplemented |
+| First-call assertions and closeout | R09, R12 | Implemented: bounded same-call array/string profile for an unused existing-MCP proof, anti-retrofit/replay checks, explicit new-source scale-to-zero, cost/ownership/closeout review. No actual teardown or new provider call |
 
 These R01-R23 identifiers refer to the pilot retrospective, not the older `R1`
 archive backlog. Implementation authorizes no live mutation, sign-in, call,

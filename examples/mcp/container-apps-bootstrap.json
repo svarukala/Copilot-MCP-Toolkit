@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "recipe": "container-apps-direct-v1",
+  "target": {
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "subscriptionId": "22222222-2222-4222-8222-222222222222",
+    "accountName": "operator@example.com",
+    "location": "eastus"
+  },
+  "resources": {
+    "resourceGroup": { "mode": "new", "name": "synthetic-rg" },
+    "environment": { "mode": "new", "name": "synthetic-environment" },
+    "registry": { "mode": "new", "name": "syntheticregistry" },
+    "vault": { "mode": "new", "name": "synthetic-vault" },
+    "pullIdentity": { "mode": "new", "name": "synthetic-pull" },
+    "secretIdentity": { "mode": "new", "name": "synthetic-reader" }
+  },
+  "discoveryClient": { "mode": "new", "displayName": "Synthetic discovery client" },
+  "resourceApplication": { "displayName": "Synthetic MCP resource", "scope": "access_as_user" },
+  "review": { "privateIdentityRequired": true, "newResourceAbsenceMustBeChecked": true }
+}

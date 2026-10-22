@@ -212,6 +212,12 @@ selected values for your environment.
 | Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
 | Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |
 
+For a new direct Container Apps setup, the [operator workflow](docs/hosting-recipes.md)
+now includes prerequisite templates, immutable operation records, preserving-update
+reviews, real-terminal handoffs and separate cost/cleanup planning. Container
+Dockerfiles require reviewed builder/runtime image digests; no mutable base image
+is selected automatically. These tools prepare and record work, not deploy it.
+
 The four SDK hosting recipes currently generate source, deployment review files
 and local release bundles. **They do not automatically deploy to Azure.** Real
 hosting behavior and Copilot Read-only labels still need live validation.

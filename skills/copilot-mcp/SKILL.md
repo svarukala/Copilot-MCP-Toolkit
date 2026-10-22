@@ -29,6 +29,25 @@ and offline actual-image smoke evidence, and bind it as `imageReviewFile` in a
 new release review. Imported receipts are operator declarations, not signed
 attestations. Never build, pull, scan or deploy merely to fill a missing field.
 
+For an all-new direct Container Apps scenario, start with `mcp-bootstrap-*`.
+It emits separate prerequisite templates and reuses `mcp-app-*` for directory
+setup. Never make up app/principal IDs; obtain readback before dependent review.
+Use `mcp-recipe-review-*` for image qualification, image-only Container Apps
+updates, additive Entra settings, asynchronous readiness, auth migration impact,
+secret metadata and cost/closeout. Existing-resource migration is not safe
+create-template reuse. A successful ARM result may precede a ready revision;
+observe exact metadata rather than redeploying.
+
+Use `mcp-terminal-handoff` for exact quoted discovery/proof commands, each with
+its own review, in a real terminal. No browser automation, challenge transcripts
+or token-cache sharing. Cross-process sign-ins remain separate.
+For a future unused existing-MCP first proof, a reviewed `resultAssertion`
+json-array-string-field-v1 can check a bounded array/string contract in that
+same call. Never retrofit it by repeating an already consumed call.
+`scaleProfile: "scale-to-zero"` is an explicit new Container Apps source choice,
+not a default or free-tier promise. Closeout is separately reviewed and never
+automatic.
+
 Explain the current boundary in plain language: Entra sign-in for callers,
 anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
 host prerequisites from the guide. Ask for actual resource
@@ -232,6 +251,12 @@ them or stall independent local preparation. Record known placeholder policies
 with `review.legalPolicies: "placeholder"`; this blocks submission even with all
 URLs present. `reviewed` is only an owner declaration, not independent legal
 verification. Do not fetch policy pages from offline commands or tests.
+If the owner explicitly defers policies for a PoC, record
+`review.pocPolicyDeferral: true` without marking policies reviewed/final.
+Keep submission/rollout gates visible but do not repeat them as blockers for a
+separately authorized scope diagnosis. Copy **Portal OAuth scope (fully
+qualified)**, not the short runtime permission name, into the existing portal
+registration; an AADSTS650053 wrong-resource error alone needs no server rebuild.
 
 Before asking for a retry, check whether the original owned sign-in is still
 active using nonsecret status. Do not launch a duplicate attempt or clear its

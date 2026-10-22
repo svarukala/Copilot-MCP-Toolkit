@@ -11,7 +11,8 @@ function backendSummary(backend) {
 const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
-  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan'];
+  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan',
+  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -134,10 +135,16 @@ export function cliPlanSummary(plan) {
     writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\n${detail}${backendSummary(plan.review?.backend)}No Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
     return;
   }
+  if (['mcp-bootstrap-bundle', 'mcp-operator-record', 'mcp-recipe-review-bundle'].includes(plan.action)) {
+    const detail = plan.event?.action ?? plan.bundle?.input?.kind ?? 'prerequisite-template-review';
+    writeFeedback(state, `[operator review summary]\nOperation: ${safe(plan.action)} / ${safe(detail)}\nDestination: ${safe(plan.outputPath ?? plan.journal)}\nLocal record/review only: no sign-in, cloud mutation, build, secret resolution or provider call.\nImported metadata is operator-declared, not service attestation. Review all inputs and effects on stdout.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
+    return;
+  }
   if (['mcp-container-apps-create', 'mcp-hosting-create'].includes(plan.action)) {
     const gateway = plan.review.target.gateway;
-    const host = gateway ? `APIM: ${safe(gateway.serviceName)}; resource group: ${safe(gateway.resourceGroup)}; path: ${safe(gateway.path)}\nGateway principal: ${safe(gateway.principalId)}; audience: ${safe(gateway.audience)}; role: ${safe(gateway.role)}\n`
+    let host = gateway ? `APIM: ${safe(gateway.serviceName)}; resource group: ${safe(gateway.resourceGroup)}; path: ${safe(gateway.path)}\nGateway principal: ${safe(gateway.principalId)}; audience: ${safe(gateway.audience)}; role: ${safe(gateway.role)}\n`
       : plan.review.recipe === 'functions-sdk-v1' ? 'Functions PUBLIC PREVIEW: Linux FC1, managed-identity storage, source-only release.\n' : '';
+    host += `Image inputs: ${safe(plan.review.imageBuild?.status)}; no build or scan is performed.\nScaling: ${safe(plan.review.scaling?.profile ?? 'host-specific')}; cost and cold starts need separate review.\n`;
     writeFeedback(state, `[SDK hosting recipe summary]\nRecipe: ${safe(plan.review.recipe)}\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\n${host}Access: Entra sign-in required${gateway ? '; independent signed gateway token also required' : '; no APIM'}\n${backendSummary(plan.review.backend)}Tools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
     return;
   }
@@ -177,6 +184,7 @@ export function cliPlanSummary(plan) {
       operation.source.inbound.type === 'entra' ? 'Identity: separate MCP public-client user, not Azure CLI login.' : 'Identity: declared anonymous MCP caller.');
     if (operation?.qualification) lines.push('Additional Tavily singleton: basic search normally costs 1 credit, not a billing guarantee.');
     if (operation?.acceptanceProfile) lines.push(`First-call acceptance: ${safe(operation.acceptanceProfile.kind)} in the SAME ordinary call; no additional qualification. Basic search normally costs 1 credit, not a billing guarantee.`);
+    if (operation?.resultAssertion) lines.push(`Same-call result assertion: ${safe(operation.resultAssertion.kind)}; field ${safe(operation.resultAssertion.field)}, max items ${operation.resultAssertion.maxItems}, max string length ${operation.resultAssertion.maxStringLength}. No raw result retention or replay.`);
     lines.push(`Next: ${safe(plan.next.command ?? plan.next.status)}`, safe(plan.next.reason),
       ...(plan.next.approval ? [`EXACT next.approval: ${safe(plan.next.approval)}`] : []),
       `Required effect flags: ${(plan.next.requiredFlags ?? []).map(safe).join(' ') || 'none'}`,
@@ -221,6 +229,7 @@ export function cliPlanSummary(plan) {
       : 'Calls: MCP initialize and bounded tools/list; no tools/call');
     if (operation.tool?.name) lines.push(`Tool: ${safe(operation.tool.name)}`);
     if (operation.acceptanceProfile) lines.push(`First-call acceptance: ${safe(operation.acceptanceProfile.kind)} in the SAME ordinary call; failed/inconclusive/unknown outcomes remain consumed. Basic search normally costs 1 credit, not a billing guarantee.`);
+    if (operation.resultAssertion) lines.push(`Same-call result assertion: ${safe(operation.resultAssertion.kind)}; field ${safe(operation.resultAssertion.field)}, max items ${operation.resultAssertion.maxItems}, max string length ${operation.resultAssertion.maxStringLength}. No extra provider call.`);
     if (state.command === 'mcp-qualification-plan') lines.push('Additional singleton qualification: Tavily basic search normally costs 1 credit; not a billing guarantee. Prior call approval is consumed.');
     const expiry = date(plan.readiness?.experimental?.configuration?.expiresAt);
     if (expiry) lines.push(`Configuration expires: ${expiry}; expiration requires separately approved read-only inspection`);

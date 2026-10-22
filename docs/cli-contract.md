@@ -26,6 +26,10 @@ private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Au
 
 | Family | Plan/local view | Explicit continuation |
 | --- | --- | --- |
+| Hosting prerequisites | `mcp-bootstrap-schema`; `mcp-bootstrap-plan --workspace-root ABS --config input.json --output NEW.json` | `mcp-bootstrap-bundle` with exact approval; separate direct Container Apps templates, existing/new choices, directory handoff, no cloud actions |
+| Operator journal | `mcp-operator-schema`; `mcp-operator-plan --workspace-root ABS --project DIR --config event.json`; `mcp-operator-status` | `mcp-operator-record` with exact approval; append-only declaration, never dispatches an external operation |
+| Recipe reviews | `mcp-recipe-review-schema`; `mcp-recipe-review-plan --workspace-root ABS --project SOURCE --config review.json --output NEW.json` | `mcp-recipe-review-bundle` with exact approval; image, preserving-update, readiness, auth impact, secret metadata and cost/closeout reviews |
+| Real-terminal handoff | `mcp-terminal-handoff --workspace-root ABS --project REF --config selection.json --phase discovery\|proof` | Copy the generated PowerShell command into a real terminal only after separate exact operation review; no token sharing or terminal launch |
 | Container Apps recipe | `mcp-container-apps-schema`; `mcp-container-apps-plan --workspace-root ABS --config recipe.json --output NEW_DIR` | `mcp-container-apps-create` with the same paths and exact `--approve approvalToken`; local SDK source and ARM files only |
 | All SDK hosting recipes | `mcp-hosting-schema`; `mcp-hosting-plan --workspace-root ABS --config recipe.json --output NEW_DIR` | `mcp-hosting-create` with identical paths and exact approval; four closed host profiles |
 | Recipe release | `mcp-recipe-source-plan --workspace-root ABS --project DIR`; `mcp-recipe-release-plan` with project/config/new output | `mcp-recipe-release-bundle` with exact approval; source archive and template parameters, never deployment |

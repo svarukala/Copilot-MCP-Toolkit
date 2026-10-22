@@ -59,6 +59,7 @@ export const containerAppsSchema = object({
 });
 const ajv = new Ajv();
 containerAppsSchema.properties.imageBuild = imageBuildSchema;
+containerAppsSchema.properties.scaleProfile = { enum: ['always-warm', 'scale-to-zero'] };
 addFormats(ajv);
 const validate = ajv.compile(containerAppsSchema);
 export const hostingSchema = { oneOf: hostingSchemas(containerAppsSchema) };
@@ -75,6 +76,8 @@ function compile(value, hosting) {
     `Use ${hosting ? 'mcp-hosting-schema' : 'mcp-container-apps-schema'} with explicit nonsecret target/authentication details.`);
   requireRecipe(input.recipe !== 'functions-sdk-v1' || input.imageBuild === undefined,
     'Functions uses a source-only remote build; do not supply container imageBuild inputs.');
+  requireRecipe(input.scaleProfile === undefined || ['container-apps-direct-v1', 'container-apps-apim-v1'].includes(input.recipe),
+    'scaleProfile applies only to Container Apps; other hosts retain their own scaling contracts.');
   requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
   const key = input.backend.apiKey;
   if (key) {
@@ -184,7 +187,7 @@ function infrastructure(input) {
               type, httpGet: { path: '/health', port: 3000, scheme: 'HTTP' },
               initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3,
             })) }],
-          scale: { minReplicas: 1, maxReplicas: 1 },
+          scale: { minReplicas: input.scaleProfile === 'scale-to-zero' ? 0 : 1, maxReplicas: 1 },
         },
       },
     }],
@@ -284,6 +287,9 @@ This notice is not a complete dependency license audit or a service-content lice
     imageBuild: input.recipe === 'functions-sdk-v1' ? { status: 'source-only-remote-build' }
       : input.imageBuild ? { status: 'reviewed-inputs-not-built', ...input.imageBuild }
         : { status: 'blocked-missing-digest-pinned-inputs' },
+    ...(['container-apps-direct-v1', 'container-apps-apim-v1'].includes(input.recipe)
+      ? { scaling: { profile: input.scaleProfile ?? 'always-warm',
+        minReplicas: input.scaleProfile === 'scale-to-zero' ? 0 : 1, maxReplicas: 1 } } : {}),
     evidence: 'generated-definitions-not-observed-tools-list',
     limitations: [
       'Local generation only; no install, image build/push, cloud operation, token acquisition or backend call.',

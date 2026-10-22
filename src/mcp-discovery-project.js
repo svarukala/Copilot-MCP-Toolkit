@@ -68,6 +68,8 @@ async function plan(projectDir, options, proof = false, excludeAttempt) {
     readiness: project.readiness, operation };
   if (proof) {
     value.proofHistory = await readMcpProofHistory(project.projectDir, legacyPlan(value), excludeAttempt);
+    if (operation.resultAssertion) requireMetadata(value.proofHistory.attempts.every(item =>
+      ['not-proof', 'not-dispatched'].includes(item.status)), 'PROOF_REPLAY_BLOCKED');
     value.executionVersion = 2;
     if (accepted) {
       value.executionVersion = 4;

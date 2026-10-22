@@ -1,9 +1,20 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+terminalHandoff: { commands: ['mcp-terminal-handoff'], phases: ['discovery', 'proof'],
+      launchesTerminal: false, persistentTokens: false, tokenContinuity: false, networkCalls: false, publicLibrary: false },
+boundedResultAssertion: { kind: 'json-array-string-field-v1', surface: 'existing-mcp-unused-first-proof',
+      sameCall: true, rawResultRetained: false, businessCorrectnessVerified: false, proofReplayAuthorized: false },
+hostingBootstrap: {
+      contractVersion: 1, commands: ['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'],
+      recipe: 'container-apps-direct-v1', directorySetup: 'existing-guarded-mcp-app-commands',
+      resourceChoices: 'explicit-existing-or-new', actualIds: 'readback-required-never-invented',
+      cloudExecution: false, secretResolution: false, roleGrants: false, networkCalls: false, publicLibrary: false,
+    },
 recipeOperatorReview: {
       contractVersion: 1, commands: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
       kinds: ['image-qualification', 'container-app-image-update', 'container-app-readiness',
-        'entra-sso-update', 'authentication-impact'], provenance: 'operator-evidence-not-service-attestation',
+        'entra-sso-update', 'authentication-impact', 'secret-reference-review', 'cost-closeout'],
+      provenance: 'operator-evidence-not-service-attestation',
       cloudExecution: false, networkCalls: false, publicLibrary: false,
     },
 operatorJournal: {
@@ -100,6 +111,7 @@ federatedConnectors: {
       authenticationBundle: 'descriptor-bound-local-preparation-reference-not-verification',
       incompleteDeveloperMetadata: 'blocked-local-draft',
       legalPolicies: 'optional-caller-declaration-placeholder-blocks-no-fetch',
+      pocPolicyDeferral: 'phase-aware-not-submission-or-rollout-readiness',
       existingRegistration: 'reuse-reference-no-recreation',
       transport: 'streamable-http', readOnly: 'explicit-all-tool-review-not-enforcement',
       tools: 'observed-capture-only-no-schema-rewriting', captureFreshnessHours: 24,

@@ -73,6 +73,19 @@ syncBuiltinESMExports();
   assert.equal(cap.containerAppsRecipe.cloudExecution, false);
   assert.equal(cap.containerAppsRecipe.gateway, 'none');
   assert.deepEqual(cap.hostingRecipes.backendAuthentication, ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query']);
+  assert.equal(cap.operatorJournal.cloudExecution, false);
+  assert.equal(cap.terminalHandoff.persistentTokens, false);
+  assert.equal(invoke(['mcp-operator-schema']).result.oneOf.length, 6);
+  assert.equal(invoke(['mcp-recipe-review-schema']).result.oneOf.length, 7);
+  assert.equal(invoke(['mcp-bootstrap-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
+  const bootstrapInput = path.join(workspace, 'bootstrap.json');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'container-apps-bootstrap.json'), bootstrapInput);
+  const bootstrapArgs = ['--workspace-root', workspace, '--config', bootstrapInput,
+    '--output', path.join(workspace, 'bootstrap-review.json')];
+  const bootstrap = invoke(['mcp-bootstrap-plan', ...bootstrapArgs, '--summary']);
+  assert.ok(bootstrap.stderr.includes(bootstrap.result.approvalToken));
+  assert.equal(bootstrap.result.bundle.result.resourceSetup.status, 'awaiting-actual-discovery-client-id');
+  invoke(['mcp-bootstrap-bundle', ...bootstrapArgs, '--approve', bootstrap.result.approvalToken]);
   assert.equal(invoke(['mcp-container-apps-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
   const containerInput = path.join(workspace, 'container-input.json');
   const containerOutput = path.join(workspace, 'container-server');
@@ -85,6 +98,14 @@ syncBuiltinESMExports();
   const containerWritten = invoke(['mcp-container-apps-create', ...containerArgs, '--approve', containerPlan.result.approvalToken]).result;
   assert.equal(containerWritten.status, 'generated-not-deployed');
   assert.ok(!containerWritten.files.includes('mcp-server.json'));
+  const eventConfig = path.join(workspace, 'operator-event.json');
+  await writeFile(eventConfig, JSON.stringify({ schemaVersion: 1, action: 'wait', phase: 'Owner resource review',
+    reason: 'owner-unavailable', resumeWhen: 'Owner supplies resource review' }));
+  const operatorArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', eventConfig];
+  const operatorPlan = invoke(['mcp-operator-plan', ...operatorArgs, '--summary']);
+  assert.ok(operatorPlan.stderr.includes(operatorPlan.result.approvalToken));
+  invoke(['mcp-operator-record', ...operatorArgs, '--approve', operatorPlan.result.approvalToken]);
+  assert.equal(invoke(['mcp-operator-status', '--workspace-root', workspace, '--project', containerOutput]).result.waiting.repeatPrompt, false);
   for (const [name, content] of Object.entries(containerPlan.result.files)) {
     assert.equal(await readFile(path.join(containerOutput, name), 'utf8'), content);
   }

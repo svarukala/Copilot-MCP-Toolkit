@@ -1,4 +1,6 @@
 export const commandFamilies = {
+  terminal: ['mcp-terminal-handoff'],
+  bootstrap: ['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'],
   recipeReviews: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
   operator: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
   containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
@@ -67,6 +69,11 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Bootstrap: separate direct Container Apps prerequisite review before source
+generation. Explicit existing/new resources, separate group/resource templates,
+existing mcp-app-* directory handoff and pending actual IDs. Plan/bundle need
+workspace/config/new output JSON, and bundle exact --approve. No secret access,
+role grants, installs, network probes or deployment.
 Operator records: explicit private workspace/project; schema gives reserve,
 dispatch, observe, wait, resume and owner-result events. Plan/record take --config;
 record needs exact --approve. This append-only operator-declaration journal never
@@ -78,6 +85,15 @@ Container generation emits a minimal nonroot Dockerfile only when imageBuild
 provides reviewed builder/runtime digests and platform. No mutable base fallback.
 Image review binds scan/SBOM/smoke metadata to source and image, not attestation.
 Release may reference imageReviewFile; stale or failing qualification is refused.
+Review kinds also cover preserving Container Apps/Entra updates, readiness,
+authentication impact, secret metadata and cost/closeout. Nothing is executed.
+mcp-terminal-handoff --workspace-root ABS --project REF --config SELECTION
+--phase discovery|proof emits an exact PowerShell command for a real terminal.
+It never launches or logs in. The displayed operation still needs its own review.
+Existing-MCP unused first proofs may select resultAssertion:
+json-array-string-field-v1, field, maxItems (1-100), maxStringLength (1-4096).
+The bounded shape check runs in the same call; no raw response is retained.
+It cannot be added to an already consumed proof or removed to authorize replay.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports
@@ -108,6 +124,8 @@ Missing/stale metadata remains explicitly blocked. No browser submission is perf
 Developer fields may be omitted for a blocked draft; never invent legal URLs.
 review.legalPolicies declares not-reviewed, placeholder or reviewed; placeholders
 block submission, and even reviewed remains an unverified manual checkpoint.
+review.pocPolicyDeferral records a deferral, never finalized policy readiness.
+phaseReadiness keeps independent authorization troubleshooting separate.
 WIQD Windows handoff: mcp-auth-wiqd-schema describes registrationConfig,
 wiqdProject and environment. mcp-auth-wiqd-plan/bundle takes --workspace-root,
 --config and --output NEW.json; bundle requires exact --approve. Plan supports

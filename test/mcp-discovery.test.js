@@ -135,6 +135,36 @@ function proofSelection(capture) {
     safetyReview: { readOnly: true, reason: 'Owner reviewed this operation as a record lookup only.' } };
 }
 
+test('bounded result assertion runs on the same first call and cannot be retrofitted or removed to replay', async t => {
+  const context = await workspace(t), source = await descriptor();
+  await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+  const { capture } = await observed();
+  const selection = { ...proofSelection(capture), resultAssertion: {
+    kind: 'json-array-string-field-v1', field: 'fact', maxItems: 1, maxStringLength: 100,
+  } };
+  const approval = await planMcpProjectProof(context.projectDir, selection);
+  let calls = 0;
+  const fixture = transportFixture({ mcpChange: message => {
+    if (message.method !== 'tools/call') return;
+    calls++;
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: message.id,
+      result: { content: [{ type: 'text', text: '[{"fact":"Private synthetic content"}]' }] } }));
+  } });
+  const run = (descriptor, options, guard, hooks) =>
+    runMcpReadOnlyProofForTest(descriptor, options, { ...fixture, ...hooks, beforeRequest: guard });
+  const result = await executeMcpProjectForTest(context.projectDir, { selection, approval, allowNetwork: true }, true, run);
+  assert.equal(calls, 1);
+  assert.equal(result.result.backendAssertion.status, 'passed');
+  assert.equal(result.result.businessCorrectnessVerified, false);
+  assert.doesNotMatch(await readFile(result.resultFile, 'utf8'), /Private synthetic content/);
+  await assert.rejects(planMcpProjectProof(context.projectDir, selection), { code: 'PROOF_REPLAY_BLOCKED' });
+  const ordinary = proofSelection(capture), changed = await planMcpProjectProof(context.projectDir, ordinary);
+  await assert.rejects(executeMcpProjectForTest(context.projectDir,
+    { selection: ordinary, approval: changed, allowNetwork: true }, true, run), { code: 'PROOF_REPLAY_BLOCKED' });
+  assert.equal(calls, 1);
+});
+
 test('MCP processing diagnostics identify closed method/stage enums for protected and anonymous HTTP failures', async t => {
   const envelope = (message, result) => new Response(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
   const cases = [
@@ -707,6 +737,9 @@ test('project operation revalidates saved sources, persists captures and blocks 
   assert.equal(proof.result.status, 'protocol-success');
   await assert.rejects(executeMcpProjectForTest(context.projectDir, { selection, approval: proofApproval, allowNetwork: true }, true, proofRun),
     { code: 'PROOF_REPLAY_BLOCKED' });
+  await assert.rejects(planMcpProjectProof(context.projectDir, { ...selection, resultAssertion: {
+    kind: 'json-array-string-field-v1', field: 'fact', maxItems: 1, maxStringLength: 100,
+  } }), { code: 'PROOF_REPLAY_BLOCKED' });
   assert.ok(!(await readdir(context.projectDir)).includes('.mcp-network.lock'));
   await writeFile(path.join(context.projectDir, 'mcp-server.json'), '{}');
   await assert.rejects(planMcpProjectDiscovery(context.projectDir), /differs/);

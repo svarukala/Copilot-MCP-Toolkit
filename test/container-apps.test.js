@@ -102,6 +102,19 @@ test('generation binds reviewed source, destination and target without APIM or e
   assert.equal((await readdir(options.output)).length, Object.keys(plan.files).length);
 });
 
+test('scale-to-zero is an explicit newly reviewed source choice, never an implicit cost default', async t => {
+  const options = await workspace(t);
+  const initial = await planContainerApps(options);
+  const input = structuredClone(example); input.scaleProfile = 'scale-to-zero';
+  await writeFile(options.config, JSON.stringify(input));
+  const plan = await planContainerApps(options);
+  assert.notEqual(plan.approvalToken, initial.approvalToken);
+  const template = JSON.parse(plan.files['infra/container-app.json']);
+  assert.equal(template.resources[0].properties.template.scale.minReplicas, 0);
+  assert.equal(template.resources[0].properties.template.scale.maxReplicas, 1);
+  await assert.rejects(writeContainerApps({ ...options, approval: initial.approvalToken }));
+});
+
 test('CLI exposes closed recipe commands and keeps summaries separate from JSON', async t => {
   const options = await workspace(t);
   const chunks = [], errors = [];

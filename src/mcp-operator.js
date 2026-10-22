@@ -126,6 +126,8 @@ async function recordsAt(dir) {
       && body.schemaVersion === 1 && body.kind === 'mcp-operator-event'
       && typeof body.createdAt === 'string' && Number.isFinite(Date.parse(body.createdAt))
       && new Date(body.createdAt).toISOString() === body.createdAt
+      && Date.parse(body.createdAt) <= Date.now()
+      && (!records.length || Date.parse(body.createdAt) >= Date.parse(records.at(-1).createdAt))
       && body.previous === previous && digest(body) === contentDigest,
     'JOURNAL', 'Operator journal integrity differs; do not edit, delete or reseal entries.');
     records.push(record); previous = contentDigest;

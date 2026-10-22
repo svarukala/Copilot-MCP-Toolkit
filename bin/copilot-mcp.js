@@ -68,10 +68,32 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (command === 'mcp-terminal-handoff') {
+      if (Object.keys(options).some(key => !['workspace-root', 'project', 'config', 'phase', 'json'].includes(key))
+        || !workspaceRoot || !options.project || !options.config || !['discovery', 'proof'].includes(options.phase)) {
+        throw new Error('Terminal handoff needs --workspace-root, --project, --config and --phase discovery|proof; it does not launch a terminal or authenticate.');
+      }
+      const { terminalHandoff } = await import('../src/mcp-terminal-handoff.js');
+      print(await terminalHandoff({ workspaceRoot, project: options.project, config: options.config, phase: options.phase }), true);
+      return 0;
+    }
+    if (['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'].includes(command)) {
+      const schema = command.endsWith('-schema'), planning = command.endsWith('-plan');
+      const allowed = schema ? ['json'] : ['workspace-root', 'config', 'output', 'json', ...(planning ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!workspaceRoot || !options.config || !options.output)) {
+        throw new Error('Bootstrap schema accepts --json. Plan/bundle require --workspace-root, --config and new --output JSON; bundle needs exact --approve. No live operations.');
+      }
+      const bootstrap = await import('../src/mcp-bootstrap.js');
+      print(schema ? bootstrap.bootstrapSchema : await (planning ? bootstrap.planBootstrap : bootstrap.writeBootstrap)({
+        workspaceRoot, config: options.config, output: options.output, approval: options.approve,
+      }), true);
+      return 0;
+    }
     if (['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'].includes(command)) {
       const schema = command.endsWith('-schema'), planning = command.endsWith('-plan');
       const allowed = schema ? ['json'] : ['project', 'workspace-root', 'config', 'output', 'json',
-        ...(planning ? [] : ['approve'])];
+        ...(planning ? ['summary'] : ['approve'])];
       if (Object.keys(options).some(key => !allowed.includes(key))
         || !schema && (!workspaceRoot || !options.project || !options.config || !options.output)) {
         throw new Error('Recipe review plan/bundle requires --workspace-root, --project, --config and new --output JSON. Bundle needs exact --approve. No live operations.');
@@ -85,7 +107,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     if (['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'].includes(command)) {
       const schema = command.endsWith('-schema'), status = command.endsWith('-status'), planning = command.endsWith('-plan');
       const allowed = schema ? ['json'] : ['project', 'workspace-root', 'json',
-        ...(status ? [] : ['config', ...(planning ? [] : ['approve'])])];
+        ...(status ? [] : ['config', ...(planning ? ['summary'] : ['approve'])])];
       if (Object.keys(options).some(key => !allowed.includes(key))
         || !schema && (!workspaceRoot || !options.project || !status && !options.config)) {
         throw new Error('Operator schema accepts --json; plan/record/status require --workspace-root and --project. Plan/record need --config; record needs exact --approve. Local journal only, no execution.');
