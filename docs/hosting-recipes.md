@@ -77,7 +77,9 @@ The pull helper internally uses
 with Azure CLI file logging and dynamic extension installation disabled. It
 passes the credential only in memory through `X-Registry-Auth` to the reviewed
 local Docker API, never through command arguments, shell output, Docker login
-or a Docker config file. Debug-enabled daemons and non-loopback insecure-registry
+or a Docker config file. The header uses padded URL-safe base64, matching
+[Docker's API authentication codec](https://github.com/moby/moby/blob/v25.0.0/api/types/registry/authconfig.go).
+Debug-enabled daemons and non-loopback insecure-registry
 CIDRs are rejected; review daemon/registry diagnostics independently. Identity
 is checked again before the pull. Success additionally requires local inspection
 of the exact requested repository digest and Linux/amd64 platform; it does not

@@ -40,8 +40,10 @@ Implementation milestones on `svarukala-custom-federated-connectors`:
 | `632b511` | Preserving update previews, semantic readback, readiness and migration review |
 | `89406f4` | Bootstrap, terminal/policy/milestone UX, same-call assertions and closeout |
 | `4b531e6` | Restrict container image inputs to the supported `linux/amd64` profile |
+| `91d5fbd` | Approved host diagnostics, private ACR pull and bounded single-process MCP sessions |
+| `577201a` | Docker-compatible padded registry authentication and focused test organization |
 
-Validation: the full offline `npm test` run at `89406f4` passed **831/831**
+First-pass validation: the full offline `npm test` run at `89406f4` passed **831/831**
 tests with zero failures, skips or cancellations (about 19 minutes), including
 the fresh packed consumer with runtime networking/subprocesses denied. After
 the architecture correction, **22/22** focused hosting, image-review and artifact
@@ -51,9 +53,18 @@ container was built/scanned and no Azure, M365 or provider operation was run.
 
 Follow-up implementation adds `mcp-host-schema/plan/run`,
 `mcp-host-account-plan/switch` and `mcp-session-plan/session`, with a `session`
-terminal-handoff phase. Initial expanded offline coverage passed 139 checks for
-host operations, discovery/proof, private identity, device code and bootstrap;
-final regression is pending. All new examples are synthetic. The private pull
+terminal-handoff phase. Expanded offline coverage passed 139 checks for
+host operations, discovery/proof, private identity, device code and bootstrap.
+The full offline run at `91d5fbd` passed **854/854** tests with zero failures,
+skips or cancellations (about 24 minutes), including the fresh packed consumer.
+The final Docker header correction at `577201a` passed all **12 focused host
+operation tests**, including every base64 padding length and the integrated
+private pull. Two accidentally repeated tests were also moved out of a loop;
+the historical full-run count includes those repeats. CLI syntax, strict public
+types, whitespace checks and 112 local documentation links passed. The full
+suite was not rerun after that narrow correction and test-only reorganization.
+All new examples are synthetic; no real Docker/Azure/provider operation or
+sign-in was executed. The private pull
 uses the local Docker API, rejects insecure/debug daemon profiles, writes a
 reservation before dispatch, checks the returned digest/platform and retains
 unknown results without retry. Container diagnostics cannot auto-pull images

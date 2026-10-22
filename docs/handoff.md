@@ -19,11 +19,16 @@ It contains public engineering context only, not credentials or execution author
   correction at `4b531e6` restricts container builds to `linux/amd64`; all 22
   focused hosting/artifact checks passed afterward, as did CLI syntax and strict
   public types. The full suite was not rerun after that narrow correction.
-  These are local preparation/review capabilities, not new cloud executors.
+  Those first-pass capabilities are local preparation/review, not new cloud executors.
   A follow-up now implements separately approved `mcp-host-*` diagnostics and
   private ACR pulls, plus optional `mcp-session-plan/session` sign-in continuity.
-  Initial expanded offline coverage passed 139 checks; final regression is
-  pending. See the shared guide for flags, private source-project account
+  Implementation `91d5fbd` passed 139 focused checks and the full 854-test
+  offline suite, including the fresh packed consumer. Final Docker header
+  compatibility correction `577201a` passed 12 focused host-operation tests;
+  syntax/types and 112 local documentation links also passed. The full suite
+  was not rerun after that narrow correction and removal of repeated test
+  registrations. These are implementation checks, not live qualification.
+  See the shared guide for flags, private source-project account
   selection, local socket/Docker API requirements, synthetic examples, cleanup
   bounds and immutable pull reservations. The session is terminal-only,
   15-minute, exact-user and memory-only; proof still needs its own new approval.
