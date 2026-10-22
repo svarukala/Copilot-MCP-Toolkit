@@ -20,7 +20,7 @@ and identities are not copied here; consumed proofs remain consumed.
 | --- | --- | --- |
 | Correct FCC onboarding | R14, R15, R20 | Implemented: shared qualified portal scope, route guidance and bounded wrong-resource troubleshooting. 137 focused offline tests passed, including historical bundle compatibility |
 | Operations and waiting states | R04, R07, R10, R22 | Implemented local operator journal: exact-purpose reservation, pre-dispatch unknown state, metadata outcome records, immutable chained history, waiting/resume and derived milestones. Five offline tests passed. No cloud executor or host scheduler change; host must honor waiting |
-| Image hardening and provenance | R02, R05 | Pending |
+| Image hardening and provenance | R02, R05 | Implemented: explicit digest-pinned multistage/distroless nonroot generation, no mutable default, source/image-bound scan/SBOM/smoke review and optional release import. 35 targeted offline checks passed. Actual image build/run and signed attestation verification remain separately qualified |
 | Preserving updates and migration | R16, R17, R18, R19 | Pending |
 | Supported operator path | R01, R03, R08, R11 | Pending |
 | Authentication and milestone UX | R06, R13, R21, R23 | Pending |

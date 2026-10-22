@@ -1,5 +1,10 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+recipeOperatorReview: {
+      contractVersion: 1, commands: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
+      kinds: ['image-qualification'], provenance: 'operator-evidence-not-service-attestation',
+      cloudExecution: false, networkCalls: false, publicLibrary: false,
+    },
 operatorJournal: {
       contractVersion: 1, commands: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
       provenance: 'operator-declared-not-service-attested', storage: 'append-only-hash-chain',
@@ -23,6 +28,7 @@ hostingRecipes: {
       backendCredentials: 'native-key-vault-reference-dedicated-user-assigned-identity',
       secretResolution: false, roleGrants: false, sharedBackendEntitlement: true,
       sourceOnly: true, cloudExecution: false, liveQualified: false,
+      imageBuild: 'explicit-digest-pinned-node22-builder-and-distroless-nonroot-runtime-no-mutable-default',
     },
 containerAppsRecipe: {
       contractVersion: 1, recipe: 'container-apps-direct-v1',

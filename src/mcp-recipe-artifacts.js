@@ -75,7 +75,8 @@ async function prepareRelease(options) {
   const functions = project.input.recipe === 'functions-sdk-v1';
   const gateway = project.input.recipe === 'container-apps-apim-v1';
   requireArtifact(onlyKeys(config, functions ? ['schemaVersion', 'accountName', 'sourceArchiveSha256']
-    : ['schemaVersion', 'accountName', 'containerImage', ...(gateway ? ['backendOrigin'] : [])])
+    : ['schemaVersion', 'accountName', 'containerImage', ...(gateway ? ['backendOrigin'] : []),
+      ...(Object.hasOwn(config, 'imageReviewFile') ? ['imageReviewFile'] : [])])
     && config.schemaVersion === 1 && typeof config.accountName === 'string'
     && /^[A-Za-z0-9][A-Za-z0-9_.+@-]{0,253}$/.test(config.accountName)
     && !secretIssues(savedJson(config)), 'Release input requires an explicit nonsecret account and immutable artifact reference.');
@@ -84,6 +85,13 @@ async function prepareRelease(options) {
     requireArtifact(typeof config.containerImage === 'string' && config.containerImage.startsWith(`${registry}/`)
       && /^[a-z0-9.-]+\/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$/.test(config.containerImage),
     'Use a digest-pinned image from the selected registry, not a tag, secret or another registry.');
+  }
+  let imageQualification;
+  if (config.imageReviewFile !== undefined) {
+    requireArtifact(typeof config.imageReviewFile === 'string', 'imageReviewFile must be an explicit private JSON path.');
+    const { readImageReview } = await import('./mcp-recipe-review.js');
+    imageQualification = await readImageReview(
+      path.resolve(path.dirname(path.resolve(options.config)), config.imageReviewFile), project, config.containerImage);
   }
   if (gateway) {
     const origin = new URL(config.backendOrigin);
@@ -106,6 +114,7 @@ async function prepareRelease(options) {
     ...(gateway ? { gatewayBackendOrigin: config.backendOrigin } : {}),
     artifact: functions ? { sourceArchiveSha256: config.sourceArchiveSha256 }
       : { image: config.containerImage, imageSourceCorrespondence: 'operator-asserted-not-verified' },
+    ...(imageQualification ? { imageQualification } : {}),
     templateHashes: Object.fromEntries(templates.map(([name, bytes]) => [name, digest(bytes)])),
     parameters, execution: 'operator-reviewed-not-executed', readiness: 'requires-live-prerequisite-review',
     checkpoints: [

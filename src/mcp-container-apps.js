@@ -8,6 +8,7 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
+import { imageBuildSchema } from './mcp-image-review.js';
 import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
   backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions, apiKeyPlacementProperties, apiKeyPlacementChoice,
@@ -57,6 +58,7 @@ export const containerAppsSchema = object({
   requestsPerMinute: runtimeSchema.properties.requestsPerMinute,
 });
 const ajv = new Ajv();
+containerAppsSchema.properties.imageBuild = imageBuildSchema;
 addFormats(ajv);
 const validate = ajv.compile(containerAppsSchema);
 export const hostingSchema = { oneOf: hostingSchemas(containerAppsSchema) };
@@ -71,6 +73,8 @@ function compile(value, hosting) {
   const input = boundedSnapshot(value);
   requireRecipe((hosting ? validateHosting : validate)(input) && !secretIssues(savedJson(input)),
     `Use ${hosting ? 'mcp-hosting-schema' : 'mcp-container-apps-schema'} with explicit nonsecret target/authentication details.`);
+  requireRecipe(input.recipe !== 'functions-sdk-v1' || input.imageBuild === undefined,
+    'Functions uses a source-only remote build; do not supply container imageBuild inputs.');
   requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
   const key = input.backend.apiKey;
   if (key) {
@@ -188,16 +192,23 @@ function infrastructure(input) {
   };
 }
 
-const dockerfile = `FROM node:22-bookworm-slim
+function dockerfile(build) {
+  return `FROM --platform=${build.platform} ${build.builderImage} AS dependencies
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --fund=false
-COPY --chown=node:node server.js runtime.js runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
-USER node
+FROM --platform=${build.platform} ${build.runtimeImage}
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=dependencies --chown=65532:65532 /app/node_modules ./node_modules
+COPY --chown=65532:65532 package.json server.js runtime.js runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
+USER 65532:65532
 EXPOSE 3000
-CMD ["node", "server.js"]
+ENTRYPOINT ["/nodejs/bin/node"]
+CMD ["server.js"]
 `;
+}
 
 async function prepare(options, hosting = false) {
   requireRecipe(typeof options.config === 'string' && typeof options.output === 'string',
@@ -226,7 +237,7 @@ async function prepare(options, hosting = false) {
   files['.npmrc'] = 'registry=https://registry.npmjs.org/\n';
   files['.gitignore'] = 'node_modules/\n.env\n.env.*\n*.log\n';
   files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!server.js\n!runtime.js\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
-  files['Dockerfile'] = dockerfile;
+  if (input.imageBuild) files['Dockerfile'] = dockerfile(input.imageBuild);
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
   const appService = input.recipe === 'app-service-container-v1', functions = input.recipe === 'functions-sdk-v1';
@@ -270,6 +281,9 @@ This notice is not a complete dependency license audit or a service-content lice
     contractVersion: 1, recipe: input.recipe, status: 'generated-source-review-only',
     producer: { name: producer.name, version: producer.version, buildId: producer.contentDigest },
     target: input.azure, authentication: input.authentication, backend: input.backend, toolDefinitions: toolDefinitions(runtime),
+    imageBuild: input.recipe === 'functions-sdk-v1' ? { status: 'source-only-remote-build' }
+      : input.imageBuild ? { status: 'reviewed-inputs-not-built', ...input.imageBuild }
+        : { status: 'blocked-missing-digest-pinned-inputs' },
     evidence: 'generated-definitions-not-observed-tools-list',
     limitations: [
       'Local generation only; no install, image build/push, cloud operation, token acquisition or backend call.',

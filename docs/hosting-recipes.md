@@ -1,5 +1,48 @@
 # MCP hosting recipes
 
+## Minimal images and qualification
+
+New container source generation requires an explicit `imageBuild` object to
+emit a Dockerfile. Without it, source generation still works for review, but
+`recipe-review.json` reports `blocked-missing-digest-pinned-inputs` and **no
+Dockerfile is generated**. There is no mutable-tag fallback. Historical sealed
+projects are never rewritten. Functions retains its separate source-only build.
+
+Supply reviewed, currently available images in this form (replace digests;
+these placeholders are not accepted inputs):
+
+```json
+{
+  "imageBuild": {
+    "builderImage": "node:22-bookworm-slim@sha256:<64 lowercase hex digits>",
+    "runtimeImage": "gcr.io/distroless/nodejs22-debian12:nonroot@sha256:<64 lowercase hex digits>",
+    "platform": "linux/amd64"
+  }
+}
+```
+
+The multistage Dockerfile installs locked dependencies with scripts disabled,
+then copies only runtime dependencies, application files and notices into the
+distroless nonroot runtime. Review platform compatibility and refresh base
+digests; no image is downloaded or declared safe by generation.
+
+Use `mcp-recipe-review-schema` and the `image-qualification` input for a
+separate `mcp-recipe-review-plan/bundle` (explicit private workspace, sealed
+project, config, new output JSON and exact write approval). It binds the source,
+base digests/platform, builder-run evidence, SBOM, scan and network-disabled
+nonroot actual-image smoke metadata to the same final image. The initial policy
+requires zero critical/high findings and scan/database age no greater than 24
+hours. Other findings remain visible; no exception is silently granted.
+
+A release config may supply `imageReviewFile`, resolved relative to that config.
+The review is revalidated against source, image and freshness; invalid evidence
+blocks preparation. Release without it remains explicitly unqualified and
+operator-reviewed, not authorization to deploy. Imported evidence is an
+operator declaration, not proof the scanner ran or a verified signed build
+attestation. No scan, image build/push, registry login or provider call is
+performed by these commands. Actual container execution remains a separately
+reviewed qualification step.
+
 ## Operator records and resumable handoffs
 
 `mcp-operator-schema` describes a separate, local operator journal. Use

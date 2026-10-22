@@ -20,6 +20,15 @@ APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
 private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
 Generation is local and is not part of the terminal wizard or APIM Resume.
 
+For container hosts, collect the reviewed `imageBuild` builder/runtime digests
+and platform before source generation. Without them the toolkit deliberately
+does not emit a Dockerfile; never substitute a mutable tag or edit sealed source
+in place. Generate a new project after selecting the inputs. Use the separate
+`mcp-recipe-review-*` image-qualification contract for digest-bound scan, SBOM
+and offline actual-image smoke evidence, and bind it as `imageReviewFile` in a
+new release review. Imported receipts are operator declarations, not signed
+attestations. Never build, pull, scan or deploy merely to fill a missing field.
+
 Explain the current boundary in plain language: Entra sign-in for callers,
 anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
 host prerequisites from the guide. Ask for actual resource

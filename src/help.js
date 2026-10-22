@@ -1,4 +1,5 @@
 export const commandFamilies = {
+  recipeReviews: ['mcp-recipe-review-schema', 'mcp-recipe-review-plan', 'mcp-recipe-review-bundle'],
   operator: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
   containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
   hosting: ['mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'],
@@ -71,6 +72,12 @@ dispatch, observe, wait, resume and owner-result events. Plan/record take --conf
 record needs exact --approve. This append-only operator-declaration journal never
 executes cloud commands or authorizes a proof. Record dispatch BEFORE external
 execution; empty output is unknown, not permission to retry. Status is read-only.
+Recipe reviews: schema describes bounded operator evidence. Plan/bundle require
+workspace/project/config and new output JSON; bundle needs exact --approve.
+Container generation emits a minimal nonroot Dockerfile only when imageBuild
+provides reviewed builder/runtime digests and platform. No mutable base fallback.
+Image review binds scan/SBOM/smoke metadata to source and image, not attestation.
+Release may reference imageReviewFile; stale or failing qualification is refused.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports

@@ -73,7 +73,8 @@ test('generation binds reviewed source, destination and target without APIM or e
   assert.equal(plan.review.evidence, 'generated-definitions-not-observed-tools-list');
   assert.equal(plan.review.toolDefinitions[0].annotations.readOnlyHint, true);
   assert.match(plan.files['runtime.js'], /jwtVerify/);
-  assert.match(plan.files['Dockerfile'], /USER node/);
+  assert.equal(plan.files.Dockerfile, undefined);
+  assert.equal(plan.review.imageBuild.status, 'blocked-missing-digest-pinned-inputs');
   const template = JSON.parse(plan.files['infra/container-app.json']);
   assert.equal(template.resources.length, 1);
   assert.equal(template.resources[0].type, 'Microsoft.App/containerApps');
