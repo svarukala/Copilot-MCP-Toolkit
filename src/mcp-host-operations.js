@@ -13,7 +13,7 @@ import { getLibraryInfo } from './machine-contract.js';
 import { readAzureIdentity, azureIdentityGuard, validateAzureAccountTarget, planAzureAccountSwitch, switchAzureAccount } from './azure-identity.js';
 import { runAzureCommand } from './azure.js';
 import { publicHttpsTransport } from './anonymous-network.js';
-import { dockerSocketSchema, dockerEngineRequest, dockerJson, dockerError } from './docker-engine.js';
+import { dockerSocketSchema, dockerEngineRequest, dockerJson, dockerError, registryAuthHeader } from './docker-engine.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, properties, required: Object.keys(properties) });
 const base = { schemaVersion: { const: 1 } };
@@ -192,8 +192,7 @@ async function privatePull(plan, call, run, signal, reserve) {
     await azureIdentityGuard({ azure: source.input.azure }, plan.projectDir, plan.identity, guardedRun);
     requireMetadata((await readRecipeProject(plan.projectDir)).manifest.contentDigest === plan.sourceManifestDigest
       && !signal.aborted, 'METADATA_MISMATCH');
-    const authorization = Buffer.from(JSON.stringify({ username: '00000000-0000-0000-0000-000000000000',
-      password: credential.accessToken, serveraddress: host })).toString('base64url');
+    const authorization = registryAuthHeader(host, credential.accessToken);
     await reserve();
     const response = await call(`${api}/images/create?fromImage=${encodeURIComponent(plan.input.image)}&platform=linux%2Famd64`, {
       method: 'POST', headers: { 'X-Registry-Auth': authorization }, timeoutMs: 540000, maxBytes: 8388608,

@@ -2,6 +2,11 @@ import { request } from 'node:http';
 
 export const dockerSocketSchema = { type: 'string', maxLength: 160,
   pattern: '^(?:\\\\\\\\\\.\\\\pipe\\\\docker(?:_engine|DesktopLinuxEngine)|/var/run/docker\\.sock|/run/user/[0-9]+/docker\\.sock)$' };
+export function registryAuthHeader(server, token) {
+  // Docker's Go URLEncoding decoder requires padding; Node's base64url encoding omits it.
+  return Buffer.from(JSON.stringify({ username: '00000000-0000-0000-0000-000000000000',
+    password: token, serveraddress: server })).toString('base64').replaceAll('+', '-').replaceAll('/', '_');
+}
 export function dockerError(code) {
   return Object.assign(new Error(`Docker operation stopped (${code}); inspect retained metadata before any new operation.`),
     { code });

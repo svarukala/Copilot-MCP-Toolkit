@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { TOOLKIT_ROOT } from '../src/config.js';
 import { planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { planHostOperation, runHostOperation, hostingAccount } from '../src/mcp-host-operations.js';
-import { dockerEngineRequest } from '../src/docker-engine.js';
+import { dockerEngineRequest, registryAuthHeader } from '../src/docker-engine.js';
 import { main } from '../bin/copilot-mcp.js';
 import { azureCommandEnvironment, runAzureCommand } from '../src/azure.js';
 import { EventEmitter } from 'node:events';
@@ -59,6 +59,7 @@ async function fixture(t, input) {
     if (route.endsWith('/info')) return jsonResponse({ Debug: false,
       RegistryConfig: { InsecureRegistryCIDRs: ['127.0.0.0/8'], IndexConfigs: {} } });
     if (route.includes('/images/create?')) {
+      assert.equal(opts.headers['X-Registry-Auth'].length % 4, 0);
       const auth = JSON.parse(Buffer.from(opts.headers['X-Registry-Auth'], 'base64url'));
       assert.equal(auth.password, secret);
       assert.equal(auth.username, '00000000-0000-0000-0000-000000000000');
@@ -73,6 +74,20 @@ async function fixture(t, input) {
     save: () => writeFile(options.config, JSON.stringify(input)) };
 }
 const flags = { allowLocal: true, allowNetwork: true, allowCloud: true };
+test('registry authentication uses Docker-compatible padded URL-safe base64 for every padding length', () => {
+  const padding = new Set();
+  for (const token of ['~~~+++///', '~~~+++///x', '~~~+++///xy']) {
+    const encoded = registryAuthHeader('fixture.azurecr.io', token);
+    assert.match(encoded, /^[A-Za-z0-9_-]+={0,2}$/);
+    assert.equal(encoded.length % 4, 0);
+    padding.add(encoded.match(/=*$/)[0].length);
+    const decoded = Buffer.from(encoded.replaceAll('-', '+').replaceAll('_', '/'), 'base64');
+    assert.equal(decoded.toString('base64').replaceAll('+', '-').replaceAll('/', '_'), encoded);
+    assert.deepEqual(JSON.parse(decoded), { username: '00000000-0000-0000-0000-000000000000',
+      password: token, serveraddress: 'fixture.azurecr.io' });
+  }
+  assert.deepEqual([...padding].sort(), [0, 1, 2]);
+});
 test('Docker transport keeps registry auth on a local socket and bounds errors, bytes and cancellation', async () => {
   const calls = [];
   const fake = (text, stall = false) => ({ requestImpl: (options, receive) => {
@@ -198,43 +213,43 @@ test('ambiguous pull output is consumed and raw registry/daemon errors never rea
         return f.dockerRequest(s, route, opts);
       },
     });
-    test('insecure or debug-enabled daemons are blocked before token acquisition and pull reservation', async t => {
-      const f = await fixture(t, { schemaVersion: 1, kind: 'private-image-pull', ...engine });
-      const plan = await planHostOperation(f.options);
-      const report = await runHostOperation({ ...f.options, ...flags, approval: plan.approvalDigest }, {
-        runAzure: f.runAzure, dockerRequest: (s, route, opts) => route.endsWith('/info')
-          ? jsonResponse({ Debug: true, RegistryConfig: { InsecureRegistryCIDRs: ['0.0.0.0/0'] } })
-          : f.dockerRequest(s, route, opts),
-      });
-      assert.equal(report.result.status, 'blocked-before-pull');
-      assert.equal(f.azureCalls.filter(c => c.args[0] === 'acr').length, 0);
-      const next = await planHostOperation({ ...f.options, output: path.join(f.options.workspaceRoot, 'new-reviewed-check.json') });
-      assert.notEqual(next.approvalDigest, plan.approvalDigest);
-    });
-    test('container cleanup refuses a mismatched owner rather than deleting a different container', async t => {
-      const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine,
-        image: `node:22-bookworm-slim@${hash}` });
-      const plan = await planHostOperation(f.options);
-      let creates = 0;
-      const report = await runHostOperation({ ...f.options, approval: plan.approvalDigest, allowLocal: true, allowNetwork: true }, {
-        dockerRequest: (s, route, opts) => {
-          assert.notEqual(opts.method, 'DELETE');
-          if (route.includes('/containers/create')) {
-            creates++; throw Object.assign(new Error('lost response'), { code: 'DOCKER_TIMEOUT' });
-          }
-          if (route.includes('/containers/')) return jsonResponse({ Id: 'c'.repeat(64), Config: { Labels: {} } });
-          return f.dockerRequest(s, route, opts);
-        },
-      });
-      assert.equal(creates, 1);
-      assert.equal(report.result.code, 'DOCKER_CLEANUP_UNKNOWN');
-      assert.equal(report.result.cleanup, 'unknown');
-      assert.match(report.result.containerName, /^copilot-mcp-probe-/);
-    });
     assert.equal(report.result.status, 'unknown-no-replay'); assert.equal(dispatched, 1);
     assert.ok(!JSON.stringify(report).includes(f.secret));
     await assert.rejects(planHostOperation({ ...f.options, output: path.join(f.options.workspaceRoot, 'retry.json') }));
   }
+});
+test('insecure or debug-enabled daemons are blocked before token acquisition and pull reservation', async t => {
+  const f = await fixture(t, { schemaVersion: 1, kind: 'private-image-pull', ...engine });
+  const plan = await planHostOperation(f.options);
+  const report = await runHostOperation({ ...f.options, ...flags, approval: plan.approvalDigest }, {
+    runAzure: f.runAzure, dockerRequest: (s, route, opts) => route.endsWith('/info')
+      ? jsonResponse({ Debug: true, RegistryConfig: { InsecureRegistryCIDRs: ['0.0.0.0/0'] } })
+      : f.dockerRequest(s, route, opts),
+  });
+  assert.equal(report.result.status, 'blocked-before-pull');
+  assert.equal(f.azureCalls.filter(c => c.args[0] === 'acr').length, 0);
+  const next = await planHostOperation({ ...f.options, output: path.join(f.options.workspaceRoot, 'new-reviewed-check.json') });
+  assert.notEqual(next.approvalDigest, plan.approvalDigest);
+});
+test('container cleanup refuses a mismatched owner rather than deleting a different container', async t => {
+  const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine,
+    image: `node:22-bookworm-slim@${hash}` });
+  const plan = await planHostOperation(f.options);
+  let creates = 0;
+  const report = await runHostOperation({ ...f.options, approval: plan.approvalDigest, allowLocal: true, allowNetwork: true }, {
+    dockerRequest: (s, route, opts) => {
+      assert.notEqual(opts.method, 'DELETE');
+      if (route.includes('/containers/create')) {
+        creates++; throw Object.assign(new Error('lost response'), { code: 'DOCKER_TIMEOUT' });
+      }
+      if (route.includes('/containers/')) return jsonResponse({ Id: 'c'.repeat(64), Config: { Labels: {} } });
+      return f.dockerRequest(s, route, opts);
+    },
+  });
+  assert.equal(creates, 1);
+  assert.equal(report.result.code, 'DOCKER_CLEANUP_UNKNOWN');
+  assert.equal(report.result.cleanup, 'unknown');
+  assert.match(report.result.containerName, /^copilot-mcp-probe-/);
 });
 test('stale approvals and missing network/cloud gates cannot acquire a registry token', async t => {
   const f = await fixture(t, { schemaVersion: 1, kind: 'private-image-pull', ...engine });
