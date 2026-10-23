@@ -17,7 +17,7 @@ review, not silent installation, skill replacement or stale-approval reuse.
 
 ## New or resume
 
-For reusable validation of an **existing direct Container Apps deployment**,
+For reusable validation of an **existing direct Container Apps deployment** (v1),
 read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private
 run with reviewed `mcp-validation-plan/start`, then drive
 `mcp-validation-next/run/status` using the same pinned build and run directory.
@@ -30,6 +30,25 @@ not verified. Honor `repeatPrompt:false` and source-operator waits; stop on unkn
 or consumed execution. `--phase refresh` only refreshes a local report; `--phase
 handover` supports separately approved incomplete closeout. No registration,
 deployment, credential resolution or network operation is implied by start.
+
+For fresh creation validation, use the v2 schemas in the same command family.
+Priority: direct Container Apps, Container Apps behind APIM, native APIM from
+REST, and existing MCP/proxies. Read the guide's support matrix before selecting
+header/query Key Vault keys or Entra profiles; Entra caller access never means
+the SDK REST backend supports Entra/OBO. Pin definitionFile and explicitly list
+all related MCP project histories, including replaced references. Do not reuse
+a consumed provider purpose by creating a new run/reference/source. V2 rechecks
+those declared histories during network execution; it cannot find omitted histories.
+Drive one exact next phase at a time using only its requiredFlags. Native/proxy
+APIM account/lifecycle uses existing private executors; SDK build/deployment,
+negative tests, secret resolution/rotation and consumer actions remain separate
+reviewed operations with owner evidence checkpoints. Release/reference requests
+select actual image/account/endpoint inputs, not invented successful values.
+Use v2 --phase handover for a frozen SDK snapshot or --phase archive for private
+MCP evidence; keep the run/report separately. Neither export authorizes replay.
+Third-party OAuth REST, OBO token exchange and username/password profiles are the
+next priority after these runners, not implemented by this workflow. Distinguish
+Basic authentication, password exchange and ROPC; never assume the last is wanted.
 
 When the user requests hosting without APIM, or needs server-owned tool
 annotations, first read `docs/hosting-recipes.md`, the chosen host guide and

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 2,
+  "scenario": "container-apps-create-v2",
+  "definitionFile": "container-apps-direct-api-key.json",
+  "discovery": {
+    "discoveryClientId": "44444444-4444-4444-8444-444444444444",
+    "expectedUserId": "77777777-7777-4777-8777-777777777777"
+  },
+  "proof": {
+    "toolName": "get_information",
+    "arguments": {},
+    "safetyReview": {
+      "readOnly": true,
+      "reason": "Owner reviewed the fixed synthetic GET."
+    }
+  },
+  "probeMode": "separate",
+  "consumer": "none",
+  "relatedProjects": [],
+  "historyReviewed": true,
+  "privateExportReviewed": true
+}

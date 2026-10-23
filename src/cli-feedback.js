@@ -131,7 +131,7 @@ export function cliPlanSummary(plan) {
   }
   if (!plan.action) return;
   if (['mcp-validation-start', 'mcp-validation-next'].includes(plan.action)) {
-    writeFeedback(state, `[validation summary]\nPhase: ${safe(plan.phase ?? plan.status ?? 'start')}\nRun: ${safe(plan.runDirectory ?? plan.outputPath ?? plan.report?.runDirectory)}\n${(plan.effects ?? [plan.reason]).map(safe).join('\n')}\n${plan.approvalToken ? `EXACT approvalToken: ${safe(plan.approvalToken)}` : 'Paused; no operation is authorized.'}\nReview the full child plan on stdout. This approval is for one phase, never deployment or renewed proof authority.\n`);
+    writeFeedback(state, `[validation summary]\nPhase: ${safe(plan.phase ?? plan.status ?? 'start')}\nRun: ${safe(plan.runDirectory ?? plan.outputPath ?? plan.report?.runDirectory)}\nRequired effect flags: ${(plan.requiredFlags ?? []).map(safe).join(' ') || 'none'}\n${(plan.effects ?? [plan.reason]).map(safe).join('\n')}\n${plan.approvalToken ? `EXACT approvalToken: ${safe(plan.approvalToken)}` : 'Paused; no operation is authorized.'}\nReview the full child plan on stdout. This approval covers only the displayed phase, never later deployment or renewed proof authority.\n`);
     return;
   }
   if (plan.action === 'mcp-handover-bundle') {

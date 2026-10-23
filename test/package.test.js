@@ -284,6 +284,24 @@ for (const project of ${JSON.stringify(securedProjects)}) {
   const validationHandover = invoke(['mcp-validation-next', ...activeValidation, '--phase', 'handover']).result;
   assert.equal(invoke(['mcp-validation-run', ...activeValidation, '--phase', 'handover',
     '--approve', validationHandover.approvalToken], [2]).result.handovers.length, 1);
+  const creationInput = path.join(workspace, 'creation-input.json'), creationOutput = path.join(workspace, 'creation-run');
+  await writeFile(creationInput, JSON.stringify({
+    schemaVersion: 2, scenario: 'container-apps-create-v2', definitionFile: containerInput,
+    discovery: { discoveryClientId: recipeDefinition.authentication.allowedClientIds[0],
+      expectedUserId: '55555555-5555-4555-8555-555555555555' },
+    proof: { toolName: recipeDefinition.operationIds[0], arguments: {},
+      safetyReview: { readOnly: true, reason: 'Reviewed synthetic fixed GET.' } },
+    probeMode: 'separate', consumer: 'none', relatedProjects: [], historyReviewed: true, privateExportReviewed: true,
+  }));
+  const creationArgs = ['--workspace-root', workspace, '--config', creationInput, '--output', creationOutput];
+  const creationPlan = invoke(['mcp-validation-plan', ...creationArgs]).result;
+  invoke(['mcp-validation-start', ...creationArgs, '--approve', creationPlan.approvalToken]);
+  const activeCreation = ['--workspace-root', workspace, '--project', creationOutput];
+  const generation = invoke(['mcp-validation-next', ...activeCreation]).result;
+  assert.equal(generation.phase, 'generate');
+  invoke(['mcp-validation-run', ...activeCreation, '--approve', generation.approvalToken]);
+  assert.equal(invoke(['mcp-validation-next', ...activeCreation], [2]).result.gate, 'prerequisites');
+  assert.equal(invoke(['mcp-validation-status', ...activeCreation]).result.coverage.cloudDeployment, 'not-automated');
   const guidedProject = path.join(workspace, 'guided-reference');
   const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
   await writeFile(rehearsal, `

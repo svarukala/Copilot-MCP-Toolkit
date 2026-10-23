@@ -51,7 +51,7 @@ export const runInteractiveSession = (options, dependencies = {}) => scoped(opti
         ? { discoveryClientId: reviewed.discovery.operation.auth.discoveryClientId,
           expectedUserId: reviewed.discovery.operation.auth.expectedUserId } : {},
       approval: reviewed.discovery, allowNetwork: true, onDeviceCode: options.onDeviceCode, signal,
-    }, session);
+    }, session, false, dependencies.validationGuard);
     const selection = { ...reviewed.proofSelection, capture: discovery.resultFile };
     const proof = await planMcpProjectProof(reviewed.projectDir, selection);
     assertMcpProofHistory(proof.proofHistory, proof.approvalDigest, proof.operation.approvalDigest, proof.operation);
@@ -62,7 +62,7 @@ export const runInteractiveSession = (options, dependencies = {}) => scoped(opti
       captureFile: discovery.resultFile, proofInvoked: false };
     const result = await runMcpProjectSessionOperation(reviewed.projectDir, {
       selection, approval: proof, allowNetwork: true, onDeviceCode: options.onDeviceCode, signal,
-    }, session, true);
+    }, session, true, dependencies.validationGuard);
     return { status: result.result.status, captureFile: discovery.resultFile, proofFile: result.resultFile,
       ...(result.result.backendAssertion ? { backendAssertion: result.result.backendAssertion } : {}),
       tokenPersistence: 'none', coworkRuntimeVerified: false };

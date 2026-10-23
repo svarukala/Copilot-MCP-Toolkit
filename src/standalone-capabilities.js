@@ -1,12 +1,17 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
 validation: {
-      contractVersion: 1, commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
+      contractVersion: 2, supportedInputVersions: [1, 2], commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
         'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
-      scenarios: ['container-apps-existing-v1'], storage: 'private-append-only-checkpoints-and-reports',
-      automated: ['local-integrity', 'approved-discovery', 'separately-approved-one-call-proof', 'approved-handover'],
+      scenarios: ['container-apps-existing-v1', 'container-apps-create-v2', 'container-apps-apim-create-v2',
+        'native-apim-create-v2', 'existing-mcp-create-v2', 'mcp-proxy-create-v2'],
+      storage: 'private-append-only-checkpoints-and-reports',
+      automated: ['local-integrity', 'approved-generation', 'approved-release-and-reference',
+        'approved-private-APIM-account-and-lifecycle', 'approved-discovery', 'separately-approved-one-call-proof', 'approved-handover-or-archive'],
       ownerCheckpoints: 'reported-not-independently-verified', maximumSessionMs: 900000,
-      deployment: false, registration: false, automaticRetry: false, persistentTokens: false,
+      deployment: 'managed-APIM-only-with-separate-exact-approval', sdkBuildAndDeployment: 'separate-owner-operations',
+      authentication: 'caller-and-backend-distinct-existing-profile-gates-not-cartesian-product',
+      relatedEndpointHistories: 'explicit-read-and-dispatch-guarded', registration: false, automaticRetry: false, persistentTokens: false,
       liveQualified: false, publicLibrary: false,
     },
 deploymentHandover: {

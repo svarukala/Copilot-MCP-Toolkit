@@ -255,7 +255,7 @@ Testing support is narrower than generation support. Read the
 | --- | --- |
 | Follow the guided setup or use Copilot CLI | [Copilot CLI guide](docs/copilot-cli.md) |
 | Choose an SDK server host or APIM gateway | [Four hosting recipes](docs/hosting-recipes.md) |
-| Resume agent-driven validation of an existing direct Container Apps endpoint | [Reusable validation](docs/reusable-validation.md) |
+| Resume existing direct ACA validation or fresh direct ACA / ACA+APIM / native REST APIM / existing MCP and proxy journeys | [Reusable validation](docs/reusable-validation.md) |
 | Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
 | Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
 | Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |

@@ -140,7 +140,7 @@ async function readRecord(filename, maximum) {
   requireMetadata(bytes.length <= maximum, 'LIMIT');
   return boundedSnapshot(JSON.parse(bytes), maximum);
 }
-async function executeUnlocked(project, options = {}, proof = false, testRun, runAzure) {
+async function executeUnlocked(project, options = {}, proof = false, testRun, runAzure, validationGuard) {
   const projectDir = project.projectDir;
   const qualification = proof === 'qualification';
   requireMetadata(options.allowNetwork === true, 'NETWORK_APPROVAL_REQUIRED');
@@ -156,6 +156,7 @@ async function executeUnlocked(project, options = {}, proof = false, testRun, ru
   requireMetadata(options.allowCloud === undefined || Boolean(mapping), 'INVALID_CONFIG');
   requireMetadata(!options.signal?.aborted, 'ABORTED');
   const guard = async () => {
+    await validationGuard?.();
     requireMetadata(!options.signal?.aborted, 'ABORTED');
     requireMetadata(equal(await plan(projectDir, selection, proof, output && path.basename(output)), reviewed), 'METADATA_MISMATCH');
     if (intent) requireMetadata(equal(await readRecord(path.join(output, 'intent.json'), 1048576), intent), 'METADATA_MISMATCH');
@@ -246,18 +247,21 @@ async function executeUnlocked(project, options = {}, proof = false, testRun, ru
     throw error;
   } finally { await lock.close(); await unlink(lockFile); }
 }
-async function execute(projectDir, options, proof, testRun, runAzure) {
+async function execute(projectDir, options, proof, testRun, runAzure, validationGuard) {
   const project = await readMcpServerProject(projectDir);
-  const run = () => executeUnlocked(project, options, proof, testRun, runAzure);
+  const run = () => executeUnlocked(project, options, proof, testRun, runAzure, validationGuard);
   return project.review.input.schemaVersion === 3 ? withControlLock(project.projectDir, run) : run();
 }
 export const discoverMcpProjectTools = (projectDir, options) => execute(projectDir, options);
 export const runMcpProjectProof = (projectDir, options, { runAzure } = {}) => execute(projectDir, options, true, undefined, runAzure);
 export const runMcpProjectQualification = (projectDir, options) => execute(projectDir, options, 'qualification');
-export const executeMcpProjectForTest = (projectDir, options, proof, run, runAzure) => execute(projectDir, options, proof, run, runAzure);
-export const runMcpProjectSessionOperation = (projectDir, options, session, proof = false) =>
+export const executeMcpProjectForTest = (projectDir, options, proof, run, runAzure, validationGuard) =>
+  execute(projectDir, options, proof, run, runAzure, validationGuard);
+export const runMcpProjectValidationOperation = (projectDir, options, proof, validationGuard, runAzure) =>
+  execute(projectDir, options, proof, undefined, runAzure, validationGuard);
+export const runMcpProjectSessionOperation = (projectDir, options, session, proof = false, validationGuard) =>
   execute(projectDir, options, proof, (source, execution, guard, hooks) => {
     requireMetadata(source.kind === 'existing-mcp' && source.inbound.type === 'entra' && !hooks.mapping,
       'AUTH_CONFIG_INVALID');
     return runMcpSessionOperation(source, execution, proof, session, guard, hooks);
-  });
+  }, undefined, validationGuard);

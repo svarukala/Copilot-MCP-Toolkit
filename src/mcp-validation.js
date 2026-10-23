@@ -52,19 +52,19 @@ export const validationCheckpointSchema = object({
 export const validationSchema = { scenario: validationScenarioSchema, checkpoint: validationCheckpointSchema };
 const ajv = new Ajv(); addFormats(ajv);
 const validScenario = ajv.compile(validationScenarioSchema), validCheckpoint = ajv.compile(validationCheckpointSchema);
-const digest = value => metadataDigest(boundedSnapshot(value));
-const keys = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
+export const digest = value => metadataDigest(boundedSnapshot(value));
+export const keys = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).sort().join(',') === [...names].sort().join(',');
-function requireRun(ok, code, message) {
+export function requireRun(ok, code, message) {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_VALIDATION_${code}` });
 }
-function checked(value, validator) {
+export function checked(value, validator) {
   const input = boundedSnapshot(value);
   requireRun(validator(input) && !secretIssues(savedJson(input)), 'INPUT',
     'Use mcp-validation-schema with explicit nonsecret metadata; no credentials, raw logs or verified-status declarations.');
   return input;
 }
-const scoped = async (options, action) => {
+export const scoped = async (options, action) => {
   requireRun(typeof options.workspaceRoot === 'string', 'WORKSPACE', 'Select an explicit private --workspace-root.');
   try { return await withCliWorkspace(options.workspaceRoot, action); }
   catch (error) {
@@ -72,7 +72,7 @@ const scoped = async (options, action) => {
     throw error;
   }
 };
-async function absent(file) {
+export async function absent(file) {
   try { await lstat(file); requireRun(false, 'EXISTS', 'Output already exists; preserve it and select a new directory.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }

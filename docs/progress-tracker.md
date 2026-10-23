@@ -9,6 +9,42 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Priority: reusable fresh-creation runners
+
+V2 creation runners are implemented through the same `mcp-validation-*` family,
+preserving the v1 existing-deployment contract. The focused integration gate
+passed **164/164** tests with zero failures/skips/cancellations, including fresh
+packed CLI coverage. After an Azure/MCP terminal-label refinement, a subsequent
+**8/8** focused check covered private identity, real finalize delegation, uncertain
+gateway barriers and CLI feedback; its mocked executor preserves the existing
+per-command identity readbacks. Start pins a private definition/build and explicitly declared related
+endpoint histories; each next/run approves one existing generator, artifact,
+private APIM lifecycle or MCP protocol operation. Failed/unknown/dispatched
+purposes stay consumed, including across explicitly related replacement references.
+
+| Priority family | Implemented runner scope | Not yet qualified / unsupported |
+| --- | --- | --- |
+| Direct Container Apps | Fresh SDK source, release, reference, Entra caller discovery/proof; header/query Key Vault backend keys | Actual builds/feed/image/deployment and negative/rotation/consumer gates remain separate; SDK Entra backend unsupported |
+| Container Apps behind APIM | Same plus actual host/backend origin, gateway release and bypass checkpoint | Actual gateway deployment and two-token enforcement still need live qualification |
+| Native APIM from REST | Private account, existing foundation/finalize/gateway/reconciliation and protocol planners; key and existing Entra backend profiles | Header-key unannotated proof unsupported; query-key, delegated fixture and managed-identity Graph proof remain narrow, not universal |
+| Existing MCP / proxies | New local existing reference; Entra/anonymous discovery and annotated proof; guarded proxy v2/v3 lifecycle | Existing API-key caller/OAuth login unsupported; v3 header only and experimental; provider compatibility needs controlled live evidence |
+| Next: third-party OAuth REST / OBO / username-password | Recorded as subsequent implementation priorities | No new executor; distinguish grants/token exchange/Basic/password exchange, do not assume ROPC |
+
+Build/deployment/negative/consumer checkpoints are explicitly owner-reported;
+they are not replaced with synthetic passes. SDK handover and MCP recovery
+archive use their existing separately approved exporters. No live operation,
+installed-skill update, package publication or merge is part of this increment.
+See [the v2 contract and support matrix](reusable-validation.md#fresh-creation-runners-version-2).
+
+Prior frozen candidate `d9d091d` passed the complete offline gate **925/925** with
+zero failures/skips/cancellations. Subsequently, separately approved real Entra
+metadata discovery passed without a provider tools/call; the older provider proof
+remained consumed. This is authentication/discovery evidence only, not fresh
+creation, full consumer acceptance or qualification of these new v2 runners.
+The full repository suite was not rerun for v2. Syntax/public types and asset
+inventory passed; final closeout documentation records these scoped results,
+not a new full-suite or live qualification.
+
 ### Reusable existing-deployment validation
 
 The first `mcp-validation-*` scenario targets a sealed direct Container Apps

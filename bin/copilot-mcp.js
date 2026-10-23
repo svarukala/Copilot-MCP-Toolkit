@@ -27,7 +27,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
   let standaloneMcp = false;
   const terminalCallbacks = () => ({
     onDeviceCode: onMcpDeviceCode ?? (({ verificationUri, userCode, expiresAt }) => {
-      process.stderr.write(`MCP sign-in: ${verificationUri}\nCode: ${userCode}\nExpires: ${expiresAt}\nDo not save or transcript this challenge.\n`);
+      process.stderr.write(`${expiresAt ? 'MCP' : 'Azure'} sign-in: ${verificationUri}\nCode: ${userCode}\n${expiresAt ? `Expires: ${expiresAt}\n` : ''}Do not save or transcript this challenge.\n`);
     }),
     approveProof: sessionProofApproval ?? (async (proof, signal) => {
       process.stderr.write(`Discovery completed. Separate exact proof review:\n${JSON.stringify(proof, null, 2)}\n`);
@@ -73,7 +73,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       throw new Error('--use-device-code is supported only for explicit Azure or standalone MCP account plan/switch commands.');
     }
     if (options['experimental-configuration'] !== undefined && !['mcp-reconcile-plan', 'mcp-reconcile'].includes(command)) throw new Error('--experimental-configuration is supported only for explicit v3 reconciliation/refresh.');
-    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
+    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-validation-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
     if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session', 'mcp-validation-run'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
     if (options['allow-local'] !== undefined && command !== 'mcp-host-run') throw new Error('--allow-local applies only to reviewed local Docker operations.');
     if ((options['allow-provider'] !== undefined || options['confirm-identity'] !== undefined) && command !== 'mcp-auth-execute') {
@@ -93,18 +93,29 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
         plan: ['workspace-root', 'config', 'output', 'json', 'summary'],
         start: ['workspace-root', 'config', 'output', 'json', 'approve'],
         next: ['workspace-root', 'project', 'config', 'phase', 'json', 'summary'],
-        run: ['workspace-root', 'project', 'config', 'phase', 'json', 'approve', 'allow-network', 'interactive', 'progress'],
+        run: ['workspace-root', 'project', 'config', 'phase', 'json', 'approve', 'allow-network', 'allow-cloud', 'interactive', 'progress'],
         status: ['workspace-root', 'project', 'json'],
       }[kind];
       if (Object.keys(options).some(key => !allowed.includes(key)) || kind !== 'schema' && (!workspaceRoot
         || (['plan', 'start'].includes(kind) ? !options.config || !options.output : !options.project))) {
         throw new Error('Validation plan/start requires --workspace-root, --config and new --output. Next/run/status selects the retained run with --project. Only run accepts exact --approve and its planned effect flags.');
       }
-      const validation = await import('../src/mcp-validation.js');
-      if (kind === 'schema') { print(validation.validationSchema, true); return 0; }
-      if (options['allow-network'] && (!options.interactive
-        || (!sessionProofApproval || !onMcpDeviceCode) && (!process.stdin.isTTY || !process.stderr.isTTY))) {
-        throw new Error('Network validation needs a real terminal for sign-in and separate proof review. Local planning and checkpoints do not authenticate.');
+      let validation = await import('../src/mcp-validation.js');
+      if (kind === 'schema') {
+        const creation = await import('../src/mcp-validation-journey.js');
+        print({ ...validation.validationSchema, creationScenario: creation.creationScenarioSchema,
+          creationCheckpoint: creation.creationCheckpointSchema, creationCoverage: creation.creationCoverage }, true);
+        return 0;
+      }
+      const { readControl } = await import('../src/mcp-control.js');
+      const input = await readControl(['plan', 'start'].includes(kind) ? path.resolve(options.config)
+        : path.resolve(options.project, 'validation-run.json'));
+      const creation = input.schemaVersion === 2;
+      if (creation) validation = await import('../src/mcp-validation-journey.js');
+      if (!creation && options['allow-cloud'] !== undefined) throw new Error('Existing-deployment v1 validation has no cloud execution phase.');
+      if ((!creation && options['allow-network'] && !options.interactive)
+        || options.interactive && (!sessionProofApproval || !onMcpDeviceCode) && (!process.stdin.isTTY || !process.stderr.isTTY)) {
+        throw new Error('Interactive validation needs a real terminal for sign-in and separate proof review. Local planning and checkpoints do not authenticate.');
       }
       const controller = new AbortController(), cancel = () => { controller.abort(); prompter?.close(); };
       process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
@@ -113,8 +124,9 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
           next: validation.nextValidation, run: validation.runValidation, status: validation.validationStatus }[kind];
         const result = await operation({ workspaceRoot, project: options.project, config: options.config,
           output: options.output, phase: options.phase, approval: options.approve,
-          allowNetwork: options['allow-network'], interactive: options.interactive, signal: controller.signal,
-          ...terminalCallbacks() }, { sessionDependencies, mcpProjectOperation });
+          allowNetwork: options['allow-network'], ...(creation ? { allowCloud: options['allow-cloud'] } : {}),
+          interactive: options.interactive, signal: controller.signal,
+          ...terminalCallbacks() }, { sessionDependencies, mcpProjectOperation, runAzure });
         print(result, true);
         return ['blocked', 'waiting-for-owner'].includes(result.status) || result.outcome === 'failed' ? 2 : 0;
       } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }

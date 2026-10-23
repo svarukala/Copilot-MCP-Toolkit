@@ -5,6 +5,24 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Current priority is reusable **fresh creation** validation for direct ACA,
+  ACA behind APIM, native APIM REST and existing MCP/proxies. V2 is implemented
+  alongside the unchanged v1 existing-deployment contract. Focused integration
+  passed **164/164**, including the fresh packed consumer; a follow-up **8/8**
+  check covered terminal feedback, private identity, actual finalize delegation
+  and uncertain gateway barriers. The full suite was not rerun for v2.
+  It reuses exact existing phase planners/executors, preserves
+  separate approvals, explicit private identity, related consumed histories and
+  unsupported authentication/proof gates. SDK builds/deployment and real consumer
+  actions remain separate owner operations. See the
+  [v2 support matrix and sequence](reusable-validation.md#fresh-creation-runners-version-2).
+  Third-party OAuth REST, OBO and username/password profiles are next, not part
+  of this runner implementation; no ROPC assumption or live authorization.
+  The older frozen `d9d091d` full offline gate passed **925/925**. A subsequent
+  separately approved real Entra metadata discovery passed with **no tools/call**;
+  historical provider proof remained consumed. Neither result qualifies v2
+  fresh creation or consumer execution. Keep real identities/captures private.
+
 - Resumable validation now has `mcp-validation-schema/plan/start/next/run/status`
   for an existing direct Container Apps source/reference and optional matched
   release. A private build-pinned run reuses existing local readers, MCP session/

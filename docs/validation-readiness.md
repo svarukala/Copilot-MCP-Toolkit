@@ -5,9 +5,12 @@ readiness. It is a checklist, not permission to install, authenticate, deploy,
 call a provider, publish or replay a consumed proof. Keep actual identities,
 approvals, outputs and evidence in the selected private workspace.
 
-For an existing direct Container Apps endpoint, use the
+For existing direct Container Apps or the prioritized fresh creation families, use the
 [resumable validation runner](reusable-validation.md) to drive local checks,
-separately approved discovery/proof, owner checkpoints and private handover.
+separately approved generation/lifecycle/discovery/proof, owner checkpoints and
+private handover. V2 prioritizes direct ACA, ACA behind APIM, native REST APIM,
+and existing MCP/proxies; it does not implement unsupported authentication or
+replace SDK build/deployment gates with inferred success.
 It reduces repeated manual command work; it does not replace the acceptance
 gates below or authorize live execution.
 

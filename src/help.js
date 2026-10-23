@@ -75,6 +75,19 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Validation: schema/plan/start/next/run/status for existing direct ACA (v1), or
+fresh direct ACA, ACA behind APIM, native APIM REST, existing MCP and proxies (v2).
+Use --workspace-root and a NEW run --output; continuation --project is the run.
+V2 copies a reviewed definitionFile; relatedProjects/historyReviewed preserve
+related consumed calls. Generation, release/reference, private APIM account and
+lifecycle, discovery/proof and export each need exact separate phase approval.
+Use only next.requiredFlags: --allow-cloud for APIM lifecycle/readback,
+--allow-network for MCP/login, --interactive for terminal-only sign-in.
+SDK builds/deployment, secret resolution, negative tests and FCC remain owner gates.
+V2 request --config is a checkpoint or release/reference file selector.
+V2 --phase handover exports SDK snapshots; --phase archive preserves MCP evidence.
+Caller Entra is not backend Entra/OBO. Unsupported profiles stop, not pass.
+See docs/reusable-validation.md; no blanket execution approval or automatic retry.
 Host operations: schema/plan/run for local engine or reviewed host/container npm
 diagnostics and digest-only private ACR pull. Explicit local Docker socket,
 new output JSON and exact approval; separate local/network/cloud flags.
