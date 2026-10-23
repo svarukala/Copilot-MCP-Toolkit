@@ -1,3 +1,5 @@
+import { resolveNpmRegistryUrl } from './npm-registry.js';
+
 const step = (id, title, kind, instruction, expected, command) =>
   ({ id, title, kind, instruction, expected, ...(command ? { command } : {}) });
 
@@ -57,8 +59,8 @@ export function destinationEdits(input) {
     add(field, 'Re-review immutable image inputs, architecture, scaling, cost and per-process limits; these are not global cost ceilings.');
   }
   add('operationIds', 'Retain only intended operations. Update document and review.readOnlyOperationIds together; do not assume GET alone is safe.');
-  rows.push({ file: 'new generated project: .npmrc + package-lock.json', field: 'registry / resolved URLs', original: 'public npm',
-    instruction: 'Generated projects currently target public npm. If policy blocks it, stop before install/build. Use a separately reviewed approved-registry build workflow; do not silently rewrite a sealed source manifest.' });
+  rows.push({ file: 'destination/recipe-definition.json', field: 'npmRegistryUrl', original: resolveNpmRegistryUrl(input.npmRegistryUrl),
+    instruction: 'Review the destination credential-free HTTPS npm feed, including its trailing slash/path. Omission preserves historical public npm, not ambient npm settings. Regenerate a NEW project to bind .npmrc, registry / resolved URLs and Dockerfile; never rewrite sealed source. Authenticated feeds are unsupported; install/build still requires separate approval.' });
   return rows;
 }
 
@@ -93,8 +95,8 @@ ${input.backend.apiKey ? 'Inspect Key Vault references, dedicated identity acces
       `copilot-mcp mcp-hosting-create ${generate} --approve "<FRESH_GENERATION_APPROVAL>" --json`),
     step('build', functions ? 'Prepare the source-only Functions release' : 'Build, scan and publish the container separately', 'manual',
       functions
-        ? 'Review Functions Core Tools/Azurite if doing optional local checks. The release ZIP has no installed dependencies. Review the supported Flex One Deploy/remote-build path, approved registry and dependency licenses; ARM alone does not deploy runnable code.'
-        : `${input.imageBuild ? 'Use the newly generated digest-pinned Dockerfile.' : 'No Dockerfile was selected in this source: provide reviewed imageBuild digests/platform and regenerate, or use a separate reviewed build workflow.'} Review the package registry before npm/build access. Building, scanning, SBOM/smoke checks and pushing to the selected ACR are separate operations. Record the resulting immutable image digest; a digest does not attest source correspondence.`,
+        ? `Review Functions Core Tools/Azurite if doing optional local checks. The release ZIP has no installed dependencies; it preserves .npmrc and pinned lock URLs for ${resolveNpmRegistryUrl(input.npmRegistryUrl)}. Review the supported Flex One Deploy/remote-build path and dependency licenses; require it to honor that registry without ambient npm configuration/credentials or fallback, or stop. ARM alone does not deploy runnable code.`
+        : `${input.imageBuild ? 'Use the newly generated digest-pinned Dockerfile.' : 'No Dockerfile was selected in this source: provide reviewed imageBuild digests/platform and regenerate, or use a separate reviewed build workflow.'} Review npmRegistryUrl (${resolveNpmRegistryUrl(input.npmRegistryUrl)}) before npm/build access. Historical Dockerfiles may not consume .npmrc; generate a new project rather than modifying old sealed files. Building, scanning, SBOM/smoke checks and pushing to the selected ACR are separate operations. Record the resulting immutable image digest; a digest does not attest source correspondence.`,
       functions ? 'Reviewed source archive hash and remote-build procedure.' : 'Approved registry/repository@sha256 digest, reviewed image provenance and permissions.'),
     step('source', 'Review the destination source archive', 'CLI',
       'This local command computes the source archive hash; it does not install dependencies, build or call a provider.',

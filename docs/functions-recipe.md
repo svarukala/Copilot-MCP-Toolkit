@@ -90,6 +90,14 @@ the deterministic source ZIP hash, then create this private release input:
 Run the shared [release plan/bundle flow](hosting-recipes.md). It emits
 source.zip, infra/functions.json and its parameter file. The ZIP is **source
 only**: no installed dependencies and no claim of remote-build attestation.
+It preserves `.npmrc` and every pinned tarball URL for the explicit
+[`npmRegistryUrl`](hosting-recipes.md#approved-npm-registry-for-generated-builds),
+or historical public npm when omitted, without changing versions/integrities.
+Require the remote build to honor those files without ambient npm
+configuration/credentials or fallback; stop if its behavior is not established.
+Use the same clean-environment requirement for optional local dependency installs.
+Changing the registry requires fresh source generation and new approvals,
+never editing a sealed source or release ZIP.
 After separate Azure identity, ownership and what-if review, provision the app.
 Then separately review the Flex-supported One Deploy/remote-build path before
 uploading source. Infrastructure deployment alone does not deploy runnable code.

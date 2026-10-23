@@ -9,6 +9,7 @@ import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
 import { imageBuildSchema } from './mcp-image-review.js';
+import { npmRegistryUrlSchema, resolveNpmRegistryUrl, mapRuntimeLock } from './npm-registry.js';
 import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
   backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions, apiKeyPlacementProperties, apiKeyPlacementChoice,
@@ -60,6 +61,7 @@ export const containerAppsSchema = object({
 const ajv = new Ajv();
 containerAppsSchema.properties.imageBuild = imageBuildSchema;
 containerAppsSchema.properties.scaleProfile = { enum: ['always-warm', 'scale-to-zero'] };
+containerAppsSchema.properties.npmRegistryUrl = npmRegistryUrlSchema;
 addFormats(ajv);
 const validate = ajv.compile(containerAppsSchema);
 export const hostingSchema = { oneOf: hostingSchemas(containerAppsSchema) };
@@ -74,6 +76,7 @@ function compile(value, hosting) {
   const input = boundedSnapshot(value);
   requireRecipe((hosting ? validateHosting : validate)(input) && !secretIssues(savedJson(input)),
     `Use ${hosting ? 'mcp-hosting-schema' : 'mcp-container-apps-schema'} with explicit nonsecret target/authentication details.`);
+  resolveNpmRegistryUrl(input.npmRegistryUrl);
   requireRecipe(input.recipe !== 'functions-sdk-v1' || input.imageBuild === undefined,
     'Functions uses a source-only remote build; do not supply container imageBuild inputs.');
   requireRecipe(input.scaleProfile === undefined || ['container-apps-direct-v1', 'container-apps-apim-v1'].includes(input.recipe),
@@ -195,12 +198,12 @@ function infrastructure(input) {
   };
 }
 
-function dockerfile(build) {
+function dockerfile(build, registryUrl) {
   return `FROM --platform=${build.platform} ${build.builderImage} AS dependencies
 WORKDIR /app
 ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts --no-audit --fund=false
+COPY package.json package-lock.json .npmrc ./
+RUN mkdir /tmp/mcp-npm && touch /tmp/mcp-npm/user.npmrc /tmp/mcp-npm/global.npmrc && env -i PATH="$PATH" HOME=/tmp/mcp-npm npm ci --userconfig=/tmp/mcp-npm/user.npmrc --globalconfig=/tmp/mcp-npm/global.npmrc --cache=/tmp/mcp-npm/cache --registry=${registryUrl} --replace-registry-host=never --strict-ssl=true --fetch-retries=0 --omit=dev --ignore-scripts --no-audit --fund=false
 FROM --platform=${build.platform} ${build.runtimeImage}
 WORKDIR /app
 ENV NODE_ENV=production
@@ -227,20 +230,13 @@ async function prepare(options, hosting = false) {
   for (const file of ['runtime.js', 'server.js', 'package.json', 'package-lock.json']) {
     files[file] = await readFile(path.join(TOOLKIT_ROOT, 'src', 'recipes', 'container-apps', file), 'utf8');
   }
-  const lock = JSON.parse(files['package-lock.json']);
-  for (const [name, pkg] of Object.entries(lock.packages)) {
-    if (!name) continue;
-    requireRecipe(typeof pkg.resolved === 'string' && typeof pkg.integrity === 'string',
-      'Runtime dependency lock is incomplete.', 'ASSETS');
-    const mirror = 'https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry/';
-    if (pkg.resolved.startsWith(mirror)) pkg.resolved = `https://registry.npmjs.org/${pkg.resolved.slice(mirror.length)}`;
-    requireRecipe(pkg.resolved.startsWith('https://registry.npmjs.org/'), 'Unknown runtime package registry.', 'ASSETS');
-  }
+  const npmRegistryUrl = resolveNpmRegistryUrl(input.npmRegistryUrl);
+  const lock = mapRuntimeLock(JSON.parse(files['package-lock.json']), npmRegistryUrl);
   files['package-lock.json'] = savedJson(lock);
-  files['.npmrc'] = 'registry=https://registry.npmjs.org/\n';
+  files['.npmrc'] = `registry=${npmRegistryUrl}\nreplace-registry-host=never\nstrict-ssl=true\nfetch-retries=0\n`;
   files['.gitignore'] = 'node_modules/\n.env\n.env.*\n*.log\n';
-  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!server.js\n!runtime.js\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
-  if (input.imageBuild) files['Dockerfile'] = dockerfile(input.imageBuild);
+  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!.npmrc\n!server.js\n!runtime.js\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
+  if (input.imageBuild) files['Dockerfile'] = dockerfile(input.imageBuild, npmRegistryUrl);
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
   const appService = input.recipe === 'app-service-container-v1', functions = input.recipe === 'functions-sdk-v1';
@@ -288,6 +284,7 @@ This notice is not a complete dependency license audit or a service-content lice
     contractVersion: 1, recipe: input.recipe, status: 'generated-source-review-only',
     producer: { name: producer.name, version: producer.version, buildId: producer.contentDigest },
     target: input.azure, authentication: input.authentication, backend: input.backend, toolDefinitions: toolDefinitions(runtime),
+    npmRegistryUrl,
     imageBuild: input.recipe === 'functions-sdk-v1' ? { status: 'source-only-remote-build' }
       : input.imageBuild ? { status: 'reviewed-inputs-not-built', ...input.imageBuild }
         : { status: 'blocked-missing-digest-pinned-inputs' },
@@ -297,6 +294,7 @@ This notice is not a complete dependency license audit or a service-content lice
     evidence: 'generated-definitions-not-observed-tools-list',
     limitations: [
       'Local generation only; no install, image build/push, cloud operation, token acquisition or backend call.',
+      'The npm registry is explicit source configuration, not connectivity or install evidence. No ambient npm configuration, credentials or authenticated-feed support; network/build approval remains separate.',
       'Entra v2 delegated tokens only. Exact tenant, audience, scope and allowed client application are checked in the server.',
       'Anonymous or Key Vault API-key JSON backend, fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
       ...(input.backend.apiKey ? [

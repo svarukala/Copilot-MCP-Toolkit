@@ -44,6 +44,8 @@ gateway token. The APIM policy is unchanged. Native APIM REST-to-MCP contracts
 remain separate. Review shared backend entitlement and query/header diagnostics.
 
 For a separately approved local startup, install the generated locked dependencies
+only after [reviewing `npmRegistryUrl` and a clean build environment](hosting-recipes.md#approved-npm-registry-for-generated-builds)
+without ambient npm configuration or credentials,
 with `npm ci --ignore-scripts --no-audit --fund=false`, set
 `$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'`, then run `npm start`.
 Only health/public metadata can be checked without tokens. Both real gateway and

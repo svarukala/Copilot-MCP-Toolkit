@@ -32,6 +32,10 @@ The identity selection applies to all Key Vault references on the new site.
 
 For an explicitly chosen local run from the generated source directory:
 
+First [select `npmRegistryUrl` and review a clean build environment](hosting-recipes.md#approved-npm-registry-for-generated-builds)
+without ambient npm configuration or credentials. The lock, `.npmrc` and
+generated Dockerfile share that choice; omission retains historical public npm.
+
 ```powershell
 npm ci --ignore-scripts --no-audit --fund=false
 $env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'

@@ -126,9 +126,13 @@ before preparing the gateway release's actual backend origin. Apply the gateway
 template to its own selected resource group; do not redeploy the host afterward.
 Functions requires a separately reviewed Flex remote-build/source deployment
 after ARM provisioning. Container recipes need reviewed image-build inputs or a
-separate operator build workflow. Generated projects currently target public npm:
-if organizational policy requires another registry, stop and review that build
-workflow rather than silently rewriting sealed assets.
+separate operator build workflow. Explicitly select `npmRegistryUrl` for a
+credential-free approved HTTPS feed before regeneration; omission preserves
+historical public npm, not ambient npm configuration. The new source binds
+`.npmrc`, pinned tarball URLs and Docker build inputs to that choice. Functions
+remote-build behavior still needs separate review. See the
+[approved registry contract](hosting-recipes.md#approved-npm-registry-for-generated-builds).
+Never rewrite sealed assets or treat an old Dockerfile as upgraded by handover.
 
 The guide supplies supported toolkit CLI steps and labels the rest as manual or
 approval-required. It is not a universal installation/deployment script. Private

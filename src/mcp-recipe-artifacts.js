@@ -7,6 +7,7 @@ import { readControl } from './mcp-control.js';
 import { boundedSnapshot, metadataDigest, savedJson } from './anonymous-metadata.js';
 import { prepareMcpServer, createMcpServerProject } from './mcp-server.js';
 import { secretIssues } from './validation.js';
+import { resolveNpmRegistryUrl } from './npm-registry.js';
 
 const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 function requireArtifact(ok, message) {
@@ -111,6 +112,7 @@ async function prepareRelease(options) {
     schemaVersion: 1, kind: 'mcp-recipe-release-review', recipe: project.input.recipe,
     sourceManifestDigest: project.manifest.contentDigest, sourceArchiveSha256: digest(archive),
     target: project.input.azure, accountName: config.accountName, backend: project.input.backend,
+    npmRegistryUrl: resolveNpmRegistryUrl(project.input.npmRegistryUrl),
     ...(gateway ? { gatewayBackendOrigin: config.backendOrigin } : {}),
     artifact: functions ? { sourceArchiveSha256: config.sourceArchiveSha256 }
       : { image: config.containerImage, imageSourceCorrespondence: 'operator-asserted-not-verified' },
@@ -126,6 +128,7 @@ async function prepareRelease(options) {
       ] : []),
       'Confirm every newly created resource name is absent. ARM can overwrite resources; these files are not a concurrency/no-overwrite guard.',
       'Review the source, dependencies, base image and final artifact. An image digest does not prove it was built from this source.',
+      'Review the selected npmRegistryUrl and sealed .npmrc/lock URLs before any install or remote build. Use no ambient npm credentials/configuration or fallback; preserve TLS and package integrity. Registry access and build execution need separate approval.',
       'Review Azure what-if and pricing, then separately approve the exact target, templates and parameters before deployment.',
       'Preserve failed/unknown deployment attempts and reconcile resource state before any retry. Never erase evidence to obtain another attempt.',
       'Check actual deployed URLs and authentication before separate discovery, tool execution, consumer registration and rollout.',
@@ -151,6 +154,7 @@ export async function recipeSourcePlan(options) {
     const project = await readRecipeProject(options.project);
     const archive = sourceArchive(project.files);
     return { recipe: project.input.recipe, sourceManifestDigest: project.manifest.contentDigest,
+      npmRegistryUrl: resolveNpmRegistryUrl(project.input.npmRegistryUrl),
       sourceArchiveSha256: digest(archive), sourceArchiveBytes: archive.length,
       built: false, deployed: false, limitations: ['Source-only archive; Functions remote dependency build still requires separate review.'] };
   });

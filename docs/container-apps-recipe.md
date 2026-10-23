@@ -89,7 +89,9 @@ partial directory, inspect it, then review a new output destination.
 
 ## 3. Run locally only when you intend to
 
-In the generated project, dependency installation is a separate, explicit action:
+In the generated project, dependency installation is a separate, explicit action.
+First follow [approved registry selection and clean build-environment review](hosting-recipes.md#approved-npm-registry-for-generated-builds);
+do not use ambient npm configuration or credentials:
 
 ```powershell
 npm ci --ignore-scripts --no-audit --fund=false
@@ -99,7 +101,10 @@ npm start
 
 For API-key mode, use the shared guide's separate approved in-memory
 Key Vault launch pattern instead; a missing or unresolved key prevents startup.
-The generated lock uses public npm URLs with the original integrity hashes.
+The generated lock and `.npmrc` use the explicit `npmRegistryUrl`, or historical
+public npm when omitted, with the original pinned versions and integrity hashes.
+The generated Dockerfile consumes that registry in its isolated dependency stage;
+changing the choice requires a new reviewed project, not edits to sealed files.
 Your organization's registry/network policy still applies. Stop on package,
 integrity or TLS errors; do not remove integrity hashes or disable TLS checks.
 
