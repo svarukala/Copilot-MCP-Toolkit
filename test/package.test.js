@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
-test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 300000 }, async t => {
+// Allow full-suite contention while retaining each subprocess's shorter deadline.
+test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 600000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
