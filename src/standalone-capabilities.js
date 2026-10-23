@@ -1,5 +1,14 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+validation: {
+      contractVersion: 1, commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
+        'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
+      scenarios: ['container-apps-existing-v1'], storage: 'private-append-only-checkpoints-and-reports',
+      automated: ['local-integrity', 'approved-discovery', 'separately-approved-one-call-proof', 'approved-handover'],
+      ownerCheckpoints: 'reported-not-independently-verified', maximumSessionMs: 900000,
+      deployment: false, registration: false, automaticRetry: false, persistentTokens: false,
+      liveQualified: false, publicLibrary: false,
+    },
 deploymentHandover: {
       contractVersion: 1, commands: ['mcp-handover-schema', 'mcp-handover-plan', 'mcp-handover-bundle'],
       surface: 'four-sealed-sdk-hosting-recipes', output: 'offline-two-tab-html-source-folder-and-hashed-manifest',

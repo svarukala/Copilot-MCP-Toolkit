@@ -1,5 +1,10 @@
 # MCP hosting recipes
 
+For an **already deployed direct Container Apps** source/reference, use the
+[reusable validation runner](reusable-validation.md) to retain progress across
+sessions, automate approved protocol checks and pause for sign-in or owner
+actions. It does not build, redeploy, resolve credentials or register a connector.
+
 ## Starting with no infrastructure
 
 Use `mcp-bootstrap-schema`, then `mcp-bootstrap-plan --workspace-root

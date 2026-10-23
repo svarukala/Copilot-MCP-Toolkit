@@ -25,6 +25,21 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
+  const terminalCallbacks = () => ({
+    onDeviceCode: onMcpDeviceCode ?? (({ verificationUri, userCode, expiresAt }) => {
+      process.stderr.write(`MCP sign-in: ${verificationUri}\nCode: ${userCode}\nExpires: ${expiresAt}\nDo not save or transcript this challenge.\n`);
+    }),
+    approveProof: sessionProofApproval ?? (async (proof, signal) => {
+      process.stderr.write(`Discovery completed. Separate exact proof review:\n${JSON.stringify(proof, null, 2)}\n`);
+      prompter = createPrompter();
+      const abort = () => prompter?.close();
+      signal.addEventListener('abort', abort, { once: true });
+      try {
+        if (signal.aborted) abort();
+        return await prompter.ask('Paste the exact proof approvalDigest to approve this one call, or leave blank to stop', { optional: true });
+      } finally { signal.removeEventListener('abort', abort); prompter.close(); prompter = undefined; }
+    }),
+  });
   try {
     const { values: options, positionals } = parseArgs({
       args, allowPositionals: true, strict: true,
@@ -59,7 +74,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     if (options['experimental-configuration'] !== undefined && !['mcp-reconcile-plan', 'mcp-reconcile'].includes(command)) throw new Error('--experimental-configuration is supported only for explicit v3 reconciliation/refresh.');
     if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
-    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
+    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session', 'mcp-validation-run'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
     if (options['allow-local'] !== undefined && command !== 'mcp-host-run') throw new Error('--allow-local applies only to reviewed local Docker operations.');
     if ((options['allow-provider'] !== undefined || options['confirm-identity'] !== undefined) && command !== 'mcp-auth-execute') {
       throw new Error('--allow-provider/--confirm-identity are supported only for explicit mcp-auth-execute phases.');
@@ -70,6 +85,40 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
+      'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'].includes(command)) {
+      const kind = command.slice('mcp-validation-'.length);
+      const allowed = {
+        schema: ['json'],
+        plan: ['workspace-root', 'config', 'output', 'json', 'summary'],
+        start: ['workspace-root', 'config', 'output', 'json', 'approve'],
+        next: ['workspace-root', 'project', 'config', 'phase', 'json', 'summary'],
+        run: ['workspace-root', 'project', 'config', 'phase', 'json', 'approve', 'allow-network', 'interactive', 'progress'],
+        status: ['workspace-root', 'project', 'json'],
+      }[kind];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || kind !== 'schema' && (!workspaceRoot
+        || (['plan', 'start'].includes(kind) ? !options.config || !options.output : !options.project))) {
+        throw new Error('Validation plan/start requires --workspace-root, --config and new --output. Next/run/status selects the retained run with --project. Only run accepts exact --approve and its planned effect flags.');
+      }
+      const validation = await import('../src/mcp-validation.js');
+      if (kind === 'schema') { print(validation.validationSchema, true); return 0; }
+      if (options['allow-network'] && (!options.interactive
+        || (!sessionProofApproval || !onMcpDeviceCode) && (!process.stdin.isTTY || !process.stderr.isTTY))) {
+        throw new Error('Network validation needs a real terminal for sign-in and separate proof review. Local planning and checkpoints do not authenticate.');
+      }
+      const controller = new AbortController(), cancel = () => { controller.abort(); prompter?.close(); };
+      process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+      try {
+        const operation = { plan: validation.planValidation, start: validation.startValidation,
+          next: validation.nextValidation, run: validation.runValidation, status: validation.validationStatus }[kind];
+        const result = await operation({ workspaceRoot, project: options.project, config: options.config,
+          output: options.output, phase: options.phase, approval: options.approve,
+          allowNetwork: options['allow-network'], interactive: options.interactive, signal: controller.signal,
+          ...terminalCallbacks() }, { sessionDependencies, mcpProjectOperation });
+        print(result, true);
+        return ['blocked', 'waiting-for-owner'].includes(result.status) || result.outcome === 'failed' ? 2 : 0;
+      } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+    }
     if (['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run'].includes(command)) {
       const schema = command.endsWith('-schema'), planning = command.endsWith('-plan');
       const allowed = schema ? ['json'] : ['workspace-root', 'project', 'config', 'output', 'json',
@@ -109,19 +158,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       try {
         const result = await session.runInteractiveSession({ ...input, approval: options.approve,
           allowNetwork: options['allow-network'], signal: controller.signal,
-          onDeviceCode: onMcpDeviceCode ?? (({ verificationUri, userCode, expiresAt }) => {
-            process.stderr.write(`MCP sign-in: ${verificationUri}\nCode: ${userCode}\nExpires: ${expiresAt}\nDo not save or transcript this challenge.\n`);
-          }),
-          approveProof: sessionProofApproval ?? (async (proof, signal) => {
-            process.stderr.write(`Discovery completed. Separate exact proof review:\n${JSON.stringify(proof, null, 2)}\n`);
-            prompter = createPrompter();
-            const abort = () => prompter?.close();
-            signal.addEventListener('abort', abort, { once: true });
-            try {
-              if (signal.aborted) abort();
-              return await prompter.ask('Paste the exact proof approvalDigest to approve this one call, or leave blank to stop', { optional: true });
-            } finally { signal.removeEventListener('abort', abort); prompter.close(); prompter = undefined; }
-          }),
+          ...terminalCallbacks(),
         }, sessionDependencies);
         print(result, true);
         return result.status === 'protocol-success'
@@ -603,7 +640,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     const checkpoint = standaloneMcp ? failureTools.mcpFailureGuidance(diagnostics,
       error.invocationStatus === 'unknown' ? 'unknown-no-replay' : undefined) ?? checkpoints[error.code] : undefined;
     if (json) print({ success: false, error: error.message,
-      ...(/^MCP_(?:ARCHIVE|RECOVERY|PERSISTENCE|DIAGNOSIS|FCC)_/.test(error.code ?? '') ? { code: error.code } : {}),
+      ...(/^MCP_(?:ARCHIVE|RECOVERY|PERSISTENCE|DIAGNOSIS|FCC|VALIDATION)_/.test(error.code ?? '') ? { code: error.code } : {}),
       ...(error.code === 'PROOF_CAPTURE_INVALID'
       ? { code: error.code, field: 'capture', reason: error.reason } : {}),
       ...(checkpoint ? { checkpoint } : {}), ...(diagnostics ? { diagnostics } : {}) }, true);

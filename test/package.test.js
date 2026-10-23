@@ -263,6 +263,27 @@ for (const project of ${JSON.stringify(securedProjects)}) {
   const reference = invoke(['mcp-recipe-reference-plan', ...referenceArgs, '--summary']).result;
   assert.equal(invoke(['mcp-recipe-reference-create', ...referenceArgs, '--approve', reference.approvalToken]).result.endpointStatus,
     'referenced-not-verified');
+  const validationInput = path.join(workspace, 'validation.json'), validationOutput = path.join(workspace, 'validation-run');
+  const recipeDefinition = JSON.parse(await readFile(path.join(containerOutput, 'recipe-definition.json')));
+  await writeFile(validationInput, JSON.stringify({ schemaVersion: 1, scenario: 'container-apps-existing-v1',
+    sourceProject: containerOutput, referenceProject: path.join(workspace, 'recipe-reference'),
+    consumer: 'none', privateExportReviewed: true,
+    discovery: { discoveryClientId: recipeDefinition.authentication.allowedClientIds[0],
+      expectedUserId: '55555555-5555-4555-8555-555555555555' },
+    proof: { toolName: recipeDefinition.operationIds[0], arguments: {},
+      safetyReview: { readOnly: true, reason: 'Reviewed synthetic fixed GET.' } } }));
+  assert.equal(invoke(['mcp-validation-schema']).result.scenario.properties.scenario.const, 'container-apps-existing-v1');
+  const validationArgs = ['--workspace-root', workspace, '--config', validationInput, '--output', validationOutput];
+  const validationPlan = invoke(['mcp-validation-plan', ...validationArgs, '--summary']);
+  assert.ok(validationPlan.stderr.includes(validationPlan.result.approvalToken));
+  assert.equal(invoke(['mcp-validation-start', ...validationArgs, '--approve', validationPlan.result.approvalToken], [2])
+    .result.status, 'waiting-for-owner');
+  const activeValidation = ['--workspace-root', workspace, '--project', validationOutput];
+  assert.equal(invoke(['mcp-validation-next', ...activeValidation], [2]).result.approvalToken, null);
+  assert.equal(invoke(['mcp-validation-status', ...activeValidation], [2]).result.executionReadiness, false);
+  const validationHandover = invoke(['mcp-validation-next', ...activeValidation, '--phase', 'handover']).result;
+  assert.equal(invoke(['mcp-validation-run', ...activeValidation, '--phase', 'handover',
+    '--approve', validationHandover.approvalToken], [2]).result.handovers.length, 1);
   const guidedProject = path.join(workspace, 'guided-reference');
   const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
   await writeFile(rehearsal, `

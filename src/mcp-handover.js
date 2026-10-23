@@ -66,7 +66,7 @@ const sourceNames = new Set(['runtime.js', 'server.js', 'package.json', 'package
   'host.json', '.funcignore', 'local.settings.example.json',
   'LICENSE', 'THIRD-PARTY-NOTICES.md']);
 
-async function releaseFiles(directory, project) {
+export async function readHandoverRelease(directory, project) {
   const release = await readControl(path.join(directory, 'release-review.json'));
   const archive = sourceArchive(project.files), functions = project.input.recipe === 'functions-sdk-v1';
   requireHandover(release.schemaVersion === 1 && release.kind === 'mcp-recipe-release-review'
@@ -113,7 +113,7 @@ async function releaseFiles(directory, project) {
     artifact: functions ? { sourceArchiveSha256: hash(archive) } : { image: release.artifact.image },
     provenance: 'integrity-checked-release-not-deployment-or-image-source-attestation' };
   files['release/release-summary.json'] = savedJson(summary);
-  return { files, summary };
+  return { files, summary, review: release };
 }
 
 async function referenceEvidence(directory, project, cutoff) {
@@ -219,7 +219,7 @@ async function prepare(options, { writing = false } = {}) {
       provenance: 'owner-reported-not-service-readback' });
   }
   let release, reference;
-  for (const [key, load] of [['releaseDirectory', dir => releaseFiles(dir, project)],
+  for (const [key, load] of [['releaseDirectory', dir => readHandoverRelease(dir, project)],
     ['referenceProject', dir => referenceEvidence(dir, project, input.snapshotAt)]]) {
     if (input[key] === undefined) continue;
     const dir = await assertProjectPath(path.resolve(path.dirname(configPath), input[key]));

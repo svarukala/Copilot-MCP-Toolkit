@@ -1,4 +1,6 @@
 export const commandFamilies = {
+  validation: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
+    'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
   hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
   interactiveSession: ['mcp-session-plan', 'mcp-session'],
   terminal: ['mcp-terminal-handoff'],

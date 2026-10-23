@@ -2,6 +2,7 @@
 
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
+| Resumable existing Container Apps validation | Existing source-matched Entra reference and explicit discovery user/client | Sealed direct recipe anonymous or Key Vault API-key backend | Private run/report; approved discovery and separately approved one-call proof; owner-reported deployment/FCC checkpoints and approved handover; no deployment, registration, automatic retry or live-readiness attestation. [Guide](reusable-validation.md) |
 | Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous or Key Vault API-key HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; separate secret identity for keys; no automatic deployment/live qualification |
 | Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
 | App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |

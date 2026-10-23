@@ -5,6 +5,22 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Resumable validation now has `mcp-validation-schema/plan/start/next/run/status`
+  for an existing direct Container Apps source/reference and optional matched
+  release. A private build-pinned run reuses existing local readers, MCP session/
+  proof execution and separately approved handover. Owner checkpoints can be
+  batched and deferred; they remain declarations. Successful proof is retained
+  as historical evidence, while failed/unknown outcomes and locks block replay.
+  Sign-in and the session's new exact proof approval stay terminal-only. The
+  runner does not deploy, register authentication/FCC, resolve secrets or certify
+  consumer acceptance. See [reusable validation](reusable-validation.md).
+  The focused offline integration run passed **154/154** tests, including 14
+  runner regressions and the fresh packed CLI with network/process execution
+  denied. Adjacent session, handover, feedback and public-boundary tests passed.
+  Inventory, syntax and public types passed. Closeout documentation followed
+  that run; the full repository suite was not rerun for this increment. No live
+  run, deployment, registration, installed-skill update or merge is authorized.
+
 - Validation-readiness fixes are integrated following the owner's review:
   generic result-assertion receipts now pass shared strict evidence validation
   across Status/Resume/diagnosis/handover, with consumed barriers retained through

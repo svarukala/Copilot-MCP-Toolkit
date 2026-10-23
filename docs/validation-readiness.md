@@ -5,6 +5,12 @@ readiness. It is a checklist, not permission to install, authenticate, deploy,
 call a provider, publish or replay a consumed proof. Keep actual identities,
 approvals, outputs and evidence in the selected private workspace.
 
+For an existing direct Container Apps endpoint, use the
+[resumable validation runner](reusable-validation.md) to drive local checks,
+separately approved discovery/proof, owner checkpoints and private handover.
+It reduces repeated manual command work; it does not replace the acceptance
+gates below or authorize live execution.
+
 ## Freeze the candidate
 
 Do not assume a normal clone of `main`, an old installed package or a previously

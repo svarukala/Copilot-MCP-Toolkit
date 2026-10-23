@@ -9,6 +9,36 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Reusable existing-deployment validation
+
+The first `mcp-validation-*` scenario targets a sealed direct Container Apps
+source and its existing Entra reference, not fresh deployment. It adds private
+immutable run definitions, append-only checkpoint/intent/result events and
+local JSON reports. Existing discovery/proof/session and handover executors
+retain exact phase approvals and consumed barriers. Valid capture reuse,
+separate terminal proof approval, historical result reuse, owner declarations/
+deferrals, fresh-process continuation and incomplete handover are wired.
+Build/input changes fail closed; unknown dispatch and locks do not auto-retry.
+
+Focused offline integration passed **154/154**, with zero failures, skips or
+cancellations (about four minutes on Windows). This includes 14 runner
+regressions plus adjacent session, handover, feedback, public-boundary and
+fresh packed-consumer coverage. Inventory, syntax and public types passed.
+Closeout documentation followed the run; no full-suite or live result is claimed
+for this increment. The older 911-test full gate below remains historical.
+
+| Validation scenario | Implemented / offline result | Remaining live gate |
+| --- | --- | --- |
+| Local run and fresh-session continuation | Passed; pinned build/source/reference/release, exact approvals, private immutable inputs and append-only reports | Select the actual frozen candidate and existing deployment |
+| Discovery and one-call proof | Passed with synthetic transport; one in-memory sign-in, separate proof approval, declined-proof capture reuse | Owner sign-in and separately approved real discovery/proof |
+| Failed, unknown or historical proof | Passed; no replay through new runs, changed user/assertion, checkpoints, refresh or export | Owner reconciliation of actual unresolved outcomes; no retry inferred |
+| API-key and FCC checkpoints | Passed; resolution gate, batched owner findings/deferrals, source-operator waits, no verification inflation | Actual platform reference/readiness, registration, FCC/admin/audience and consumer UI actions |
+| Private handover and packaged CLI | Passed; incomplete snapshots, report digest, exact release binding and no network/process effects in packed local journey | Review private export; deployment/consumer acceptance remain separate |
+
+Cloud readback/deployment, Key Vault resolution/rotation, registration/FCC,
+negative caller checks and consumer UI acceptance remain separately reviewed
+operations. See [the operator/agent guide](reusable-validation.md).
+
 ### Validation readiness hardening
 
 The owner requested fixes for the readiness review before live validation.

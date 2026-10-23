@@ -8,11 +8,12 @@ function backendSummary(backend) {
   return key ? `Backend: API key in ${key.headerName ? 'header' : 'query'} ${safe(key.headerName ?? key.queryParameterName)}; shared entitlement, not per-user access\nKey Vault: ${safe(key.keyVaultResourceId)}\nSecret reference: ${safe(key.secretIdentifier)}\nSecret identity: ${safe(key.identityResourceId)}; tenant: ${safe(key.tenantId)}\nNo secret resolution or role grants; unresolved credentials prevent startup. Review platform diagnostics and rotation separately.\n`
     : 'Backend: anonymous JSON; caller authorization remains required.\n';
 }
-const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
+const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume', 'mcp-validation-run'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
   'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan', 'mcp-handover-plan',
-  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan'];
+  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan',
+  'mcp-validation-plan', 'mcp-validation-next'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -129,6 +130,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (['mcp-validation-start', 'mcp-validation-next'].includes(plan.action)) {
+    writeFeedback(state, `[validation summary]\nPhase: ${safe(plan.phase ?? plan.status ?? 'start')}\nRun: ${safe(plan.runDirectory ?? plan.outputPath ?? plan.report?.runDirectory)}\n${(plan.effects ?? [plan.reason]).map(safe).join('\n')}\n${plan.approvalToken ? `EXACT approvalToken: ${safe(plan.approvalToken)}` : 'Paused; no operation is authorized.'}\nReview the full child plan on stdout. This approval is for one phase, never deployment or renewed proof authority.\n`);
+    return;
+  }
   if (plan.action === 'mcp-handover-bundle') {
     writeFeedback(state, `[handover summary]\nOperation: local private handover files only\nNew destination: ${safe(plan.outputPath)}\nRecipe: ${safe(plan.manifest.summary.recipe)}\nSnapshot: ${safe(plan.manifest.snapshotAt)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the manifest and artifact hashes on stdout. This approval does not authorize any displayed command.\n`);
     return;

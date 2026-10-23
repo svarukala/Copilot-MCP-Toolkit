@@ -17,6 +17,20 @@ review, not silent installation, skill replacement or stale-approval reuse.
 
 ## New or resume
 
+For reusable validation of an **existing direct Container Apps deployment**,
+read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private
+run with reviewed `mcp-validation-plan/start`, then drive
+`mcp-validation-next/run/status` using the same pinned build and run directory.
+Do the local checks and prepare exact phase reviews; pause only for required
+approval, real-terminal sign-in or genuine owner/provider actions. Never
+auto-answer the session's newly generated proof approval. Use the selected
+valid capture/historical receipt rather than restarting discovery/proof.
+Batch applicable owner findings in one checkpoint file, labelled owner-reported,
+not verified. Honor `repeatPrompt:false` and source-operator waits; stop on unknown
+or consumed execution. `--phase refresh` only refreshes a local report; `--phase
+handover` supports separately approved incomplete closeout. No registration,
+deployment, credential resolution or network operation is implied by start.
+
 When the user requests hosting without APIM, or needs server-owned tool
 annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
 `mcp-hosting-schema --json`. In order: direct Container Apps, Container Apps behind
