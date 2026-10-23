@@ -23,6 +23,7 @@
     "docs/progress-tracker.md",
     "docs/public-npm-setup.md",
     "docs/scenarios.md",
+    "docs/validation-readiness.md",
     "docs/wiqd-handoff.md",
     "examples/auth-registration/execution.json",
     "examples/auth-registration/oauth-pkce.json",

@@ -9,6 +9,26 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Validation readiness hardening
+
+The owner requested fixes for the readiness review before live validation.
+The confirmed generic-assertion Status/Resume incompatibility and generated
+public-npm-only build path are being fixed in parallel. This section remains
+in progress until integrated validation is recorded.
+
+The parent work adds `npm run validate` (read-only inventory check, recursive
+JavaScript syntax, public types and full offline tests), a Windows/Linux
+Node 22/24 CI matrix, explicit wizard/skill project routing and
+[a pinned-candidate acceptance checklist](validation-readiness.md). Thirteen
+focused parent checks pass, including fresh-process pause/resume through all
+four source/release/reference/auth-preparation/handover journeys. These perform
+no provider calls and do not qualify real hosting or registration. The CI
+matrix has not been executed as part of this local work.
+
+Do not validate an unspecified `main` checkout or old installed skill as though
+it were the feature candidate. Merge, installed-skill replacement, live tests
+and deferred full Windows registration remain separate decisions.
+
 ### Deployment handover implementation
 
 The four sealed SDK hosting recipes support separately reviewed

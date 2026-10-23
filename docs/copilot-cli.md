@@ -32,6 +32,12 @@ generated servers in the host, provide a stdio MCP facade, or grant permissions.
 Host approval policy still applies. If access is denied, stop rather than
 switching tools to bypass the denial. Do not pass API keys/tokens as prompts.
 
+Before validating a new toolkit build, compare the explicit engine's
+`capabilities --json` build ID and shipped skill hash with the approved
+candidate. A copied skill is not updated when Git changes or a package is
+reinstalled. Review a mismatched copy rather than silently replacing it; use
+[the candidate checklist](validation-readiness.md#freeze-the-candidate).
+
 ## Interactive New / Resume setup
 
 For a human-operated terminal, run `node .\bin\copilot-mcp.js` or append `init`.
@@ -45,6 +51,11 @@ No pre-authored toolkit configuration is required for **New**.
 ```
 
 New separates **source type** from **source authentication**:
+
+This wizard generates native APIM bundles and existing-MCP references.
+Container Apps, App Service and Functions SDK source generation use the
+`mcp-hosting-*` commands or the skill's [hosting journey](hosting-recipes.md),
+not this wizard. SDK source/release folders cannot be passed to APIM Resume.
 
 | Source | Guided choices |
 | --- | --- |
@@ -111,8 +122,12 @@ of where to find the requested value. It does not mix real Azure configuration
 with a "placeholder-only draft" choice; fictional examples are a separate,
 explicit user request, not a fallback for missing IDs.
 
-After each successful phase, the agent uses the local Resume report to explain
-the actual next action and offer it for review. For example, a read-only check
+After each successful APIM/reference phase, the agent uses the local Resume
+report to explain the actual next action and offer it for review. SDK source
+uses `mcp-recipe-source-plan` and its operator journal instead; after deployment,
+its separately created endpoint reference can use discovery/proof Resume.
+See [project routing](validation-readiness.md#choose-the-correct-project-at-each-step).
+For example, a read-only check
 finishing should lead to a clear next-step question, not a dead end that requires
 the user to type "let's deploy". Sign-in, inspection, resource creation, gateway
 deployment and endpoint calls still require separate exact approvals. A plan-only

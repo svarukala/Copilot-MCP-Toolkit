@@ -10,6 +10,10 @@ Use the user's installed `copilot-mcp` bin or explicit
 install globally, download a runtime or search private directories. Use the same
 engine for all operations. First read `--help` and `capabilities --json` from that
 installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
+For candidate validation, read `docs/validation-readiness.md`. Pin the exact
+engine path/build ID and matching shipped skill; do not assume `main`, package
+version or an installed skill copy includes newer branch work. A mismatch needs
+review, not silent installation, skill replacement or stale-approval reuse.
 
 ## New or resume
 
@@ -19,6 +23,11 @@ annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
 APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
 private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
 Generation is local and is not part of the terminal wizard or APIM Resume.
+Select `npmRegistryUrl` explicitly before generation when public npm is blocked;
+the historical default remains public npm. Confirm that the selected feed is
+approved and can serve the locked dependencies. A diagnostic HTTP 200 is not
+package restore/build qualification. Never rewrite sealed lockfiles or inject
+registry credentials; use a new reviewed source project for changed inputs.
 
 For container hosts, collect the reviewed `imageBuild` builder/runtime digests
 and platform before source generation. Without them the toolkit deliberately
@@ -196,8 +205,13 @@ after explicit confirmation. Do not hide or weaken exact-plan binding.
 
 ### Keep the next step visible
 
-After a successful step, use the local `mcp-resume` report to identify what comes
-next. State what finished, what has NOT happened, and ask about the next supported
+After a successful APIM or endpoint-reference step, use the local `mcp-resume`
+report to identify what comes next. For SDK hosting source, use
+`mcp-recipe-source-plan` and `mcp-operator-status`; never pass source/release folders
+to APIM Resume. Keep the explicit source, release, endpoint-reference and auth
+session paths distinct. At a pause, preserve the owner wait and consumed history;
+do not create a replacement reference or repeat a provider call to resume.
+State what finished, what has NOT happened, and ask about the next supported
 step instead of ending with only "separate approval required". Do not wait for
 the user to guess a phrase such as "let's deploy".
 

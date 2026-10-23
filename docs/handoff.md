@@ -5,6 +5,17 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Validation-readiness hardening is in progress following the owner's review:
+  repair generic result-assertion evidence readers, add explicit approved-registry
+  generation/build inputs, and validate the integrated candidate before live
+  scenarios. [The acceptance checklist](validation-readiness.md) pins commit,
+  build and skill identity, distinguishes source/release/reference/auth paths,
+  and records per-host gates. `npm run validate` is the repeatable full offline
+  gate; CI is configured for Windows/Linux and Node 22/24 but configuration alone
+  is not a successful matrix run. Native Windows registration remains deferred.
+  Do not infer that the feature branch has been merged into `main` or that
+  installed skill copies have been updated. No live approval is implied.
+
 - Deployment handover implementation (2026-10-22): the four sealed SDK hosting
   recipes now have `mcp-handover-schema/plan/bundle`. A separately reviewed local
   export produces two-tab offline HTML, a configured SVG architecture diagram

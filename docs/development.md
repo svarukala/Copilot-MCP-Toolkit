@@ -19,9 +19,7 @@ the repository's default feed and lockfile remain unchanged.
 ```powershell
 npm ci --offline --ignore-scripts --no-audit --fund=false
 node .\scripts\update-assets.mjs
-npm run check
-npm run test:types
-npm test
+npm run validate
 npm pack --offline --ignore-scripts
 ```
 
@@ -34,6 +32,16 @@ creation are part of tests. Some packed checks spawn the local Node/npm executab
 diagnosis tests independently deny network/process creation within the diagnosed
 runtime. Do not interpret offline simulation as service compatibility proof.
 
+`npm run validate` first checks inventory freshness without modifying it, then
+parses all source/CLI/maintenance JavaScript, checks public types and runs the
+full offline suite. It installs nothing. Do not edit shipped assets while the
+suite is running: tests bind their exact content digest. The CI workflow runs
+this gate on Windows/Linux with Node 22/24, after a separate locked restore from
+the repository-approved feed; no cloud credentials or live provider tests are
+configured. Do not replace feed failures with a public-registry fallback.
+Use [validation readiness](validation-readiness.md) to pin the checkout/package/
+skill baseline and record separate platform and consumer acceptance.
+
 ## Container Apps recipe development
 
 `src/mcp-container-apps.js` is the internal CLI generator; it is not a new root
@@ -45,9 +53,11 @@ update only its lock with `npm install --package-lock-only --ignore-scripts
 --no-audit --fund=false --prefix src\recipes\container-apps` using the approved
 registry. Runtime installation/build remains a separate operator step.
 
-The generator translates the known mirror prefix in the emitted runtime lock
-to public npm, preserving versions and integrities, and refuses unknown registries.
-It does not fetch packages. The repository's own registry remains unchanged.
+Hosting inputs may explicitly select `npmRegistryUrl` before generation.
+Omission retains the historical public-npm default. Generated runtime locks,
+npm configuration and container builds must use that reviewed feed while
+preserving versions and integrities; existing sealed projects are not rewritten.
+Generation fetches no packages. The repository's own registry remains unchanged.
 
 Targeted coverage is `node --test test\container-apps.test.js test\package.test.js
 test\cli-feedback.test.js test\independence.test.js`. It uses the actual MCP SDK,

@@ -62,6 +62,11 @@ within any particular timeframe is not guaranteed.
 
 ## Quick start
 
+**Validating a feature-branch build?** A normal clone selects `main`, not
+unmerged work. Follow the [candidate and acceptance checklist](docs/validation-readiness.md)
+to pin the intended commit/package, matching skill and offline validation result
+before running live scenarios.
+
 ### 1. Check what you need
 
 For local setup, install **Git**, **Node.js 22 or later** (with npm), and optionally
