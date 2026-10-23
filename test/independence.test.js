@@ -42,6 +42,10 @@ test('capabilities and public build identity describe this independent package a
   assert.equal(c.toolkit.name, 'copilot-mcp-toolkit');
   assert.equal(c.toolkit.buildId, info.contentDigest);
   assert.equal(c.copilotCli.engine, 'copilot-mcp');
+  assert.equal(c.hostingRecipes.npmRegistry.configField, 'npmRegistryUrl');
+  assert.equal(c.hostingRecipes.npmRegistry.default, 'https://registry.npmjs.org/');
+  assert.equal(c.hostingRecipes.npmRegistry.credentials, false);
+  assert.equal(c.hostingRecipes.npmRegistry.existingSealedProjectMutation, false);
   assert.ok(c.commands.includes('mcp-resume'));
   assert.ok(c.commands.includes('mcp-diagnose'));
   assert.ok(!c.commands.some(cmd => /cowork|skills|sso-|workflow-|package/.test(cmd)));

@@ -13,8 +13,15 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 The owner requested fixes for the readiness review before live validation.
 The confirmed generic-assertion Status/Resume incompatibility and generated
-public-npm-only build path are being fixed in parallel. This section remains
-in progress until integrated validation is recorded.
+public-npm-only build path are fixed and integrated. Shared strict receipt
+validation projects bounded assertion findings through status, resume,
+diagnosis and handover; export/restore preserves bytes and consumed barriers.
+All four SDK recipes accept optional `npmRegistryUrl`, with historical public
+npm as default. Generated lock URLs, npm configuration, Docker install and
+release/handover reviews bind the selected credential-free HTTPS feed while
+preserving versions/integrities. Old sealed projects remain unchanged.
+Eight focused evidence regressions and 69 child registry/hosting checks passed.
+This section remains in progress until full integrated validation is recorded.
 
 The parent work adds `npm run validate` (read-only inventory check, recursive
 JavaScript syntax, public types and full offline tests), a Windows/Linux
