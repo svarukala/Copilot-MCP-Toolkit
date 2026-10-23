@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-22.
+Last updated: 2026-10-23.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -21,7 +21,8 @@ npm as default. Generated lock URLs, npm configuration, Docker install and
 release/handover reviews bind the selected credential-free HTTPS feed while
 preserving versions/integrities. Old sealed projects remain unchanged.
 Eight focused evidence regressions and 69 child registry/hosting checks passed.
-This section remains in progress until full integrated validation is recorded.
+The evidence child additionally passed 550 adjacent offline checks covering
+historical native/Tavily contracts and retained evidence compatibility.
 
 The parent work adds `npm run validate` (read-only inventory check, recursive
 JavaScript syntax, public types and full offline tests), a Windows/Linux
@@ -35,6 +36,33 @@ matrix has not been executed as part of this local work.
 Do not validate an unspecified `main` checkout or old installed skill as though
 it were the feature candidate. Merge, installed-skill replacement, live tests
 and deferred full Windows registration remain separate decisions.
+
+Final integrated validation at **`eaba3dd`**: `npm run validate` passed **911/911**
+tests with zero failures, skips or cancellations (about 21 minutes on Windows).
+This includes the fresh offline packed consumer, four hosting pause/resume
+journeys, registry propagation, evidence readers and historical contracts.
+Read-only inventory, recursive source/CLI/maintenance syntax and public types
+passed. All 140 local README/guide file links passed a separate read-only check.
+The candidate build digest was
+`sha256:b76a13fbf6a63ff4df9b3ba5ea2926aba42c8a9dc32655908b849706e745e854`.
+Subsequent closeout documentation changes record this result; they are not a
+claim of another full run or live readiness.
+
+The first consolidated run at `99aaaa4` passed 910 tests with zero assertion
+failures but cancelled the packed journey after its five-minute outer deadline.
+The expanded journey now has a ten-minute test-only budget; all individual
+30/60-second subprocess limits and production deadlines remain unchanged.
+It passed alone in about three minutes and in the complete rerun in about
+four and a half minutes. No test was skipped or removed to obtain the final pass.
+
+| Readiness gap | Engineering outcome | Remaining qualification |
+| --- | --- | --- |
+| Generic assertion Status/Resume | Fixed; strict shared validation and bounded projection across readers, recovery and handover | New live proof remains separately approved and consumed once |
+| Approved-registry builds | Explicit sealed feed selection for all four hosts; pinned lock data and isolated Docker npm configuration preserved | Actual feed downloads/container build and Functions remote-build behavior |
+| Candidate/version drift | Commit/build/skill pinning instructions and explicit project routing | Use the selected checkout/package; merge and installed-skill update are not automatic |
+| Consolidated regression | Full 911-test offline gate passed; Windows/Linux Node 22/24 CI configured | CI matrix has not been run here; local success is not cross-platform qualification |
+| Pause/resume guidance | All four source/release/reference/auth-preparation/handover journeys exercised through fresh CLI processes | Real owner actions, provider authentication and deployment remain separate |
+| Acceptance coverage | Per-host gates, evidence/stop conditions and private outcome-record guidance documented | Controlled live validation; full native Windows registration remains owner-deferred |
 
 ### Deployment handover implementation
 

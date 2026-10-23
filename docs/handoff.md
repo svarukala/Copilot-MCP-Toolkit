@@ -1,6 +1,6 @@
 # Session handoff
 
-Last updated: 2026-10-22. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-23. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
@@ -20,7 +20,15 @@ It contains public engineering context only, not credentials or execution author
   is not a successful matrix run. Native Windows registration remains deferred.
   Do not infer that the feature branch has been merged into `main` or that
   installed skill copies have been updated. No live approval is implied.
-  Consolidated offline validation is pending at this integration checkpoint.
+  The integrated `npm run validate` gate passed **911/911** tests at `eaba3dd`,
+  with zero failures, skips or cancellations on Windows, including the fresh
+  packed consumer. Inventory, recursive syntax and public types passed; 140
+  local documentation links were checked. The earlier run passed 910 tests
+  but cancelled the packed journey at its five-minute outer test deadline.
+  Its test-only budget is now ten minutes; individual subprocess and runtime
+  deadlines are unchanged. The packed journey passed alone and in the full
+  rerun. Subsequent closeout edits record evidence only. Real builds/downloads,
+  cloud/consumer acceptance and other CI matrix environments remain separate.
 
 - Deployment handover implementation (2026-10-22): the four sealed SDK hosting
   recipes now have `mcp-handover-schema/plan/bundle`. A separately reviewed local
