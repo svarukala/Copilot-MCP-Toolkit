@@ -159,6 +159,15 @@ export const operatorStatus = options => inWorkspace(options, async () => {
   return { journal: dir, entries: records.length, head: records.at(-1)?.contentDigest ?? null,
     ...reduce(records), integrity: 'unkeyed-chain-not-authentication-or-service-attestation' };
 });
+export const readOperatorHandover = options => inWorkspace(options, async () => {
+  const records = await recordsAt(await location(options));
+  return { ...reduce(records), head: records.at(-1)?.contentDigest ?? null,
+    recordedAt: records.at(-1)?.createdAt ?? null,
+    operationDates: Object.fromEntries(records.filter(r => ['reserve', 'dispatch', 'observe'].includes(r.event.action))
+      .map(r => [r.event.action === 'reserve' ? operationKey(r.event.operation) : r.event.operationKey, r.createdAt])),
+    milestoneDates: Object.fromEntries(records.filter(r => r.event.action === 'owner-result')
+      .map(r => [r.event.milestone, r.createdAt])) };
+});
 export const writeOperatorRecord = options => inWorkspace(options, async () => {
   const plan = await prepare(options);
   requireOperator(options.approval === plan.approvalToken, 'APPROVAL', 'Exact current local-record approval is required.');

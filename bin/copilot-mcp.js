@@ -179,6 +179,19 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       }), true);
       return 0;
     }
+    if (['mcp-handover-schema', 'mcp-handover-plan', 'mcp-handover-bundle'].includes(command)) {
+      const schema = command.endsWith('-schema'), planning = command.endsWith('-plan');
+      const allowed = schema ? ['json'] : ['workspace-root', 'project', 'config', 'output', 'json', ...(planning ? ['summary'] : ['approve'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || !schema && (!workspaceRoot || !options.project || !options.config || !options.output)) {
+        throw new Error('Handover requires --workspace-root, sealed hosting --project, --config and a new --output directory. Bundle requires exact --approve. Local files only.');
+      }
+      const handover = await import('../src/mcp-handover.js');
+      print(schema ? handover.handoverSchema : await (planning ? handover.planHandover : handover.writeHandover)({
+        workspaceRoot, project: options.project, config: options.config, output: options.output, approval: options.approve,
+      }), true);
+      return 0;
+    }
     if (['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
       'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'].includes(command)) {
       const source = command === 'mcp-recipe-source-plan', planning = command.endsWith('-plan');

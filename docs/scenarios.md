@@ -6,6 +6,7 @@
 | Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
 | App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |
 | Functions SDK recipe 4 | Same delegated checks | Same | Explicit public-preview acceptance; Linux FC1 custom handler, stateless JSON, identity-based storage and separately reviewed source ZIP |
+| Hosting deployment handover | No authentication operation | All four sealed SDK recipe projects | Private offline two-tab HTML, SVG/editable Excalidraw, source and optional matched release; configured/owner-reported/historical outcomes stay distinct; repeat-environment guide is not a deployment executor |
 | Native APIM from REST | Explicit Entra tenant, resource, scope and client allowlist | Anonymous | OpenAPI 3.0.x JSON and explicit operation IDs |
 | Native APIM from REST | Same | API key | Versionless Key Vault reference; APIM system identity; dedicated header OR query parameter |
 | Native APIM from REST | Same | Entra delegated | Same-token passthrough; backend must accept that resource/audience and authorize the user |

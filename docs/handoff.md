@@ -5,6 +5,28 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Deployment handover implementation (2026-10-22): the four sealed SDK hosting
+  recipes now have `mcp-handover-schema/plan/bundle`. A separately reviewed local
+  export produces two-tab offline HTML, a configured SVG architecture diagram
+  and editable Excalidraw source, unchanged generated source, optional
+  source-matched release assets, and a hash-bound machine-readable manifest.
+  Repeat instructions distinguish destination field edits, local CLI commands,
+  manual host deployment and per-operation approvals. Owner reports, pending/
+  deferred milestones and historical protocol evidence are not promoted to live
+  readiness. There are no browser uploads, external HTML assets, credentials,
+  raw capture exports, implicit installs, cloud operations or proof replay.
+  The shipped skill and generated project guides include the closeout step.
+  See [deployment handover](deployment-handover.md).
+  Final focused offline validation passed **57/57** tests with no failures,
+  skips or cancellations, including all four recipes with anonymous/API-key
+  backends, evidence and interrupted-write checks, adjacent hosting/operator
+  contracts and a fresh packed consumer. Syntax and strict public types passed.
+  An isolated local browser check exercised tabs, keyboard navigation, clipboard
+  success/fallback, light/dark themes, print and mobile with zero external page
+  requests; its generated PowerShell review script also parsed successfully.
+  The preview is synthetic, not a report of the deployed pilot. The full
+  repository suite was not rerun and no live qualification was performed.
+
 - Native Windows SSO implementation (2026-10-22): `mcp-auth-execution-*` now
   supports explicit `authenticationMode: "windows-user-managed"` with
   `sharedProfileReviewed: true` for secretless Entra SSO. It uses the normal

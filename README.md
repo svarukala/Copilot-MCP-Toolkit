@@ -7,6 +7,11 @@ connect to an existing Model Context Protocol (MCP) server, or generate an
 [MCP servers on Container Apps, App Service or Functions](docs/hosting-recipes.md),
 with APIM optional as a gateway.
 
+Finish a hosting journey with a private [deployment handover](docs/deployment-handover.md):
+two-tab offline HTML showing recorded outcomes and repeat-environment steps,
+an embedded architecture diagram with editable Excalidraw source, and the
+source/templates kept alongside it. Pending work and owner reports stay explicit.
+
 MCP is a standard way for AI assistants to discover and call tools. For a financial
 services demo, those tools might retrieve public exchange rates or access an
 approved research service. The toolkit does not provide financial data licenses

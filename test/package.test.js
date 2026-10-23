@@ -169,6 +169,22 @@ await server.close();
       assert.equal(written.status, 'release-prepared-not-deployed');
     }
   }
+  const handoverConfig = path.join(workspace, 'handover.json');
+  await writeFile(handoverConfig, JSON.stringify({ schemaVersion: 1, snapshotAt: new Date().toISOString(),
+    privateExportReviewed: true }));
+  const handoverOutput = path.join(workspace, 'handover');
+  const handoverArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', handoverConfig, '--output', handoverOutput];
+  assert.equal(invoke(['mcp-handover-schema']).result.properties.privateExportReviewed.const, true);
+  const handover = invoke(['mcp-handover-plan', ...handoverArgs, '--summary']);
+  assert.ok(handover.stderr.includes(handover.result.approvalToken));
+  invoke(['mcp-handover-bundle', ...handoverArgs, '--approve', 'wrong'], [1]);
+  assert.equal(invoke(['mcp-handover-bundle', ...handoverArgs, '--approve', handover.result.approvalToken]).result.status,
+    'handover-written-not-executed');
+  assert.match(await readFile(path.join(handoverOutput, 'index.html'), 'utf8'), /Recreate in another environment/);
+  assert.equal(JSON.parse(await readFile(path.join(handoverOutput, 'architecture.excalidraw'))).type, 'excalidraw');
+  const handoverManifest = JSON.parse(await readFile(path.join(handoverOutput, 'handover-manifest.json')));
+  assert.equal(handoverManifest.executionReadiness, false);
+  assert.equal(handoverManifest.proofReplayAuthorized, false);
   const securedProjects = [];
   for (const name of ['container-apps-direct', 'container-apps-apim', 'app-service-container', 'functions-sdk']) {
     const config = path.join(workspace, `${name}-api-key.json`), output = path.join(workspace, `${name}-api-key`);

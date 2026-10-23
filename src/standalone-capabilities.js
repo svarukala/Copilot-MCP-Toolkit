@@ -1,5 +1,13 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+deploymentHandover: {
+      contractVersion: 1, commands: ['mcp-handover-schema', 'mcp-handover-plan', 'mcp-handover-bundle'],
+      surface: 'four-sealed-sdk-hosting-recipes', output: 'offline-two-tab-html-source-folder-and-hashed-manifest',
+      architecture: ['inline-svg', 'editable-excalidraw'], releaseImport: 'optional-exact-source-matched',
+      evidence: 'scoped-historical-receipts-and-explicit-owner-reports', incompleteSnapshots: true,
+      externalAssets: false, credentials: false, rawCaptures: false, automaticDeployment: false,
+      networkCalls: false, proofReplayAuthorized: false, publicLibrary: false,
+    },
 hostOperations: { commands: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
       kinds: ['engine-diagnostic', 'host-npm-diagnostic', 'container-npm-diagnostic', 'private-image-pull'],
       dockerApi: '1.44', dockerEndpoint: 'explicit-local-pipe-or-socket-only',

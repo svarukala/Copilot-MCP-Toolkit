@@ -62,7 +62,7 @@ async function newOutput(output) {
 }
 const onlyKeys = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).every(name => names.includes(name)) && names.every(name => Object.hasOwn(value, name));
-function sourceArchive(files) {
+export function sourceArchive(files) {
   const source = Object.fromEntries(Object.entries(files)
     .filter(([name]) => !name.startsWith('infra/') && !name.startsWith('recipe-') && !name.startsWith('local.settings'))
     .map(([name, value]) => [name, [value, { mtime: new Date(2000, 0, 1), level: 0 }]]));

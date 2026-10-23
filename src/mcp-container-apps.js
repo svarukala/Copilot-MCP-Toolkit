@@ -249,6 +249,9 @@ async function prepare(options, hosting = false) {
   if (input.azure.gateway) files['infra/apim-gateway.json'] = savedJson(gatewayInfrastructure(input, infrastructure(input)));
   files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'container-apps-recipe.md'), 'utf8');
   files['hosting-recipes.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'), 'utf8');
+  files['deployment-handover.md'] = (await readFile(path.join(TOOLKIT_ROOT, 'docs', 'deployment-handover.md'), 'utf8'))
+    .replace('../examples/mcp/deployment-handover.json', 'deployment-handover.example.json');
+  files['deployment-handover.example.json'] = await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'deployment-handover.json'), 'utf8');
   if (input.azure.gateway) files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'apim-gateway-recipe.md'), 'utf8');
   if (appService) files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'app-service-recipe.md'), 'utf8');
   if (functions) {
@@ -268,6 +271,7 @@ async function prepare(options, hosting = false) {
       PUBLIC_MCP_URL: 'http://localhost:7071/mcp', AzureWebJobsStorage: 'UseDevelopmentStorage=true',
     } });
   }
+  files['README.md'] += '\n## Completion or pause handover\n\nUse the separate [deployment handover](deployment-handover.md) plan/bundle flow for\nan offline two-tab report, editable architecture and repeat-environment guide.\nGeneration does not create that private export or assert installation success.\n';
   files['LICENSE'] = await readFile(path.join(TOOLKIT_ROOT, 'LICENSE'), 'utf8');
   files['THIRD-PARTY-NOTICES.md'] = `# Generated server notices
 
@@ -342,6 +346,8 @@ async function writeRecipe(options, hosting) {
       requireRecipe(await readFile(file, 'utf8') === content, 'Generated file readback differs; preserve partial output.', 'READBACK');
     }
     return { status: 'generated-not-deployed', recipe: plan.review.recipe, outputPath: plan.outputPath,
-      approvalToken: plan.approvalToken, files: Object.keys(plan.files), liveQualified: false };
+      approvalToken: plan.approvalToken, files: Object.keys(plan.files), liveQualified: false,
+      handover: { command: 'mcp-handover-plan', guide: 'deployment-handover.md',
+        timing: 'completion-or-pause', requiresSeparateLocalExportApproval: true } };
   });
 }

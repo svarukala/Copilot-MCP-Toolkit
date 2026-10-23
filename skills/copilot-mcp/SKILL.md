@@ -68,6 +68,22 @@ same call. Never retrofit it by repeating an already consumed call.
 not a default or free-tier promise. Closeout is separately reviewed and never
 automatic.
 
+At the end of a hosting journey, including a pause or deferred validation,
+include the deployment handover as the standard closeout step. Read
+`docs/deployment-handover.md` and `mcp-handover-schema --json`. Prepare bounded
+nonsecret inputs with a current UTC snapshotAt, explicit private-export review,
+optional exact source-matched release/reference paths and honest owner reports.
+Use `mcp-handover-plan --summary`, review its exact local export and obtain
+approval before `mcp-handover-bundle` writes a NEW folder. If export is declined,
+leave it pending; do not imply the HTML was created.
+Point the user to index.html and keep its source/template/diagram files together.
+The two tabs and SVG/Excalidraw diagram derive from recipe and retained records,
+not transcript scraping. Pending/deferred work, configured versus installed
+resources and owner-reported versus historical observations stay distinct.
+Never copy authentication caches, raw captures/logs, credentials or old approval
+tokens. Never run the displayed commands, upload the diagram, or turn the
+handover into permission to deploy, install, sign in or replay a consumed call.
+
 Explain the current boundary in plain language: Entra sign-in for callers,
 anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
 host prerequisites from the guide. Ask for actual resource

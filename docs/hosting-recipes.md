@@ -534,6 +534,13 @@ Source generation cannot log in, install dependencies or change Azure.
 
 ## Source, release and endpoint are different things
 
+At completion or a pause, finish with a separately reviewed
+[deployment handover](deployment-handover.md): two-tab offline HTML, configured
+SVG/editable Excalidraw architecture, unchanged source, optional matched release
+files and destination-specific repeat instructions. `mcp-handover-plan/bundle`
+reads retained metadata and owner declarations; it never turns them into live
+readiness, exports credentials or replays a proof.
+
 1. **Generate source.** Review the selected recipe input and save a new project.
    `recipe-manifest.json` records hashes of all generated files. It is an
    integrity record, not a signature, security audit or deployment receipt.

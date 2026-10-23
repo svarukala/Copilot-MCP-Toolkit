@@ -9,6 +9,32 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Deployment handover implementation
+
+The four sealed SDK hosting recipes support separately reviewed
+`mcp-handover-schema/plan/bundle` exports. Each output includes two-tab offline
+HTML, configured SVG/editable Excalidraw architecture, original source/templates,
+optional source-matched release files and a structured integrity manifest.
+The repeat guide maps destination edits to files/fields, distinguishes supported
+CLI steps from manual/approval-required actions, preserves host-specific ordering
+and highlights registry policy. The skill and generated projects surface this
+at completion or a pause, without silently exporting private data.
+
+Configuration, owner declarations and scoped historical observations stay
+distinct. Missing evidence stays pending; deferrals, failures, waiting and
+consumed calls remain intact. No new provider/consumer qualification, live
+deployment, package installation or registration is implied.
+
+Final focused offline validation passed **57/57** tests with zero failures,
+skips or cancellations, including 20 handover tests, adjacent hosting/API-key,
+release, image-review, operator and CLI contracts, and a fresh packed consumer
+with runtime networking/provider subprocesses denied. Syntax and strict public
+types passed. The synthetic local-browser preview passed tab/keyboard, copy and
+copy-failure, light/dark, print and mobile checks with zero external page
+requests; the generated PowerShell review script parsed successfully.
+The full repository suite was not rerun. No live operations or new consumer
+qualification were performed.
+
 ### Native Windows SSO implementation
 
 2026-10-22: the owner prioritized native Windows SSO with Linux/WSL optional.

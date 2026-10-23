@@ -11,7 +11,7 @@ function backendSummary(backend) {
 const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
-  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan',
+  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan', 'mcp-handover-plan',
   'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
@@ -129,6 +129,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-handover-bundle') {
+    writeFeedback(state, `[handover summary]\nOperation: local private handover files only\nNew destination: ${safe(plan.outputPath)}\nRecipe: ${safe(plan.manifest.summary.recipe)}\nSnapshot: ${safe(plan.manifest.snapshotAt)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the manifest and artifact hashes on stdout. This approval does not authorize any displayed command.\n`);
+    return;
+  }
   if (['mcp-host-run', 'mcp-session'].includes(plan.action)) {
     writeFeedback(state, `[separate operation review]\nOperation: ${safe(plan.action)} / ${safe(plan.input?.kind ?? 'discovery-then-separate-proof')}\nProject: ${safe(plan.projectDir)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalDigest: ${safe(plan.approvalDigest)}\nReview all targets, effects and bounds on stdout. This plan does not execute anything.\n`);
     return;

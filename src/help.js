@@ -7,6 +7,7 @@ export const commandFamilies = {
   operator: ['mcp-operator-schema', 'mcp-operator-plan', 'mcp-operator-record', 'mcp-operator-status'],
   containerApps: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
   hosting: ['mcp-hosting-schema', 'mcp-hosting-plan', 'mcp-hosting-create'],
+  handover: ['mcp-handover-schema', 'mcp-handover-plan', 'mcp-handover-bundle'],
   recipeArtifacts: ['mcp-recipe-source-plan', 'mcp-recipe-release-plan', 'mcp-recipe-release-bundle',
     'mcp-recipe-reference-plan', 'mcp-recipe-reference-create'],
   generation: ['mcp-server-plan', 'mcp-server-create', 'rest-tools-plan', 'rest-tools-write'],
@@ -125,6 +126,15 @@ plan/create writes a separate unverified existing-MCP project for later
 discovery/proof/FCC, not a fabricated capture. Both require project/config/new
 output, explicit workspace and exact approval for writes.
 See docs/hosting-recipes.md for all four profiles and their live limitations.
+Handover: mcp-handover-schema/plan/bundle produces a private offline two-tab HTML,
+inline SVG/editable Excalidraw architecture, sealed source and optional matched
+release files. Requires workspace, sealed hosting project, config and NEW output
+directory. Config includes snapshotAt and privateExportReviewed: true; optional
+referenceProject/releaseDirectory are resolved relative to config within the
+workspace. Owner reports/deferred milestones never become verified evidence.
+Plan supports --summary; bundle requires exact --approve. No credentials, raw
+captures, external assets, login, deployment, calls or replay authority.
+Use at completion or pause; see docs/deployment-handover.md.
 First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinary
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.
