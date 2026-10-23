@@ -24,15 +24,21 @@ import { readMcpServerProject } from '../src/mcp-lifecycle.js';
 
 import { planMcpResume } from '../src/mcp-resume.js';
 
+import { readMcpStatus } from '../src/mcp-status.js';
+import { readMcpDiagnosis } from '../src/mcp-diagnosis.js';
+import { readMcpProofHistory } from '../src/mcp-proof-history.js';
+
 import { planMcpProjectDiscovery, planMcpProjectProof, executeMcpProjectForTest } from '../src/mcp-discovery-project.js';
 
 import { discoverMcpToolsForTest, runMcpReadOnlyProofForTest } from '../src/mcp-discovery.js';
 
 import { planMcpEvidenceExport, exportMcpEvidence, inspectMcpEvidence, planMcpEvidenceRestore, restoreMcpEvidence } from '../src/mcp-evidence.js';
 
-import { metadataDigest, savedJson } from '../src/anonymous-metadata.js';
+import { boundedSnapshot, metadataDigest, savedJson } from '../src/anonymous-metadata.js';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
+const digest = value => metadataDigest(boundedSnapshot(value));
+const resultProfile = { kind: 'json-array-string-field-v1', field: 'fact', maxItems: 1, maxStringLength: 100 };
 
 const zip = entries => Buffer.from(zipSync(Object.fromEntries(Object.keys(entries).sort().map(k => [k, entries[k]])),
   { level: 0, mtime: new Date(1980, 0, 1) }));
@@ -55,7 +61,7 @@ async function fixture(t) {
   return { root, dir, output, create };
 }
 
-async function historyFixture(dir, outcome) {
+async function historyFixture(dir, outcome, resultAssertion) {
   const calls = [];
   const operation = (source, options, guard, hooks, proof) => (proof ? runMcpReadOnlyProofForTest : discoverMcpToolsForTest)(
     source, options, { ...hooks, beforeRequest: guard, mcpTransport: async (url, request) => {
@@ -65,22 +71,176 @@ async function historyFixture(dir, outcome) {
       const result = rpc.method === 'initialize' ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fixture', version: '1' } }
         : rpc.method === 'tools/list' ? { tools: [{ name: 'read_record', description: 'Read record', inputSchema: { type: 'object', properties: {}, additionalProperties: false },
           annotations: { readOnlyHint: true, destructiveHint: false } }] }
-          : { content: [{ type: 'text', text: 'PRIVATE_BUSINESS_RESULT' }], ...(outcome === 'failed' ? { isError: true } : {}) };
+          : { content: [{ type: 'text', text: resultAssertion && outcome !== 'mismatch'
+            ? '[{"fact":"PRIVATE_BUSINESS_RESULT"}]' : 'PRIVATE_BUSINESS_RESULT' }],
+          ...(outcome === 'failed' ? { isError: true } : {}) };
       return new Response(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result }));
     } });
   const discovery = await planMcpProjectDiscovery(dir, {});
   const capture = await executeMcpProjectForTest(dir, { selection: {}, approval: discovery, allowNetwork: true }, false,
     (s, o, g, h) => operation(s, o, g, h, false));
   const selection = { capture: capture.resultFile, toolName: 'read_record', arguments: {},
-    safetyReview: { readOnly: true, reason: 'Owner reviewed one public read.' } };
+    safetyReview: { readOnly: true, reason: 'Owner reviewed one public read.' },
+    ...(resultAssertion ? { resultAssertion } : {}) };
   const proof = await planMcpProjectProof(dir, selection);
   const execute = () => executeMcpProjectForTest(dir, { selection, approval: proof, allowNetwork: true }, true,
     (s, o, g, h) => operation(s, o, g, h, true));
   const completed = await execute();
   if (outcome === 'unknown') assert.equal(completed.result.status, 'unknown');
   assert.equal(calls.filter(x => x === 'tools/call').length, 1);
-  return calls;
+  return { calls, completed, selection, capture: capture.result };
 }
+
+for (const outcome of ['passed', 'mismatch', 'failed', 'unknown']) {
+  test(`same-call assertion ${outcome} survives status, resume, diagnosis and byte-preserving recovery without replay`, async t => {
+    const f = await fixture(t);
+    const { calls, completed, selection, capture } = await historyFixture(f.dir, outcome, resultProfile);
+    const expected = outcome === 'unknown' ? 'not-evaluated' : outcome === 'passed' ? 'passed' : 'failed';
+    const historyStatus = outcome === 'unknown' ? 'unresolved' : 'completed';
+    const callCount = calls.length;
+    assert.equal(completed.result.backendAssertion.status, expected);
+    const original = await fs.readFile(completed.resultFile);
+    assert.doesNotMatch(original.toString(), /PRIVATE_BUSINESS_RESULT|PRIVATE_RAW_FAILURE/);
+    const check = async dir => {
+      const history = await readMcpProofHistory(dir), status = await readMcpStatus(dir);
+      const attempt = status.proofs.find(a => a.status !== 'not-proof');
+      assert.equal(attempt.status, historyStatus);
+      assert.deepEqual(attempt.backendAssertion, completed.result.backendAssertion);
+      assert.deepEqual(history.attempts.find(a => a.status !== 'not-proof').backendAssertion, attempt.backendAssertion);
+      if (outcome !== 'unknown') assert.equal(attempt.protocolStatus, outcome === 'failed' ? 'tool-error' : 'protocol-success');
+      assert.equal(status.status, 'local-evidence-only');
+      assert.equal(status.coworkRuntimeVerified, false);
+      assert.equal(status.replayAuthorized, false);
+      const resume = await planMcpResume(dir, { phase: 'proof' });
+      assert.equal(resume.next.code, outcome === 'unknown' ? 'OUTCOME_UNRESOLVED' : 'PURPOSE_CONSUMED');
+      assert.equal(resume.next.command, null);
+      assert.equal(resume.next.approval, null);
+      assert.equal(resume.layers.resultAssertions.historicalOnly, true);
+      assert.equal(resume.layers.resultAssertions.businessCorrectnessVerified, false);
+      assert.deepEqual(resume.layers.resultAssertions.findings, [{ attemptId: attempt.attemptId, assertion: attempt.backendAssertion }]);
+      const diagnosis = await readMcpDiagnosis(dir);
+      assert.equal(diagnosis.executionReadiness, false);
+      assert.equal(diagnosis.replayAuthorized, false);
+      assert.equal(diagnosis.layers.calls[historyStatus], 1);
+      assert.equal(diagnosis.layers.calls.businessCorrectnessVerified, false);
+      assert.deepEqual(diagnosis.layers.calls.assertions, [{ kind: resultProfile.kind, status: expected, historicalOnly: true }]);
+      assert.doesNotMatch(JSON.stringify({ status, resume, diagnosis }), /PRIVATE_BUSINESS_RESULT|PRIVATE_RAW_FAILURE/);
+      await assert.rejects(planMcpProjectProof(dir, { ...selection, capture }), { code: 'PROOF_REPLAY_BLOCKED' });
+      await assert.rejects(planMcpProjectProof(dir, { ...selection, capture,
+        resultAssertion: { ...resultProfile, maxItems: 2 } }), { code: 'PROOF_REPLAY_BLOCKED' });
+      const { resultAssertion, ...ordinary } = { ...selection, capture };
+      ordinary.safetyReview = { readOnly: true, reason: 'Another review does not reopen the same call.' };
+      const approval = await planMcpProjectProof(dir, ordinary);
+      await assert.rejects(executeMcpProjectForTest(dir, { selection: ordinary, approval, allowNetwork: true }, true,
+        () => assert.fail('Consumed call must be rejected before transport.')),
+      { code: outcome === 'unknown' ? 'PROOF_OUTCOME_UNRESOLVED' : 'PROOF_REPLAY_BLOCKED' });
+    };
+    await check(f.dir);
+    const { plan, result, bytes } = await f.create();
+    assert.equal(plan.semanticEvidence.history, 'cross-record-bindings-not-validated');
+    assert.doesNotMatch(bytes.toString(), /PRIVATE_BUSINESS_RESULT|PRIVATE_RAW_FAILURE/);
+    const inspected = await inspectMcpEvidence(f.output, { sha256: result.archiveSha256 });
+    assert.equal(inspected.executionReadiness, false);
+    const output = path.join(f.root, 'restored'), args = { output, sha256: result.archiveSha256 };
+    const restore = await planMcpEvidenceRestore(f.output, args);
+    await restoreMcpEvidence(f.output, { ...args, approval: restore.approvalToken });
+    for (const file of inspected.manifest.files) {
+      assert.deepEqual(await fs.readFile(path.join(output, ...file.path.split('/'))),
+        await fs.readFile(path.join(f.dir, ...file.path.split('/'))));
+    }
+    await check(output);
+    assert.deepEqual(await fs.readFile(completed.resultFile), original);
+    assert.equal(calls.length, callCount);
+  });
+}
+
+test('generic assertion receipts reject rehashed schema, verdict and binding tampering across strict readers', async t => {
+  const f = await fixture(t);
+  const { completed, calls } = await historyFixture(f.dir, 'passed', resultProfile), callCount = calls.length;
+  const original = JSON.parse(await fs.readFile(completed.resultFile));
+  const rejectReaders = async dir => {
+    await assert.rejects(readMcpProofHistory(dir), { code: 'METADATA_MISMATCH' });
+    await assert.rejects(readMcpStatus(dir), { code: 'METADATA_MISMATCH' });
+    await assert.rejects(planMcpResume(dir), { code: 'METADATA_MISMATCH' });
+    const diagnosis = await readMcpDiagnosis(dir);
+    assert.deepEqual(diagnosis.layers.observations, { status: 'blocked', code: 'METADATA_MISMATCH' });
+    assert.ok(diagnosis.barriers.includes('invalid-or-missing-evidence'));
+    assert.equal(diagnosis.layers.calls, undefined);
+    assert.equal(diagnosis.executionReadiness, false);
+  };
+  for (const change of [
+    p => { p.resultAssertion.kind = 'unsupported-v1'; },
+    p => { p.resultAssertion.maxItems = 101; },
+    p => { p.resultAssertion.field = 'constructor'; },
+    p => { p.resultAssertion.extra = true; },
+    p => { delete p.resultAssertion; },
+    p => { delete p.backendAssertion; },
+    p => { p.backendAssertion.kind = 'graph-organization-v1'; },
+    p => { p.backendAssertion.assertionDigest = `sha256:${'a'.repeat(64)}`; },
+    p => { p.backendAssertion.rawResultRetained = true; },
+    p => { p.backendAssertion.content = 'untrusted extra result'; },
+    p => { p.backendAssertion.status = 'not-evaluated'; },
+    p => { p.status = 'tool-error'; },
+    p => { p.errorCode = 'UNEXPECTED_ERROR'; },
+    p => { p.sourceDigest = `sha256:${'a'.repeat(64)}`; },
+    p => { p.approvalDigest = `sha256:${'a'.repeat(64)}`; },
+    p => { p.captureDigest = 'not-a-digest'; },
+    p => { p.argumentsDigest = 'not-a-digest'; },
+    p => { p.completedAt = '2099-01-01T00:00:00.000Z'; },
+    p => { p.businessCorrectnessVerified = true; },
+    p => { p.coworkRuntimeVerified = true; },
+    p => { p.rawResult = 'untrusted extra result'; },
+  ]) {
+    const { receiptDigest, ...proof } = structuredClone(original);
+    change(proof);
+    await fs.writeFile(completed.resultFile, savedJson({ ...proof, receiptDigest: digest(proof) }));
+    await rejectReaders(f.dir);
+  }
+  const { plan, result } = await f.create();
+  assert.equal(plan.semanticEvidence.history, 'cross-record-bindings-not-validated');
+  const args = { output: path.join(f.root, 'invalid-restored'), sha256: result.archiveSha256 };
+  const restore = await planMcpEvidenceRestore(f.output, args);
+  await restoreMcpEvidence(f.output, { ...args, approval: restore.approvalToken });
+  assert.deepEqual(await fs.readFile(path.join(args.output, path.relative(f.dir, completed.resultFile))),
+    await fs.readFile(completed.resultFile));
+  await rejectReaders(args.output);
+  assert.equal(calls.length, callCount);
+});
+
+test('unknown assertion and missing dispatch remain unresolved; malformed dispatch cannot certify completion', async t => {
+  const f = await fixture(t);
+  const { completed, calls } = await historyFixture(f.dir, 'unknown', resultProfile), callCount = calls.length;
+  const original = JSON.parse(await fs.readFile(completed.resultFile));
+  for (const change of [
+    p => { p.backendAssertion.status = 'passed'; },
+    p => { p.backendAssertion.assertionDigest = digest(resultProfile); },
+    p => { delete p.errorCode; },
+    p => { p.errorCode = 'unbounded error text'; },
+  ]) {
+    const { receiptDigest, ...proof } = structuredClone(original);
+    change(proof);
+    await fs.writeFile(completed.resultFile, savedJson({ ...proof, receiptDigest: digest(proof) }));
+    await assert.rejects(readMcpStatus(f.dir), { code: 'METADATA_MISMATCH' });
+  }
+  await fs.writeFile(completed.resultFile, savedJson(original));
+  const filename = path.join(completed.outputDir, 'dispatch.json');
+  const dispatch = JSON.parse(await fs.readFile(filename));
+  for (const change of [
+    d => { d.intentDigest = `sha256:${'a'.repeat(64)}`; },
+    d => { d.operationDigest = `sha256:${'a'.repeat(64)}`; },
+    d => { d.preparedAt = '2099-01-01T00:00:00.000Z'; },
+    d => { d.extra = true; },
+  ]) {
+    const { receiptDigest, ...body } = structuredClone(dispatch);
+    change(body);
+    await fs.writeFile(filename, savedJson({ ...body, receiptDigest: digest(body) }));
+    await assert.rejects(readMcpProofHistory(f.dir), { code: 'METADATA_MISMATCH' });
+  }
+  await fs.unlink(filename);
+  assert.equal((await readMcpStatus(f.dir)).proofs.find(a => a.status !== 'not-proof').status, 'unresolved');
+  assert.equal((await planMcpResume(f.dir, { phase: 'proof' })).next.code, 'OUTCOME_UNRESOLVED');
+  assert.equal(calls.length, callCount);
+});
 
 test('safe export preserves exact bytes, ignores auth/unknown surfaces and restores only to a new root', async t => {
   const f = await fixture(t);
@@ -351,7 +511,7 @@ process.exitCode=await main(process.argv.slice(2),{runAzure(){throw Error('UNEXP
   };
   for (const outcome of ['passed', 'failed', 'unknown']) {
     const source = path.join(workspace, `source-${outcome}`); await fs.cp(f.dir, source, { recursive: true });
-    const calls = await historyFixture(source, outcome), callCount = calls.length;
+    const { calls } = await historyFixture(source, outcome), callCount = calls.length;
     const archive = path.join(workspace, `${outcome}.zip`), destination = path.join(workspace, `restored-${outcome}`);
     const plan = invoke(['mcp-export-plan', '--project', source, '--output', archive, '--persistence', 'ephemeral', '--summary']);
     const exported = invoke(['mcp-export', '--project', source, '--output', archive, '--persistence', 'ephemeral', '--approve', plan.approvalToken]);

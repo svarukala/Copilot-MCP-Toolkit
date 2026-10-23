@@ -7,6 +7,7 @@ import { validMcpFailure, mcpFailureGuidance } from './mcp-failure.js';
 import { qualificationAction, qualificationKind, validQualificationAssertion, firstCallProfileBinding,
   tavilySearchArguments, isTavilyProject } from './mcp-tavily-qualification.js';
 import { readMcpServerProject } from './mcp-lifecycle.js';
+import { checkedResultAssertionEvidence } from './mcp-result-assertion.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
 const hash = value => typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value);
@@ -65,6 +66,36 @@ function notDispatched(record) {
     && failure.status === 'not-dispatched'
     && failure.dispatchContract === 'write-ahead-tools-call-v1' && failure.intentDigest === digest(intent)
     && /^[A-Z][A-Z_]{1,60}$/.test(failure.errorCode) && finished(intent, failure) && signed(failure, 'failureDigest');
+}
+
+function validateResultAssertionRecord(record, project) {
+  const { intent, proof, dispatch, failure, mapping } = record;
+  requireMetadata(project.review.descriptor.kind === 'existing-mcp'
+    && keys(intent, ['schemaVersion', 'action', 'status', 'startedAt', 'approvalDigest', 'reviewDigest',
+      'operationDigest', 'executionVersion', 'previousHistoryDigest', ...(intent.legacyRecoveryPlan ? ['legacyRecoveryPlan'] : [])])
+    && intent.schemaVersion === 1 && intent.action === 'standalone-mcp-project-proof'
+    && intent.status === 'started' && intent.executionVersion === 2
+    && intent.reviewDigest === project.review.reviewDigest && hash(intent.operationDigest)
+    && hash(intent.previousHistoryDigest) && timestamp(intent.startedAt)
+    && !mapping && (!failure || validMcpFailure(failure, intent)), 'METADATA_MISMATCH');
+  requireMetadata(keys(proof, ['schemaVersion', 'kind', 'approvalDigest', 'sourceDigest', 'captureDigest',
+    'toolName', 'argumentsDigest', 'status', 'resultAssertion', 'backendAssertion', 'completedAt',
+    'businessCorrectnessVerified', 'coworkRuntimeVerified', 'receiptDigest', ...(proof.errorCode === undefined ? [] : ['errorCode'])])
+    && proof.schemaVersion === 1 && proof.kind === 'standalone-mcp-read-only-proof'
+    && signed(proof, 'receiptDigest') && proof.approvalDigest === intent.operationDigest
+    && proof.sourceDigest === project.review.descriptor.descriptorDigest
+    && hash(proof.captureDigest) && hash(proof.argumentsDigest)
+    && typeof proof.toolName === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(proof.toolName)
+    && proof.businessCorrectnessVerified === false && proof.coworkRuntimeVerified === false
+    && timestamp(proof.completedAt) && Date.parse(proof.completedAt) >= Date.parse(intent.startedAt)
+    && Date.parse(proof.completedAt) <= Date.now(), 'METADATA_MISMATCH');
+  checkedResultAssertionEvidence(proof);
+  if (dispatch) requireMetadata(keys(dispatch, ['schemaVersion', 'kind', 'intentDigest', 'operationDigest',
+    'preparedAt', 'receiptDigest']) && dispatch.schemaVersion === 1
+    && dispatch.kind === 'standalone-mcp-proof-dispatch' && dispatch.intentDigest === digest(intent)
+    && dispatch.operationDigest === intent.operationDigest && signed(dispatch, 'receiptDigest')
+    && timestamp(dispatch.preparedAt) && Date.parse(dispatch.preparedAt) >= Date.parse(intent.startedAt)
+    && Date.parse(dispatch.preparedAt) <= Date.parse(proof.completedAt), 'METADATA_MISMATCH');
 }
 
 export async function readMcpProofHistory(projectDir, legacyPlan, excludeAttempt) {
@@ -144,6 +175,13 @@ export async function readMcpProofHistory(projectDir, legacyPlan, excludeAttempt
           && (proof.status === 'tool-error' ? proof.backendAssertion.predicate === 'tool-error'
             : proof.backendAssertion.predicate !== 'tool-error')), 'METADATA_MISMATCH');
   }
+  let resultAssertionProject;
+  for (const record of records) {
+    if (!record.proof || !Object.hasOwn(record.proof, 'resultAssertion')
+      && record.proof.backendAssertion?.kind !== 'json-array-string-field-v1') continue;
+    resultAssertionProject ??= await readMcpServerProject(projectDir);
+    validateResultAssertionRecord(record, resultAssertionProject);
+  }
   for (const record of records.filter(record => record.intent.action === qualificationAction)) {
     const q = record.intent.qualification, prior = records.find(item => item.name === q.priorAttemptId);
     requireMetadata(!record.failure || validMcpFailure(record.failure, record.intent), 'METADATA_MISMATCH');
@@ -198,6 +236,7 @@ export async function readMcpProofHistory(projectDir, legacyPlan, excludeAttempt
       ...(status === 'completed' && proof.resultAssertion ? { assertedProof: {
         sourceDigest: proof.sourceDigest, toolName: proof.toolName, argumentsDigest: proof.argumentsDigest,
       } } : {}),
+      ...(proof?.resultAssertion ? { backendAssertion: checkedResultAssertionEvidence(proof) } : {}),
       ...(!qualification && status === 'completed' && proof.toolName === 'tavily_search'
         ? { tavilySearchSourceDigest: proof.sourceDigest } : {}),
       ...(qualification ? { qualification: intent.qualification, ...(proof ? { backendAssertion: proof.backendAssertion } : {}) } : {}),

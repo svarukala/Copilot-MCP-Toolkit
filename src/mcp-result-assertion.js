@@ -1,7 +1,7 @@
 import { boundedSnapshot, metadataDigest, requireMetadata } from './anonymous-metadata.js';
 import { secretIssues } from './validation.js';
 
-export function checkedResultAssertion(value) {
+export function checkedResultAssertion(value, code = 'PROOF_SCHEMA_UNSUPPORTED') {
   const assertion = boundedSnapshot(value);
   requireMetadata(assertion && Object.keys(assertion).sort().join(',') === 'field,kind,maxItems,maxStringLength'
     && assertion.kind === 'json-array-string-field-v1'
@@ -9,8 +9,25 @@ export function checkedResultAssertion(value) {
     && !['constructor', 'prototype', 'password', 'api_key', 'access_token', 'secret'].includes(assertion.field)
     && Number.isInteger(assertion.maxItems) && assertion.maxItems >= 1 && assertion.maxItems <= 100
     && Number.isInteger(assertion.maxStringLength) && assertion.maxStringLength >= 1 && assertion.maxStringLength <= 4096,
-  'PROOF_SCHEMA_UNSUPPORTED');
+  code);
   return assertion;
+}
+export function checkedResultAssertionEvidence(proof) {
+  requireMetadata(proof.resultAssertion && typeof proof.resultAssertion === 'object'
+    && !Array.isArray(proof.resultAssertion), 'METADATA_MISMATCH');
+  const profile = checkedResultAssertion(proof.resultAssertion, 'METADATA_MISMATCH');
+  const assertion = proof.backendAssertion;
+  const unknown = proof.status === 'unknown';
+  requireMetadata(assertion && Object.keys(assertion).sort().join(',') === (unknown
+    ? 'kind,status' : 'assertionDigest,kind,rawResultRetained,status')
+    && assertion.kind === profile.kind
+    && (unknown ? assertion.status === 'not-evaluated' && /^[A-Z_]{2,60}$/.test(proof.errorCode ?? '')
+      : ['protocol-success', 'tool-error'].includes(proof.status) && proof.errorCode === undefined
+        && ['passed', 'failed'].includes(assertion.status)
+        && (proof.status !== 'tool-error' || assertion.status === 'failed')
+        && assertion.assertionDigest === metadataDigest(profile) && assertion.rawResultRetained === false),
+  'METADATA_MISMATCH');
+  return boundedSnapshot(assertion);
 }
 export function assessResultAssertion(reply, input) {
   const assertion = checkedResultAssertion(input);

@@ -237,9 +237,17 @@ test('reference proofs remain scoped historical results and export no replay aut
   assert.match(evidence.meaning, /Scoped backend assertion: passed/);
   assert.equal(plan.manifest.milestones.find(m => m.name === 'consumer-call').status, 'pending');
   assert.doesNotMatch(JSON.stringify(plan.manifest), /Synthetic result not retained|previousHistoryDigest|approvalDigest/);
-  proof.sourceDigest = `sha256:${'e'.repeat(64)}`;
-  await writeFile(path.join(folder, 'proof.json'), savedJson({ ...proof, receiptDigest: digest(proof) }));
-  await assert.rejects(planHandover(f.options), { code: 'MCP_HANDOVER_EVIDENCE' });
+  for (const change of [
+    p => { p.sourceDigest = `sha256:${'e'.repeat(64)}`; },
+    p => { p.backendAssertion.content = 'untrusted extra result'; },
+    p => { p.backendAssertion.rawResultRetained = true; },
+    p => { p.status = 'tool-error'; },
+  ]) {
+    const changed = structuredClone(proof);
+    change(changed);
+    await writeFile(path.join(folder, 'proof.json'), savedJson({ ...changed, receiptDigest: digest(changed) }));
+    await assert.rejects(planHandover(f.options), { code: 'METADATA_MISMATCH' });
+  }
 });
 test('foreign endpoint references, paths and junctions do not enter a handover', async t => {
   const f = await setup(t), dir = await reference(f);

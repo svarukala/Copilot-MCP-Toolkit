@@ -9,6 +9,7 @@ import { metadataDigest, boundedSnapshot, requireMetadata } from './anonymous-me
 import { readMcpAuthRejections, readMcpBackendRejections } from './mcp-auth-rejection.js';
 import { experimentalConfigurationStatus } from './mcp-configuration.js';
 import { validQualificationAssertion } from './mcp-tavily-qualification.js';
+import { checkedResultAssertionEvidence } from './mcp-result-assertion.js';
 
 export async function readMcpStatus(projectDir, { journey = false } = {}) {
   const project = await readMcpServerProject(projectDir);
@@ -24,12 +25,13 @@ export async function readMcpStatus(projectDir, { journey = false } = {}) {
     requireMetadata(receiptDigest === metadataDigest(boundedSnapshot(body))
       && proof.approvalDigest === attempt.operationDigest
       && ['protocol-success', 'tool-error'].includes(proof.status), 'METADATA_MISMATCH');
-    const assertion = proof.backendAssertion;
-    if (assertion) requireMetadata(attempt.qualification || attempt.acceptanceProfile ? validQualificationAssertion(assertion)
+    const assertion = proof.resultAssertion ? checkedResultAssertionEvidence(proof) : proof.backendAssertion;
+    if (assertion && !proof.resultAssertion) requireMetadata(attempt.qualification || attempt.acceptanceProfile ? validQualificationAssertion(assertion)
       : ['legiscan-bill-v1', 'controlled-delegated-v1', 'graph-organization-v1'].includes(assertion.kind)
         && ['passed', 'failed', 'not-evaluated'].includes(assertion.status), 'METADATA_MISMATCH');
     proofResults.push({ ...attempt, protocolStatus: proof.status,
-      ...(assertion ? { backendAssertion: attempt.qualification || attempt.acceptanceProfile ? assertion : { kind: assertion.kind, status: assertion.status } } : {}) });
+      ...(assertion ? { backendAssertion: proof.resultAssertion || attempt.qualification || attempt.acceptanceProfile
+        ? assertion : { kind: assertion.kind, status: assertion.status } } : {}) });
   }
   const observations = [];
   const directory = await assertProjectPath(path.join(project.projectDir, '.mcp-observations'));

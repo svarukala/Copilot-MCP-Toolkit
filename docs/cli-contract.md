@@ -241,6 +241,18 @@ operation. Default ordinary proof version 2, dedicated qualification version 3,
 and first-call version 4 remain distinct. Validated not-dispatched failures may
 permit fresh review; unknown/post-dispatch outcomes and locks prohibit replay.
 
+An **unused existing-MCP first proof** can instead select the bounded
+[`resultAssertion` array/string profile](hosting-recipes.md).
+Status and resume retain its validated `kind`, `status`, `assertionDigest` and
+`rawResultRetained: false`; diagnosis reports only its kind and historical verdict.
+An unknown call retains `not-evaluated`, not a passing assertion. Protocol success
+and a failed structural assertion are separate findings. Neither establishes
+business correctness or consumer readiness, and all dispatched outcomes remain
+consumed. Malformed or mismatched assertion receipts block strict readers rather
+than being omitted or promoted to success. Evidence export/restore preserves
+the original bytes, including invalid history, without certifying cross-record
+bindings or removing these barriers.
+
 ## Evidence, recovery and diagnosis
 
 1. `mcp-export-plan --project DIR --output NEW.zip [--persistence MODE]`.

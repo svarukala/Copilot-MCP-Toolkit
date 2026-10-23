@@ -12,7 +12,7 @@ import { readControl } from './mcp-control.js';
 import { boundedSnapshot, metadataDigest, requireMetadata } from './anonymous-metadata.js';
 import { inspectionBudget } from './inspection-budget.js';
 import { sanitizeProvisioningErrorCode } from './azure.js';
-import { isTavilyProject, requireTavilyArguments, validQualificationAssertion } from './mcp-tavily-qualification.js';
+import { isTavilyProject, requireTavilyArguments } from './mcp-tavily-qualification.js';
 import { normalizeDeploymentOperationDiagnostic } from './deployment-diagnostic.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
@@ -268,9 +268,6 @@ export async function readMcpDiagnosis(projectDir, { config } = {}) {
           else calls.notDispatched++;
           if (a.backendAssertion) {
             const assertion = a.backendAssertion;
-            requireMetadata(validQualificationAssertion(assertion)
-              || assertion.kind === 'tavily-search-result-v1' && assertion.status === 'not-evaluated'
-                && Object.keys(assertion).length === 2, 'METADATA_MISMATCH');
             calls.assertions.push({ kind: assertion.kind, status: assertion.status, historicalOnly: true });
           }
         }

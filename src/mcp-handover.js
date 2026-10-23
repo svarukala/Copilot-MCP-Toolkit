@@ -12,7 +12,7 @@ import { readOperatorHandover } from './mcp-operator.js';
 import { readMcpServerProject } from './mcp-lifecycle.js';
 import { readMcpProofHistory } from './mcp-proof-history.js';
 import { mcpCaptureFreshness } from './mcp-discovery.js';
-import { checkedResultAssertion } from './mcp-result-assertion.js';
+import { checkedResultAssertionEvidence } from './mcp-result-assertion.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { secretIssues } from './validation.js';
 import { handoverResources, destinationEdits, handoverGuide, reviewSourceScript } from './mcp-handover-guide.js';
@@ -155,12 +155,7 @@ async function referenceEvidence(directory, project, cutoff) {
         && Date.parse(proof.completedAt) >= Date.parse(intent.startedAt)
         && proof.approvalDigest === intent.operationDigest && project.runtime.tools.some(t => t.name === proof.toolName),
       'EVIDENCE', 'Proof must match this reference, tool and retained operation.');
-      if (proof.resultAssertion) {
-        const assertion = checkedResultAssertion(proof.resultAssertion);
-        requireHandover(proof.backendAssertion?.kind === assertion.kind
-          && proof.backendAssertion.assertionDigest === digest(assertion) && proof.backendAssertion.rawResultRetained === false
-          && ['passed', 'failed'].includes(proof.backendAssertion.status), 'EVIDENCE', 'Result assertion receipt differs.');
-      }
+      if (proof.resultAssertion) checkedResultAssertionEvidence(proof);
       evidence.push({ kind: `tools/call: ${proof.toolName}`, status: proof.status === 'protocol-success' ? 'verified-historical' : 'failed-historical',
         observedAt: proof.completedAt, evidenceDigest: receiptDigest,
         meaning: `Recorded MCP protocol result only; not consumer or business acceptance.${proof.backendAssertion ? ` Scoped backend assertion: ${proof.backendAssertion.status}.` : ''} This call remains consumed.` });
