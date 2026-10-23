@@ -1,10 +1,11 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
 validation: {
-      contractVersion: 2, supportedInputVersions: [1, 2], commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
+      contractVersion: 3, supportedInputVersions: [1, 2, 3], commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
         'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
       scenarios: ['container-apps-existing-v1', 'container-apps-create-v2', 'container-apps-apim-create-v2',
-        'native-apim-create-v2', 'existing-mcp-create-v2', 'mcp-proxy-create-v2'],
+        'native-apim-create-v2', 'existing-mcp-create-v2', 'mcp-proxy-create-v2',
+        'container-apps-create-v3', 'container-apps-apim-create-v3'],
       storage: 'private-append-only-checkpoints-and-reports',
       automated: ['local-integrity', 'approved-generation', 'approved-release-and-reference',
         'approved-private-APIM-account-and-lifecycle', 'approved-discovery', 'separately-approved-one-call-proof', 'approved-handover-or-archive'],
@@ -70,6 +71,9 @@ hostingRecipes: {
       functions: 'public-preview-linux-flex-consumption-stateless-custom-handler',
       gateway: 'inherited-HTTP-proxy-with-independent-signed-managed-identity-and-delegated-caller',
       backendAuthentication: ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query'],
+      containerAppsOnlyBackendProfiles: ['oauth-client-credentials-v1', 'oauth-authorization-code-v1', 'entra-obo-v1'],
+      userOAuth: 'hosted-PKCE-connection-memory-only-single-process-pilot',
+      confidentialClients: ['key-vault-client-secret', 'key-vault-certificate-assertion'],
       backendCredentials: 'native-key-vault-reference-dedicated-user-assigned-identity',
       npmRegistry: { configField: 'npmRegistryUrl', default: 'https://registry.npmjs.org/',
         selection: 'explicit-credential-free-HTTPS-feed-before-generation',
@@ -84,7 +88,8 @@ containerAppsRecipe: {
       commands: ['mcp-container-apps-schema', 'mcp-container-apps-plan', 'mcp-container-apps-create'],
       status: 'local-source-generation', gateway: 'none', runtime: 'official-mcp-sdk-node',
       callerAuthentication: 'entra-v2-delegated-tenant-audience-scope-client-allowlist',
-      backendAuthentication: ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query'],
+      backendAuthentication: ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query',
+        'oauth-client-credentials-v1', 'oauth-authorization-code-v1', 'entra-obo-v1'],
       operations: 'owner-reviewed-fixed-GET-no-arguments-JSON-response',
       annotations: 'generated-from-explicit-read-only-review-not-observed-evidence',
       requiredExistingResources: ['resource-group', 'container-apps-environment', 'acr', 'user-assigned-pull-identity'],

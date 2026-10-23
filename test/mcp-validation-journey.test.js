@@ -27,7 +27,7 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
   change(definition);
   const hosting = scenario.startsWith('container-apps-'), existing = scenario === 'existing-mcp-create-v2';
   const auth = definition.authentication ?? definition.inbound;
-  const input = { schemaVersion: 2, scenario, definitionFile: await json('definition.json', definition),
+  const input = { schemaVersion: scenario.endsWith('-v3') ? 3 : 2, scenario, definitionFile: await json('definition.json', definition),
     discovery: hosting || auth.type === 'entra' ? { discoveryClientId: auth.allowedClientIds[0], expectedUserId: uid } : {},
     proof: { toolName: definition.operationIds?.[0] ?? 'read_record', arguments: {},
       safetyReview: { readOnly: true, reason: 'Owner reviewed the fixed synthetic GET.' } },
@@ -48,10 +48,10 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
     return { plan, report };
   };
   const checkpoint = async (names, outcome = 'passed') => step({ config: await json('checkpoint.json', {
-    schemaVersion: 2, kind: 'checkpoint', milestones: names.map(name => ({ name, outcome, evidenceDigest, note: 'Owner reviewed synthetic evidence.' })),
+    schemaVersion: input.schemaVersion, kind: 'checkpoint', milestones: names.map(name => ({ name, outcome, evidenceDigest, note: 'Owner reviewed synthetic evidence.' })),
   }) });
   const artifact = async (kind, value) => step({ config: await json('request.json', {
-    schemaVersion: 2, kind, file: await json(`${kind}.json`, value),
+    schemaVersion: input.schemaVersion, kind, file: await json(`${kind}.json`, value),
   }) });
   const transport = async (state = {}) => {
     const project = path.join(run, hosting ? 'reference' : 'source');
@@ -90,6 +90,7 @@ for (const gateway of [false, true]) for (const key of ['header', 'query']) {
         for (const scheme of Object.values(d.document.components.securitySchemes)) {
           scheme.in = key; scheme.name = key === 'query' ? 'access_key' : 'X-Api-Key';
         }
+
       });
     const initial = await f.start();
     assert.equal(initial.coverage.backend, `api-key-${key}`);
@@ -123,6 +124,29 @@ for (const gateway of [false, true]) for (const key of ['header', 'query']) {
     assert.equal(stored.data.phase, 'release');
   });
 }
+
+test('OAuth v3 binds backend grant effects through discovery, proof, status and handover without replay', async t => {
+  const f = await setup(t, 'container-apps-direct-oauth', 'container-apps-create-v3');
+  await f.start(); await f.step();
+  await f.checkpoint(['prerequisites', 'image-build']);
+  await f.artifact('release', { schemaVersion: 1, accountName: 'operator@example.com',
+    containerImage: `${f.definition.azure.registry.server}/mcp@sha256:${'a'.repeat(64)}` });
+  await f.checkpoint(['runtime-deployment', 'secret-resolution']);
+  await f.artifact('reference', { schemaVersion: 1, serverId: uid, endpoint: 'https://synthetic.example.com/mcp' });
+  assert.equal((await nextValidation(f.active)).gate, 'client-registration');
+  await f.checkpoint(['client-registration']);
+  const { fixture, deps } = await f.transport();
+  const discovery = await f.step({}, deps);
+  assert.match(discovery.plan.childPlan.backendAuthorization.effects[0], /does not acquire/);
+  const proof = await nextValidation(f.active);
+  assert.ok(proof.effects.some(e => e.includes('token acquisition')));
+  assert.equal(proof.childPlan.backendAuthorization.profile, 'oauth-client-credentials-v1');
+  const proved = await f.step({}, deps);
+  assert.equal(proved.report.protocol, 'passed-historical');
+  assert.equal(fixture.calls.filter(c => c === 'tools/call').length, 1);
+  assert.equal((await nextValidation(f.active)).status, 'checks-recorded');
+  assert.equal((await f.step({ phase: 'handover' })).report.executionReadiness, false);
+});
 
 test('native header/query keys and Entra backend profiles generate then require explicit private identity', async t => {
   for (const mode of ['header', 'query', 'delegated', 'managed-identity']) await t.test(mode, async t => {

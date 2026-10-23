@@ -1,5 +1,10 @@
 # Recipe 1: an MCP server on Azure Container Apps
 
+For explicit third-party OAuth application/user access or same-tenant OBO,
+read the separate [backend authentication contract](backend-oauth.md). Those
+bounded pilots extend this recipe without changing its Entra caller boundary;
+the anonymous/API-key baseline below remains available.
+
 **Status: local source generation; not live-qualified.** This recipe produces a
 small Node.js MCP server and Azure deployment files. It does not deploy them.
 APIM is not required. A separate [APIM gateway recipe](apim-gateway-recipe.md)
@@ -14,7 +19,7 @@ Copilot will display it correctly.
 | Area | Supported scope |
 | --- | --- |
 | Caller sign-in | Microsoft Entra v2 **delegated user** access tokens; exact tenant, resource audience, permission scope and client application allowlist |
-| Source data | One explicitly reviewed HTTPS JSON backend, anonymous or using a dedicated header/query API key from Key Vault |
+| Source data | One explicitly reviewed HTTPS JSON backend: anonymous, a dedicated Key Vault header/query API key, or an explicit [OAuth/OBO pilot](backend-oauth.md) |
 | Tools | Up to 30 selected OpenAPI 3.0.x fixed GETs, with no arguments, authored query strings, bodies, callbacks, alternate servers or custom mappings |
 | Read-only labels | Every selected operation must be explicitly reviewed as side-effect-free; tools emit `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: true` |
 | Hosting | A new app in an **existing** resource group and Container Apps environment; an existing Azure Container Registry and user-assigned image-pull identity |

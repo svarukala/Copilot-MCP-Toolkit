@@ -16,6 +16,8 @@ import { mcpFailureDiagnostics } from './mcp-failure.js';
 import { qualificationAction, qualificationBinding, isTavilyProject, qualificationKind,
   firstCallProfileBinding } from './mcp-tavily-qualification.js';
 import { cliStage } from './cli-feedback.js';
+import { validateOAuthSettings } from './recipes/container-apps/backend-auth.js';
+import { secretIssues } from './validation.js';
 
 const equal = (a, b) => JSON.stringify(boundedSnapshot(a)) === JSON.stringify(boundedSnapshot(b));
 export async function resolveMcpProofSelection(projectDir, value) {
@@ -66,6 +68,27 @@ async function plan(projectDir, options, proof = false, excludeAttempt) {
   const value = { schemaVersion: 1, action: qualification ? qualificationAction : proof ? 'standalone-mcp-project-proof' : 'standalone-mcp-project-discovery',
     projectDir: project.projectDir, reviewDigest: project.review.reviewDigest,
     readiness: project.readiness, operation };
+  let origin;
+  try { origin = await readControl(path.join(project.projectDir, 'recipe-origin.json')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  if (origin?.backendAuthorization) {
+    const auth = origin.backendAuthorization, inbound = project.review.descriptor.inbound;
+    requireMetadata(Object.keys(origin).sort().join(',') === ['schemaVersion', 'kind', 'recipe', 'sourceManifestDigest',
+      'endpoint', 'assertion', 'authentication', 'tools', 'proofReplayAuthorized', 'backendAuthorization'].sort().join(',')
+      && origin.schemaVersion === 1 && origin.kind === 'recipe-endpoint-reference'
+      && /^sha256:[a-f0-9]{64}$/.test(origin.sourceManifestDigest)
+      && ['container-apps-direct-v1', 'container-apps-apim-v1'].includes(origin.recipe)
+      && origin.assertion === 'operator-supplied-endpoint-not-deployment-readback'
+      && origin.authentication === 'configuration-not-verified' && origin.tools === 'not-imported-use-fresh-observed-discovery'
+      && origin.proofReplayAuthorized === false && !secretIssues(savedJson(origin))
+      && auth && typeof auth === 'object' && Object.keys(auth).sort().join(',') === 'profile,settings'
+      && origin.endpoint === project.review.descriptor.endpoint && inbound.type === 'entra', 'AUTH_CONFIG_INVALID');
+    validateOAuthSettings(auth.profile, auth.settings, { ...inbound, audience: inbound.clientId });
+    value.backendAuthorization = { profile: auth.profile, settings: auth.settings, originDigest: metadataDigest(boundedSnapshot(origin)),
+      effects: proof ? ['One bounded backend grant/exchange/refresh if needed, followed by the selected fixed REST GET. No retry or replay.']
+        : ['Discovery does not acquire or refresh a backend token.'],
+      credentialTransferAuthorized: false, providerCompatibilityVerified: false };
+  }
   if (proof) {
     value.proofHistory = await readMcpProofHistory(project.projectDir, legacyPlan(value), excludeAttempt);
     if (operation.resultAssertion) requireMetadata(value.proofHistory.attempts.every(item =>

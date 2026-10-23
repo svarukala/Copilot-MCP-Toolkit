@@ -1,5 +1,11 @@
 # Reusable validation runners
 
+Version 3 adds direct/gateway ACA OAuth/OBO backend pilots through the same
+commands. See [backend authentication](backend-oauth.md#runner-proof-and-evidence)
+and the synthetic [v3 definition](../examples/mcp/validation-create-oauth.json).
+It uses explicit auth checkpoints and separate discovery/proof. V1 and v2
+below retain their historical contracts and unsupported-profile gates.
+
 The same six commands support the existing-deployment v1 contract below and
 [fresh creation journeys in v2](#fresh-creation-runners-version-2). Starting a
 run is a local record operation, not approval for its future phases.
@@ -329,14 +335,13 @@ preserves endpoint evidence, not the runner or credentials, and is not a consume
 handoff. Neither export resets any barrier. An unresolved intent blocks even
 runner export; separately reviewed independent recovery tools remain available.
 
-### Subsequent authentication priority
+### Authentication priority after v2
 
-After these runners, investigate and implement **third-party OAuth-backed REST**,
-**OBO token exchange**, and **username/password endpoint profiles** as distinct
-contracts. Define grant type, token audience/issuer, delegated versus application
-identity, storage/isolation, refresh/expiry/revocation and controlled fixtures
-before exposing execution. Basic authentication, a password-to-token exchange,
-and Entra ROPC are not interchangeable; ROPC is not assumed. No such new
-authentication executor, live exploration or credential transfer is authorized
-by this priority list. App Service and Functions remain supported recipes but
-are lower-priority fresh-runner work.
+The original v2 backlog split third-party OAuth REST, OBO and username/password
+into distinct contracts. The separately versioned [v3 SDK pilot](backend-oauth.md)
+now covers the first two with explicit grants, identity boundaries, memory
+isolation and lifecycle limits. V2 itself still rejects them. Basic and
+provider-specific password exchange remain design-only until a backend is
+selected; Entra ROPC is excluded. No live exploration or credential transfer
+is authorized by this priority. App Service and Functions remain supported
+anonymous/API-key recipes but are outside the new auth runner.

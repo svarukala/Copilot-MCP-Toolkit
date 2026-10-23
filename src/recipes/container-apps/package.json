@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=22" },
-  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check runtime.js" },
+  "scripts": { "start": "node server.js", "check": "node --check server.js && node --check runtime.js && node --check backend-auth.js && node --check auth-portal.js" },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
     "ajv": "8.20.0",

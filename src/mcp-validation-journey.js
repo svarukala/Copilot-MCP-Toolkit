@@ -22,6 +22,7 @@ import { planInteractiveSession, runInteractiveSession } from './mcp-interactive
 import { readHandoverRelease, planHandover, writeHandover } from './mcp-handover.js';
 import { planMcpEvidenceExport, exportMcpEvidence } from './mcp-evidence.js';
 import { checkedResultAssertion } from './mcp-result-assertion.js';
+import { oauthProfiles } from './recipes/container-apps/backend-auth.js';
 
 const object = (properties, required = Object.keys(properties)) => ({ type: 'object', additionalProperties: false, properties, required });
 const filename = { type: 'string', minLength: 1, maxLength: 2048 };
@@ -60,6 +61,16 @@ export const creationCheckpointSchema = { oneOf: [
     }, ['name', 'outcome', 'note']) } }),
   object({ schemaVersion: { const: 2 }, kind: { enum: ['release', 'reference'] }, file: filename }),
 ] };
+export const authCreationScenarioSchema = structuredClone(creationScenarioSchema);
+authCreationScenarioSchema.properties.schemaVersion = { const: 3 };
+authCreationScenarioSchema.properties.scenario = { enum: ['container-apps-create-v3', 'container-apps-apim-create-v3'] };
+authCreationScenarioSchema.properties.probeMode = { const: 'separate' };
+const authMilestones = ['client-registration', 'delegated-consent', 'user-connection', 'identity-isolation',
+  'token-lifecycle', 'revocation', 'single-process-topology'];
+export const authCreationCheckpointSchema = structuredClone(creationCheckpointSchema);
+for (const variant of authCreationCheckpointSchema.oneOf) variant.properties.schemaVersion = { const: 3 };
+authCreationCheckpointSchema.oneOf[0].properties.milestones.maxItems += authMilestones.length;
+authCreationCheckpointSchema.oneOf[0].properties.milestones.items.properties.name.enum.push(...authMilestones);
 export const creationCoverage = {
   hosting: { caller: ['entra'], backend: ['anonymous', 'api-key-header', 'api-key-query'],
     entraBackend: 'unsupported-no-token-exchange', buildAndDeployment: 'separate-owner-operations' },
@@ -73,8 +84,15 @@ export const creationCoverage = {
   nextPriority: ['third-party-oauth-rest', 'obo-token-exchange', 'username-password-profiles'],
   liveQualified: false,
 };
+export const authCreationCoverage = {
+  schemaVersion: 3, hosting: ['container-apps-direct-v1', 'container-apps-apim-v1'], backend: oauthProfiles,
+  clientAuthentication: ['client_secret_basic', 'client_secret_post', 'private_key_jwt'],
+  tokenStorage: 'memory-only-single-process', usernamePassword: 'design-only-unsupported',
+  providerCompatibility: 'synthetic-fixtures-only', liveQualified: false,
+};
 const ajv = new Ajv(); addFormats(ajv);
-const valid = ajv.compile(creationScenarioSchema), validCheckpoint = ajv.compile(creationCheckpointSchema);
+const valid = ajv.compile({ oneOf: [creationScenarioSchema, authCreationScenarioSchema] });
+const validCheckpoint = ajv.compile({ oneOf: [creationCheckpointSchema, authCreationCheckpointSchema] });
 const phases = ['generate', 'release', 'reference', 'account', 'provision', 'reconcile', 'discovery', 'session', 'proof', 'handover', 'archive'];
 const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value))
   && new Date(value).toISOString() === value && Date.parse(value) <= Date.now();
@@ -87,9 +105,10 @@ async function exists(file) {
   try { await lstat(file); return true; } catch (error) { if (error.code !== 'ENOENT') throw error; return false; }
 }
 async function profile(input, definition) {
-  const hosting = input.scenario.startsWith('container-apps-'), gateway = input.scenario === 'container-apps-apim-create-v2';
+  const hosting = input.scenario.startsWith('container-apps-'), gateway = /^container-apps-apim-create-v[23]$/.test(input.scenario);
+  const oauth = input.schemaVersion === 3;
   const existing = input.scenario === 'existing-mcp-create-v2', native = input.scenario === 'native-apim-create-v2';
-  requireRun(!hosting || ['anonymous', 'api-key'].includes(definition.backend?.auth), 'UNSUPPORTED',
+  requireRun(!hosting || (oauth ? oauthProfiles : ['anonymous', 'api-key']).includes(definition.backend?.auth), 'UNSUPPORTED',
     'SDK hosting does not support Entra/OAuth/password REST backends. Entra caller sign-in is not backend token exchange.');
   let inbound, endpoint, backend, review;
   if (hosting) {
@@ -97,7 +116,8 @@ async function profile(input, definition) {
     const compiled = compileHostingRecipe(definition);
     inbound = { type: 'entra', ...compiled.runtime.authentication };
     endpoint = compiled.runtime.gateway?.publicUrl ?? null;
-    backend = definition.backend.auth === 'api-key' ? definition.backend.apiKey.headerName ? 'api-key-header' : 'api-key-query' : 'anonymous';
+    backend = oauth ? definition.backend.auth
+      : definition.backend.auth === 'api-key' ? definition.backend.apiKey.headerName ? 'api-key-header' : 'api-key-query' : 'anonymous';
     requireRun(definition.operationIds.includes(input.proof.toolName)
       && keys(input.proof.arguments, []) && !input.proof.responseAssertion && !input.proof.delegatedFixture, 'INPUT',
     'SDK validation selects one generated fixed GET with empty arguments, not a native APIM proof fixture.');
@@ -130,7 +150,7 @@ async function profile(input, definition) {
       && input.azureAccount.subscriptionId.toLowerCase() === definition.azure.subscriptionId.toLowerCase(), 'INPUT',
     'Managed APIM validation requires an explicit matching tenant, subscription and account.');
   } else requireRun(!input.azureAccount, 'INPUT', 'This runner does not select an Azure account for owner-managed hosting or an existing endpoint.');
-  return { hosting, gateway, existing, native, backend, caller: inbound.type, endpoint,
+  return { hosting, gateway, existing, native, backend, caller: inbound.type, endpoint, ...(oauth ? { oauth: true } : {}),
     generation: existing ? 'reference-only-no-server-creation' : 'fresh-source-or-managed-APIM',
     cloudDeployment: !hosting && !existing ? 'existing-guarded-APIM-lifecycle' : 'not-automated',
     proofSupport: native ? 'narrow-existing-native-planner' : 'observed-read-only-schema-required' };
@@ -170,7 +190,7 @@ async function startPlan(options) {
     && input.relatedProjects.every(p => !isWithin(p, outputPath) && !isWithin(outputPath, p)), 'OUTPUT',
   'Use a new run directory separate from inputs and all related project histories.');
   await absent(outputPath);
-  const body = { action: 'mcp-validation-start', schemaVersion: 2, outputPath, input, definition, coverage,
+  const body = { action: 'mcp-validation-start', schemaVersion: input.schemaVersion, outputPath, input, definition, coverage,
     relatedHistory: await related(input), buildId: (await getLibraryInfo()).contentDigest,
     effects: ['Write a private immutable creation-run definition and copied nonsecret inputs only.',
       'Generation, identity, cloud deployment, discovery, proof and export each require their own exact next approval.',
@@ -184,7 +204,8 @@ async function readRun(project) {
   const dir = await assertProjectPath(path.resolve(project));
   const { contentDigest, ...body } = await readControl(path.join(dir, 'validation-run.json'));
   requireRun(keys(body, ['schemaVersion', 'kind', 'runDirectory', 'createdAt', 'buildId', 'input', 'definitionDigest'])
-    && body.schemaVersion === 2 && body.kind === 'mcp-validation-creation-run' && body.runDirectory === dir
+    && [2, 3].includes(body.schemaVersion) && body.schemaVersion === body.input.schemaVersion
+    && body.kind === 'mcp-validation-creation-run' && body.runDirectory === dir
     && date(body.createdAt) && digest(body) === contentDigest, 'STATE', 'Invalid creation-run definition; preserve it without resealing.');
   checked(body.input, valid);
   const definition = await readControl(path.join(dir, 'definition.json'));
@@ -199,7 +220,7 @@ async function readRun(project) {
     const record = await readControl(path.join(dir, 'events', name), 65536);
     const { contentDigest: recordDigest, ...entry } = record;
     requireRun(keys(entry, ['schemaVersion', 'previous', 'recordedAt', 'kind', 'data'])
-      && entry.schemaVersion === 2 && entry.previous === head && digest(entry) === recordDigest && date(entry.recordedAt)
+      && entry.schemaVersion === body.schemaVersion && entry.previous === head && digest(entry) === recordDigest && date(entry.recordedAt)
       && entry.recordedAt >= (events.at(-1)?.recordedAt ?? body.createdAt), 'STATE', 'Creation journal chain or chronology changed.');
     if (entry.kind === 'intent') {
       requireRun(!pending && keys(entry.data, ['phase', 'approvalDigest']) && phases.includes(entry.data.phase)
@@ -212,7 +233,8 @@ async function readRun(project) {
         && (entry.data.binding === null || /^sha256:[a-f0-9]{64}$/.test(entry.data.binding)), 'STATE', 'Invalid creation result.');
       pending = null;
     } else if (entry.kind === 'checkpoint') {
-      requireRun(!pending && checkCheckpoint(entry.data).kind === 'checkpoint', 'STATE', 'Invalid checkpoint during unresolved execution.');
+      requireRun(!pending && checkCheckpoint(entry.data).kind === 'checkpoint' && entry.data.schemaVersion === body.schemaVersion,
+        'STATE', 'Invalid checkpoint during unresolved execution.');
     } else requireRun(false, 'STATE', 'Unknown creation event.');
     events.push(record); head = recordDigest;
   }
@@ -220,7 +242,7 @@ async function readRun(project) {
 }
 async function append(run, kind, data) {
   requireRun(run.events.length < 200, 'LIMIT', 'Creation journal limit reached.');
-  const body = { schemaVersion: 2, previous: run.head, recordedAt: new Date().toISOString(), kind, data };
+  const body = { schemaVersion: run.schemaVersion, previous: run.head, recordedAt: new Date().toISOString(), kind, data };
   const record = { ...body, contentDigest: digest(body) };
   await writeControl(fileAt(run, `events/${String(run.events.length + 1).padStart(4, '0')}.json`), record, { create: true });
   run.head = record.contentDigest; run.events.push(record); return record;
@@ -230,7 +252,10 @@ function requiredMilestones(run) {
   const p = run.coverage;
   return [...(!p.existing ? ['prerequisites'] : []),
     ...(p.hosting ? ['image-build', ...(p.gateway ? ['host-deployment'] : []), 'runtime-deployment'] : []),
-    ...(p.backend.startsWith('api-key') ? ['secret-resolution', 'rotation'] : []),
+    ...(p.backend.startsWith('api-key') || p.oauth ? ['secret-resolution', 'rotation'] : []),
+    ...(p.oauth ? ['client-registration', 'identity-isolation', 'token-lifecycle', 'revocation',
+      ...(p.backend !== 'oauth-client-credentials-v1' ? ['delegated-consent'] : []),
+      ...(p.backend === 'oauth-authorization-code-v1' ? ['user-connection', 'single-process-topology'] : [])] : []),
     ...(p.caller === 'entra' ? ['caller-rejection'] : []),
     ...(p.gateway ? ['gateway-bypass-rejection'] : []),
     ...(run.input.consumer === 'fcc' ? [...(p.caller === 'entra' ? ['auth-registration'] : []),
@@ -317,7 +342,7 @@ async function inspect(run) {
     || ['unknown', 'failed-historical', 'consumed-outside-run'].includes(protocol)
     || status?.observations.some(o => ['invalid', 'no-capture'].includes(o.status)));
   const sourceBinding = completed(run, 'generate')?.data.binding ?? null;
-  const report = { schemaVersion: 2, scenario: run.input.scenario, runDirectory: run.dir, buildId: run.buildId,
+  const report = { schemaVersion: run.schemaVersion, scenario: run.input.scenario, runDirectory: run.dir, buildId: run.buildId,
     coverage: run.coverage, sourceBinding, endpointProject, protocol,
     historyDigest: digest({ head: run.head, status: status?.historyDigest ?? null, related: history, locks, operator }),
     relatedHistory: history, locks, waiting: operator?.waiting ?? null,
@@ -365,7 +390,7 @@ export const startValidation = options => scoped(options, async () => {
   await writeControl(path.join(plan.outputPath, 'discovery.json'), plan.input.discovery, { create: true });
   await writeControl(path.join(plan.outputPath, 'session.json'),
     { schemaVersion: 1, discovery: plan.input.discovery, proof: plan.input.proof }, { create: true });
-  const body = { schemaVersion: 2, kind: 'mcp-validation-creation-run', runDirectory: plan.outputPath,
+  const body = { schemaVersion: plan.input.schemaVersion, kind: 'mcp-validation-creation-run', runDirectory: plan.outputPath,
     createdAt: new Date().toISOString(), buildId: plan.buildId, input: plan.input, definitionDigest: digest(plan.definition) };
   const contentDigest = digest(body);
   const run = { ...body, dir: plan.outputPath, definition: plan.definition, coverage: plan.coverage,
@@ -378,12 +403,13 @@ export const validationStatus = options => scoped(options, async () => (await in
 async function next(options) {
   requireRun(options.phase === undefined || ['handover', 'archive'].includes(options.phase), 'INPUT', 'Creation runs support --phase handover or archive for closeout.');
   const s = await inspect(await readRun(options.project)), { run, report, owner } = s, p = run.coverage;
-  const stop = (status, reason, extra = {}) => ({ action: 'mcp-validation-next', schemaVersion: 2, status,
+  const stop = (status, reason, extra = {}) => ({ action: 'mcp-validation-next', schemaVersion: run.schemaVersion, status,
     report, reason, repeatPrompt: false, approvalToken: null, ...extra });
   let request = null, requestFile;
   if (options.config) {
     const config = await assertProjectPath(path.resolve(options.config));
     request = checkCheckpoint(await readControl(config, 65536));
+    requireRun(request.schemaVersion === run.schemaVersion, 'INPUT', 'Use the retained runner checkpoint version.');
     if (request.file) {
       requestFile = await assertProjectPath(path.resolve(path.dirname(config), request.file));
       request = { ...request, file: requestFile, inputDigest: digest(await readControl(requestFile)) };
@@ -454,6 +480,10 @@ async function next(options) {
         return stop('checks-recorded', 'Protocol proof is retained, not repeated. Record remaining owner gates and review a separate handover/archive.',
           { remaining: report.milestones.filter(m => m.outcome !== 'passed').map(m => m.name) });
       } else {
+        const authGate = p.oauth && need(['client-registration',
+          ...(owner['delegated-consent'] ? ['delegated-consent'] : []),
+          ...(owner['user-connection'] ? ['user-connection', 'single-process-topology'] : [])]);
+        if (authGate) return stop('waiting-for-owner', 'Complete the separately reviewed backend authorization prerequisite. No browser, consent or token exchange is performed by a checkpoint.', { gate: authGate });
         if (need(owner['secret-resolution'] ? ['secret-resolution'] : [])) return stop('waiting-for-owner',
           'Record owner evidence for platform secret-reference resolution before live MCP validation.', { gate: 'secret-resolution' });
         const matching = [];
@@ -498,12 +528,16 @@ async function next(options) {
   if (freshness && ['unknown-budget', 'insufficient-lifetime'].includes(freshness.status)) {
     return stop('blocked', 'The current phase cannot fit its known authentication/execution budget. Review freshness separately; no automatic renewal.');
   }
-  const body = { action: 'mcp-validation-next', schemaVersion: 2, status: 'review-required', phase,
+  const body = { action: 'mcp-validation-next', schemaVersion: run.schemaVersion, status: 'review-required', phase,
     runDirectory: run.dir, buildId: run.buildId, historyDigest: report.historyDigest, request,
     childPlan, selected, selection, requiredFlags,
     effects: phase === 'checkpoint' ? ['Record owner declarations only; never execute or independently attest their actions.']
       : ['Approve only this exact bounded existing phase. No generic shell command, cascading phase, automatic retry or consent.',
         ...(phase === 'session' ? ['Discovery authorization does not approve proof; show its newly generated exact approval separately in the terminal.'] : []),
+        ...(p.oauth && phase === 'proof' ? [
+          `Backend profile ${p.backend}: one bounded on-demand token acquisition/exchange/refresh if required, then one fixed REST GET. No automatic retry or REST replay.`,
+          `Pinned backend authorization: ${JSON.stringify(run.definition.backend.oauth)}. Credentials are Key Vault references; user consent and live qualification are separate.`,
+        ] : []),
         ...(phase === 'account' ? ['Fresh project-private Azure sign-in for the exact tenant/subscription/account. No shared cache/account switching.'] : [])] };
   if (phase === 'checkpoint') body.childPlan = null;
   return { ...body, approvalToken: `mcp-validation/${digest(body)}`, report };

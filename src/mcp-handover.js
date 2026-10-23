@@ -59,10 +59,10 @@ async function bytesAt(file, maximum = 5 * 1048576) {
   requireHandover(stat.isFile() && stat.size <= maximum, 'FILE', 'Handover imports must be bounded regular files.');
   return readFile(file);
 }
-const sourceNames = new Set(['runtime.js', 'server.js', 'package.json', 'package-lock.json', '.npmrc', '.gitignore',
+const sourceNames = new Set(['runtime.js', 'backend-auth.js', 'auth-portal.js', 'server.js', 'package.json', 'package-lock.json', '.npmrc', '.gitignore',
   '.dockerignore', 'Dockerfile', 'runtime-config.json', 'recipe-definition.json', 'recipe-review.json',
   'infra/container-app.json', 'infra/apim-gateway.json', 'infra/app-service.json', 'infra/functions.json',
-  'README.md', 'hosting-recipes.md', 'deployment-handover.md', 'deployment-handover.example.json',
+  'README.md', 'hosting-recipes.md', 'backend-oauth.md', 'deployment-handover.md', 'deployment-handover.example.json',
   'host.json', '.funcignore', 'local.settings.example.json',
   'LICENSE', 'THIRD-PARTY-NOTICES.md']);
 

@@ -89,6 +89,7 @@ async function bindings(input, workspaceRoot) {
     'INPUT', 'Source, reference and optional release must be separate nonoverlapping projects.');
   const source = await readRecipeProject(input.sourceProject), compiled = compileHostingRecipe(source.input);
   requireRun(source.input.recipe === 'container-apps-direct-v1'
+    && !source.input.backend.oauth
     && digest(compiled.runtime) === digest(source.runtime)
     && source.input.operationIds.includes(input.proof.toolName), 'SOURCE',
   'This validator supports only an unchanged direct Container Apps source and one of its fixed GET tools.');

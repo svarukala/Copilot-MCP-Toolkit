@@ -9,6 +9,32 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### OAuth/OBO backend pilots
+
+On the isolated authentication branch, direct ACA and ACA+APIM now have
+explicit application OAuth, hosted per-user PKCE and same-tenant Entra OBO
+runtime profiles. Client secrets and certificate assertions use dedicated
+versioned Key Vault references. Per-user sessions are memory-only, bounded
+and single-process; no provider token is exported or persisted. V3 validation
+adds owner auth gates and explicit proof effects without changing v1/v2
+profile admission. Generation, source/release/reference binding and handover
+include the new runtime assets. See [the contract](backend-oauth.md).
+
+The frozen `npm run validate` gate passed **969/969** offline tests with no
+failures, skips or cancellations, including expanded auth cases, the v3 full
+creation/discovery/proof/status/handover journey, retained v1/v2 contracts and
+the fresh packed consumer. Final case-insensitive portal-app/credential
+separation and closed auth-origin metadata checks then passed **21/21**
+focused OAuth tests and the full synthetic v3 journey, plus inventory,
+recursive syntax and strict public types. The full suite was not rerun after
+those fixes or these result-recording documentation edits. All 163
+local README/guide links passed. One earlier full run was intentionally stopped
+to finish callback/revocation refinements; it is not counted as a completed gate.
+
+Username/password profiles are design-only pending a selected
+backend; ROPC is excluded. No live login, provider/cloud call, deployment,
+publication, integration/merge or consumer qualification has been performed.
+
 ### Priority: reusable fresh-creation runners
 
 V2 creation runners are implemented through the same `mcp-validation-*` family,
