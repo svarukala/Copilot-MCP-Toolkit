@@ -99,6 +99,11 @@ $env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'
 npm start
 ```
 
+For the container-equivalent distribution, install with `--include=dev`, run
+`npm run build` once in a fresh project, and use `node dist/server.js` instead
+of `npm start`. See [bundled runtime packaging](hosting-recipes.md#bundled-container-runtime)
+for the component/license inventory and unchanged image-security gates.
+
 For API-key mode, use the shared guide's separate approved in-memory
 Key Vault launch pattern instead; a missing or unresolved key prevents startup.
 The generated lock and `.npmrc` use the explicit `npmRegistryUrl`, or historical

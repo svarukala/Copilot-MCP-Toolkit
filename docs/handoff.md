@@ -5,6 +5,44 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- PR #3 merged as `214df63` after the Ubuntu/Windows, Node 22/24 matrix passed.
+  A separately approved bounded pilot completed private Azure identity,
+  infrastructure preflight and image build, then stopped in scan before any
+  push, deployment or provider call. Its immutable failed/unknown history is
+  preserved, not replayable. Read-only diagnosis found that Docker's containerd
+  image ID was an OCI manifest digest while Trivy reported its config digest.
+  The subsequent correction verifies the single-image export's config and
+  layer bytes, including the OCI manifest chain, before comparing Trivy's
+  config digest and ordered diff IDs. Classic Docker-save IDs remain supported.
+  Rejected bounded scanner reports stay private; allowlisted reason codes
+  distinguish binding, policy and container failures without raw errors.
+  All four execution regression files passed **74/74**, plus inventory, syntax
+  and public types. This correction is not live-qualified or a replay grant.
+  The retained diagnostic report also listed HIGH `CVE-2026-111181` in
+  `body-parser` 2.3.0. Its suggested 2.4.0 fix was unavailable in the configured
+  feed; direct npm registry lookup failed TLS. Upstream subsequently confirmed
+  [2.4.0 is released](https://github.com/expressjs/body-parser/releases/tag/v2.4.0)
+  and fixes the finding. Both configured feed tarball URLs returned HTTP 404.
+  No dependency pin, TLS setting or zero-critical/high policy was weakened.
+  Upgrading the dependency remains blocked on access to the fixed distribution.
+  The separately approved engineering alternative bundles newly generated
+  container runtimes, excluding unused Express/body-parser code rather than
+  downgrading or hiding used components. It preserves original contributing
+  package metadata/notices, deterministic build inventory and all image scan
+  requirements. Functions and historical projects remain source-only/unchanged.
+  See [runtime packaging](hosting-recipes.md#bundled-container-runtime).
+  This alternative still needs a fresh reviewed image scan; no new live run,
+  security exception or replay of the consumed pilot is implied.
+  The combined local correction passed **90/90** packaging, hosting, handover
+  and fresh offline packed-consumer checks, plus **74/74** execution regressions,
+  asset inventory, syntax and strict public types. Actual bundle checks cover
+  reproducibility, standalone execution, licenses, rejected inputs and all six
+  container-family/backend-auth combinations. These are offline results, not
+  a passing image scan or cross-platform CI result for this revision.
+  The advisory's `inflate: false` workaround is not
+  a zero-HIGH dependency scan pass and has not been substituted for an upgrade.
+  No identities, raw reports or generated pilot projects belong in this repo.
+
 - Opt-in `mcp-execution-schema/plan/start/run/status/record` now layers one
   explicit, expiring execution grant over unchanged validation v1/v2. It covers
   all five existing creation families: direct ACA, ACA behind APIM, native APIM

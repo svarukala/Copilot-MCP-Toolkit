@@ -133,6 +133,10 @@ historical public npm, not ambient npm configuration. The new source binds
 remote-build behavior still needs separate review. See the
 [approved registry contract](hosting-recipes.md#approved-npm-registry-for-generated-builds).
 Never rewrite sealed assets or treat an old Dockerfile as upgraded by handover.
+New container handovers preserve `build-runtime.mjs` and its locked build-only
+tool so the [bundled runtime](hosting-recipes.md#bundled-container-runtime) is
+reproducible. Historical source exports remain unchanged; importing a handover
+does not rebuild, scan or qualify an image.
 
 The guide supplies supported toolkit CLI steps and labels the rest as manual or
 approval-required. It is not a universal installation/deployment script. Private

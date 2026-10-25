@@ -1,12 +1,50 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { mkdir, readFile } from 'node:fs/promises';
 import { withCliWorkspace } from '../../src/config.js';
 import { readRecipeProject } from '../../src/mcp-recipe-artifacts.js';
 import { readAzureIdentity, planAzureAccountSwitch, switchAzureAccount } from '../../src/azure-identity.js';
 import { executionTar } from '../../src/mcp-execution-docker.js';
 
-export const syntheticHostImageId = `sha256:${'a'.repeat(64)}`;
+const hash = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
+export function syntheticArchive(files) {
+  const chunks = Object.entries(files).map(([name, value]) => {
+    const entry = executionTar({ entry: value }).subarray(0, -1024);
+    assert.ok(Buffer.byteLength(name) < 100);
+    entry.fill(0, 0, 100); entry.write(name);
+    entry.fill(32, 148, 156);
+    const checksum = entry.subarray(0, 512).reduce((sum, byte) => sum + byte, 0);
+    entry.write(checksum.toString(8).padStart(6, '0') + '\0 ', 148, 8);
+    return entry;
+  });
+  return Buffer.concat([...chunks, Buffer.alloc(1024)]);
+}
+export function syntheticExecutionImage({ oci = false } = {}) {
+  const layer = Buffer.from('synthetic uncompressed layer'), layerDigest = hash(layer);
+  const config = Buffer.from(JSON.stringify({ os: 'linux', architecture: 'amd64',
+    config: { User: '65532:65532' }, rootfs: { type: 'layers', diff_ids: [layerDigest] } }));
+  const configDigest = hash(config), configName = oci ? `blobs/sha256/${configDigest.slice(7)}` : `${configDigest.slice(7)}.json`;
+  const storedLayer = oci ? gzipSync(layer) : layer, storedDigest = hash(storedLayer);
+  const layerName = oci ? `blobs/sha256/${storedDigest.slice(7)}` : 'layer.tar';
+  const files = { [configName]: config, [layerName]: storedLayer,
+    'manifest.json': JSON.stringify([{ Config: configName, RepoTags: null, Layers: [layerName] }]) };
+  let imageId = configDigest;
+  if (oci) {
+    const manifest = Buffer.from(JSON.stringify({ schemaVersion: 2,
+      mediaType: 'application/vnd.oci.image.manifest.v1+json',
+      config: { mediaType: 'application/vnd.oci.image.config.v1+json', digest: configDigest, size: config.length },
+      layers: [{ mediaType: 'application/vnd.oci.image.layer.v1.tar+gzip', digest: storedDigest, size: storedLayer.length }] }));
+    imageId = hash(manifest);
+    files[`blobs/sha256/${imageId.slice(7)}`] = manifest;
+    files['index.json'] = JSON.stringify({ schemaVersion: 2, manifests: [{ digest: imageId, size: manifest.length,
+      mediaType: 'application/vnd.oci.image.manifest.v1+json' }] });
+    files['oci-layout'] = '{"imageLayoutVersion":"1.0.0"}';
+  }
+  return { imageId, configDigest, diffIds: [layerDigest], files, archive: syntheticArchive(files) };
+}
+export const syntheticHostImageId = syntheticExecutionImage().imageId;
 export const syntheticHostImageDigest = `sha256:${'b'.repeat(64)}`;
 export const syntheticHostScannerImage = `aquasec/trivy@sha256:${'c'.repeat(64)}`;
 export const syntheticHostRegistryToken = 'synthetic-registry-token-never-persist';
@@ -14,11 +52,12 @@ const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value
 
 // Test-only factory for an ALREADY GENERATED trusted source. No Azure, Docker,
 // HTTP, install or subprocess is used. Only seedIdentity writes private local state.
-export async function createSyntheticExecutionHost({ workspaceRoot, project, host, seedIdentity = true }) {
+export async function createSyntheticExecutionHost({ workspaceRoot, project, host, seedIdentity = true, oci = false }) {
   const source = (await withCliWorkspace(workspaceRoot, () => readRecipeProject(project))).input;
   const identityProject = host.azureIdentityProject ?? project;
   const calls = [], resources = new Map(), containers = new Map(), volumes = new Map(), findings = [];
   const a = source.azure;
+  const image = syntheticExecutionImage({ oci });
   let counter = 0, tag, owner, pushed = false;
   const app = `/subscriptions/${a.subscriptionId}/resourceGroups/${a.resourceGroup}/providers/Microsoft.App/containerApps/${a.appName}`;
   const service = a.gateway ? `/subscriptions/${a.subscriptionId}/resourceGroups/${a.gateway.resourceGroup}/providers/Microsoft.ApiManagement/service/${a.gateway.serviceName}` : undefined;
@@ -113,19 +152,19 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
       assert.equal(params.get('memory'), '1073741824');
       assert.equal(execution.headers['X-Registry-Config'], Buffer.from('{}').toString('base64'));
       assert.ok(Buffer.isBuffer(execution.body));
-      return response({ aux: { ID: syntheticHostImageId } });
+      return response({ aux: { ID: image.imageId } });
     }
     if (route.startsWith('/v1.44/images/create?')) return response({ status: 'Downloaded exact scanner image' });
     if (route.startsWith('/v1.44/images/') && route.endsWith('/json')) {
       const name = decodeURIComponent(route.slice('/v1.44/images/'.length, -'/json'.length));
       if (name === host.scannerImage) return response({ Id: `sha256:${'c'.repeat(64)}`, Os: 'linux',
         Architecture: 'amd64', RepoDigests: [host.scannerImage] });
-      assert.ok([syntheticHostImageId, tag, `${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`].includes(name));
-      return response({ Id: syntheticHostImageId, Os: 'linux', Architecture: 'amd64', Size: 100,
+      assert.ok([image.imageId, tag, `${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`].includes(name));
+      return response({ Id: image.imageId, Os: 'linux', Architecture: 'amd64', Size: 100,
         RepoDigests: pushed ? [`${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`] : [],
         Config: { User: '65532:65532', Labels: { 'copilot-mcp-execution': owner } } });
     }
-    if (route.endsWith('/get')) return response(Buffer.from('synthetic-image-archive'));
+    if (route.endsWith('/get')) return response(image.archive);
     if (route.includes('/push?')) {
       const auth = JSON.parse(Buffer.from(execution.headers['X-Registry-Auth'], 'base64url'));
       assert.equal(auth.password, syntheticHostRegistryToken); assert.equal(auth.serveraddress, a.registry.server);
@@ -153,7 +192,8 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
         if (execution.method === 'PUT') return response(null);
         const target = decodeURIComponent(route.split('path=')[1]);
         if (target.endsWith('report.json')) return response(executionTar({ 'report.json': JSON.stringify({
-          SchemaVersion: 2, ArtifactType: 'container_image', Metadata: { ImageID: syntheticHostImageId, OS: { Family: 'debian' } },
+          SchemaVersion: 2, ArtifactType: 'container_image',
+          Metadata: { ImageID: image.configDigest, DiffIDs: image.diffIds, OS: { Family: 'debian' } },
           Results: [{ Target: 'synthetic-linux', Class: 'os-pkgs', Type: 'debian',
             Packages: [{ Name: 'synthetic-os' }], Vulnerabilities: findings },
           { Target: 'Node.js', Class: 'lang-pkgs', Type: 'node-pkg', Packages: [{ Name: 'synthetic-node' }] }],

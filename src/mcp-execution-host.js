@@ -16,7 +16,7 @@ import { dockerSocketSchema, registryAuthHeader } from './docker-engine.js';
 import { reviewImage } from './mcp-image-review.js';
 import { assertCompatibleGlobalPolicy, assertSafeDiagnostics, collectionItems, policyValue } from './apim-safety.js';
 import { executionDockerRequest, executionJson, executionProgress, executionTar, executionTarFile,
-  executionImageLimit } from './mcp-execution-docker.js';
+  executionImageLimit, executionImageBinding } from './mcp-execution-docker.js';
 import { publicHttpsTransport } from './anonymous-network.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
@@ -49,7 +49,7 @@ const valid = ajv.compile(hostExecutionSchema);
 const api = '/v1.44';
 const appVersion = '2025-01-01', apimVersion = '2024-05-01';
 const buildFiles = ['Dockerfile', '.dockerignore', '.npmrc', 'package.json', 'package-lock.json',
-  'runtime-config.json', 'server.js', 'runtime.js', 'LICENSE', 'THIRD-PARTY-NOTICES.md'];
+  'runtime-config.json', 'server.js', 'runtime.js', 'build-runtime.mjs', 'LICENSE', 'THIRD-PARTY-NOTICES.md'];
 const database = 'ghcr.io/aquasecurity/trivy-db:2';
 const javaDatabase = 'ghcr.io/aquasecurity/trivy-java-db:1';
 const healthPolicy = Object.freeze({ method: 'GET', route: '/health', target: 'Exact approved app origin verified against readback.',
@@ -82,7 +82,8 @@ export function describeHostExecution(source, config) {
     downloads: { builderImage: source.input.imageBuild.builderImage, runtimeImage: source.input.imageBuild.runtimeImage,
       scannerImage: config.scannerImage, database, javaDatabase,
       npmRegistryUrl: source.review.npmRegistryUrl, packageLockDigest: source.manifest.files['package-lock.json'],
-      dependencies: 'Exact sealed package-lock URLs/integrities; npm ci without scripts/audit/retry; no ambient credentials.' },
+      dependencies: 'Exact sealed package-lock URLs/integrities, including build-only bundler; npm ci without scripts/audit/retry; no ambient credentials.' },
+    ...(source.review.runtimePackaging ? { runtimePackaging: source.review.runtimePackaging } : {}),
     ceilings: { containerApps: { cpu: 0.25, memory: '0.5Gi', maxReplicas: 1,
       minReplicas: source.input.scaleProfile === 'scale-to-zero' ? 0 : 1 },
     localBuild: { memoryBytes: 1073741824, nanoCpus: 1000000000 },
@@ -353,12 +354,16 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
       await writeControl(resultFile, result, { create: true });
       previous = result.contentDigest;
       return value;
-    } catch {
+    } catch (error) {
+      const reasonCode = ['HOST_EXECUTION_SCAN_INCONCLUSIVE', 'HOST_EXECUTION_SCAN_POLICY',
+        'HOST_EXECUTION_CONTAINER_FAILED', 'DOCKER_IMAGE_ARCHIVE_INVALID', 'DOCKER_RESPONSE_INVALID',
+        'DOCKER_HTTP_FAILED', 'DOCKER_ABORTED', 'DOCKER_OUTPUT_LIMIT'].includes(error?.code)
+        ? error.code : 'HOST_EXECUTION_UNCLASSIFIED_FAILURE';
       const result = sealed({ schemaVersion: 1, plan: plan.approvalToken, stage: name, intentDigest: intent.contentDigest,
-        status: 'unknown-no-replay', code: 'HOST_EXECUTION_STAGE_STOPPED', finishedAt: new Date().toISOString() });
+        status: 'unknown-no-replay', code: 'HOST_EXECUTION_STAGE_STOPPED', reasonCode, finishedAt: new Date().toISOString() });
       await writeControl(resultFile, result, { create: true });
       throw Object.assign(new Error('Host stage stopped; inspect retained nonsecret evidence. No automatic retry.'), {
-        code: 'HOST_EXECUTION_STAGE_STOPPED', stage: name, evidenceDigest: result.contentDigest,
+        code: 'HOST_EXECUTION_STAGE_STOPPED', reasonCode, stage: name, evidenceDigest: result.contentDigest,
       });
     }
   };
@@ -511,6 +516,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
             maxBytes: executionImageLimit, timeoutMs: 300000,
           });
           requireHost(archive.status === 200);
+          const binding = executionImageBinding(archive.body, built.imageId);
           const volume = `copilot-mcp-${owner.slice(0, 32)}`;
           requireHost((await docker(`${api}/volumes/${volume}`)).status === 404, 'HOST_EXECUTION_LOCAL_TARGET_EXISTS');
           const created = executionJson(await docker(`${api}/volumes/create`, { method: 'POST',
@@ -534,9 +540,17 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
             })).status === 200);
           }, async id => ({ report: await readArtifact(id, '/work/report.json', 'report.json'),
             database: await readArtifact(id, '/work/cache/db/metadata.json', 'metadata.json') }));
+          // Preserve bounded private diagnostics even when qualification rejects the report.
+          const savePrivate = async (filename, bytes) => {
+            const handle = await open(await assertProjectPath(path.join(scope.output, filename)), 'wx', 0o600);
+            try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+          };
+          await savePrivate('scanner.private.json', output.report);
+          await savePrivate('scanner-database.private.json', output.database);
           const report = JSON.parse(output.report), db = JSON.parse(output.database);
           requireHost(report.SchemaVersion === 2 && report.ArtifactType === 'container_image'
-            && report.Metadata?.ImageID === built.imageId && report.Metadata?.OS?.Family === 'debian'
+            && report.Metadata?.ImageID === binding.configDigest && report.Metadata?.OS?.Family === 'debian'
+            && JSON.stringify(report.Metadata?.DiffIDs) === JSON.stringify(binding.diffIds)
             && Array.isArray(report.Results) && report.Results.length > 0
             && report.Results.some(result => result.Class === 'os-pkgs' && result.Type === 'debian'
               && Array.isArray(result.Packages) && result.Packages.length > 0)
@@ -554,13 +568,6 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           }
           const scannedAt = new Date().toISOString(), updated = Date.parse(db.UpdatedAt);
           requireHost(Number.isFinite(updated) && updated <= Date.now() && Date.now() - updated <= 86400000);
-          // Raw reports remain private files, never stage values or returned reports.
-          const savePrivate = async (filename, bytes) => {
-            const handle = await open(await assertProjectPath(path.join(scope.output, filename)), 'wx', 0o600);
-            try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
-          };
-          await savePrivate('scanner.private.json', output.report);
-          await savePrivate('scanner-database.private.json', output.database);
           requireHost(counts.critical === 0 && counts.high === 0, 'HOST_EXECUTION_SCAN_POLICY');
           const sbom = await container(`${volume}-sbom`, restricted(volume, scope.config.scannerImage, {
             entrypoint: ['trivy'], args: ['image', '--input', '/work/image.tar', '--cache-dir', '/work/cache',
@@ -574,7 +581,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           const owned = executionJson(await docker(`${api}/volumes/${volume}`));
           requireHost(owned.Labels?.['copilot-mcp-execution'] === owner);
           requireHost((await docker(`${api}/volumes/${volume}`, { method: 'DELETE' })).status === 204);
-          return { ...counts, scannedAt, databaseUpdatedAt: new Date(updated).toISOString(),
+          return { ...counts, binding, scannedAt, databaseUpdatedAt: new Date(updated).toISOString(),
             reportDigest: bytesDigest(output.report), sbomDigest: bytesDigest(sbom) };
         });
         const smoke = await stage('smoke', async () => {
@@ -752,6 +759,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
     });
   } catch (error) {
     if (error.code !== 'HOST_EXECUTION_STAGE_STOPPED') throw error;
-    return { status: 'unknown-no-replay', stage: error.stage, code: error.code, evidenceDigest: error.evidenceDigest };
+    return { status: 'unknown-no-replay', stage: error.stage, code: error.code,
+      ...(error.reasonCode ? { reasonCode: error.reasonCode } : {}), evidenceDigest: error.evidenceDigest };
   } finally { clearTimeout(timer); controller.abort(); }
 });
