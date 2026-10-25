@@ -39,6 +39,14 @@ It contains public engineering context only, not credentials or execution author
   its mixed-case full SDK journey, handover and foreign-reference checks passed
   3/3. Source input spelling, scope/URI case and immutable artifacts are preserved.
   PR CI must qualify the final revision across the configured four-job matrix.
+  Clean CI exposed test portability assumptions: unawaited nested tests on
+  Node 22, colliding clock-derived diagnostic fixtures, a Windows-only symlink
+  path and reliance on ambient npm metadata. Fixtures now await subtests, use
+  fixed distinct timestamps and native paths. Packed installation uses a
+  deterministic consumer lock and a private, integrity-verified tarball cache
+  without registry metadata. Root `fast-uri` is aligned to the recipe's already
+  pinned 3.1.8 so ordinary CI dependency restoration supplies the required bytes.
+  None of these changes permits network access from `npm test`.
 
 - Newly generated SDK runtimes emit bounded backend failure categories and
   optional numeric HTTP status in operator logs while preserving the generic

@@ -5,17 +5,44 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, copyFile } from 'node
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
 // Allow full-suite contention while retaining each subprocess's shorter deadline.
 test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 600000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
+  const outputRoot = path.join(TOOLKIT_ROOT, '.test-output');
+  await mkdir(outputRoot, { recursive: true });
+  const root = await mkdtemp(path.join(outputRoot, 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const rootLock = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'package-lock.json')));
+  assert.equal(rootLock.lockfileVersion, 3);
+  const dependencies = Object.fromEntries(Object.entries(rootLock.packages).filter(([name, entry]) => name && !entry.dev));
+  const cache = path.join(root, 'npm-cache');
+  const cacache = createRequire(npm)('cacache');
+  const sourceCache = execFileSync(process.execPath,
+    [npm, 'config', 'get', 'cache', '--offline', '--logs-dir', path.join(root, 'npm-logs'), '--logs-max=0'],
+    { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 30000 }).trim();
+  // Read only verified tarball content from the repo install's cache, never its
+  // packuments. A clean CI npm ci populates tarballs but not registry metadata.
+  const seedTarballs = async entries => {
+    for (const entry of Object.values(entries)) {
+      assert.ok(entry.resolved && entry.integrity);
+      if (await cacache.get.hasContent(path.join(cache, '_cacache'), entry.integrity)) continue;
+      const data = await cacache.get.byDigest(path.join(sourceCache, '_cacache'), entry.integrity);
+      await cacache.put(path.join(cache, '_cacache'), `locked-tarball:${entry.resolved}`, data, {
+        integrity: entry.integrity, algorithms: [entry.integrity.split('-')[0]],
+      });
+    }
+  };
+  await seedTarballs(dependencies);
+  const cacheEntries = Object.values(await cacache.ls(path.join(cache, '_cacache')));
+  assert.equal(cacheEntries.length, new Set(Object.values(dependencies).map(entry => entry.resolved)).size);
+  assert.ok(cacheEntries.every(entry => entry.key.startsWith('locked-tarball:') && entry.metadata === undefined));
+  t.diagnostic(`Private cache seeded with ${cacheEntries.length} integrity-verified lockfile tarballs and no packuments.`);
+  const offline = ['--offline', '--cache', cache, '--ignore-scripts', '--no-audit', '--fund=false'];
   const pack = JSON.parse(execFileSync(process.execPath,
-    [npm, 'pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', root],
+    [npm, 'pack', ...offline, '--json', '--pack-destination', root],
     { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 60000 }))[0];
   const paths = pack.files.map(f => f.path);
   assert.ok(paths.includes('skills/copilot-mcp/SKILL.md'));
@@ -25,12 +52,34 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
   assert.ok(!paths.some(p => /(?:^|\/)(?:node_modules|test|recovery|artifacts|generated|\.test-output|\.source-import|\.azure-auth)(?:\/|$)|^\.local-|bin\/cowork-|src\/(?:plugin|cowork-metadata|wizard|skill-frontmatter)\.js/.test(p)));
   const consumer = path.join(root, 'consumer'), workspace = path.join(root, 'workspace');
   await mkdir(consumer); await mkdir(workspace);
-  await writeFile(path.join(consumer, 'package.json'), '{"name":"synthetic-packed-consumer","private":true,"type":"module"}\n');
-  execFileSync(process.execPath, [npm, 'install', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev',
-    path.join(root, pack.filename)], { cwd: consumer, encoding: 'utf8', timeout: 60000 });
+  const tarball = `file:../${pack.filename}`;
+  const manifest = { name: 'synthetic-packed-consumer', version: '1.0.0', private: true, type: 'module',
+    dependencies: { [rootLock.name]: tarball } };
+  const { devDependencies, ...packedEntry } = rootLock.packages[''];
+  // Preserve the checked-in dependency layout (including nested packages),
+  // versions, URLs and integrity hashes; only the toolkit becomes a tarball.
+  const consumerLock = { name: manifest.name, version: manifest.version, lockfileVersion: 3, requires: true,
+    packages: {
+      '': { name: manifest.name, version: manifest.version, dependencies: manifest.dependencies },
+      ...dependencies,
+      [`node_modules/${rootLock.name}`]: { ...packedEntry, resolved: tarball, integrity: pack.integrity },
+    } };
+  await writeFile(path.join(consumer, 'package.json'), JSON.stringify(manifest));
+  const lockText = JSON.stringify(consumerLock);
+  await writeFile(path.join(consumer, 'package-lock.json'), lockText);
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
+    { cwd: consumer, encoding: 'utf8', timeout: 60000 });
+  assert.equal(await readFile(path.join(consumer, 'package-lock.json'), 'utf8'), lockText);
   const installed = path.join(consumer, 'node_modules', 'copilot-mcp-toolkit');
   const require = createRequire(path.join(installed, 'package.json'));
   const pkg = JSON.parse(await readFile(path.join(installed, 'package.json')));
+  assert.deepEqual(pkg.dependencies, packedEntry.dependencies);
+  for (const [location, entry] of Object.entries(dependencies)) {
+    assert.equal(JSON.parse(await readFile(path.join(consumer, location, 'package.json'))).version, entry.version, location);
+  }
+  for (const name of Object.keys(devDependencies)) {
+    assert.ok(!(await readdir(path.join(consumer, 'node_modules'))).includes(name), name);
+  }
   for (const name of Object.keys(pkg.dependencies)) {
     const entry = name === '@modelcontextprotocol/sdk' ? `${name}/server/index.js` : name;
     assert.ok(require.resolve(entry).startsWith(path.join(consumer, 'node_modules') + path.sep), name);
@@ -127,7 +176,11 @@ syncBuiltinESMExports();
   for (const [name, content] of Object.entries(containerPlan.result.files)) {
     assert.equal(await readFile(path.join(containerOutput, name), 'utf8'), content);
   }
-  execFileSync(process.execPath, [npm, 'ci', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev'],
+  // The generated runtime has its own reviewed lock. Seed any additional exact
+  // tarballs only after proving the consumer needs nothing beyond the root lock.
+  const runtimeLock = JSON.parse(await readFile(path.join(containerOutput, 'package-lock.json')));
+  await seedTarballs(Object.fromEntries(Object.entries(runtimeLock.packages).filter(([name, entry]) => name && !entry.dev)));
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
     { cwd: containerOutput, encoding: 'utf8', timeout: 60000 });
   const runtimeSmoke = path.join(consumer, 'container-runtime-smoke.mjs');
   await writeFile(runtimeSmoke, `
@@ -200,7 +253,7 @@ await server.close();
     assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
     securedProjects.push(output);
   }
-  execFileSync(process.execPath, [npm, 'ci', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev'],
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
     { cwd: securedProjects[0], encoding: 'utf8', timeout: 60000 });
   const keySmoke = path.join(consumer, 'generated-key-runtime.mjs');
   await writeFile(keySmoke, `

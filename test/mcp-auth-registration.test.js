@@ -85,7 +85,7 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
     writeToEnvironmentFile: { configurationId: 'MCP_AUTH_REGISTRATION_ID', applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' },
   });
 
-  test('new shared and FCC handoffs qualify the portal scope without changing runtime claims', async t => {
+  await t.test('new shared and FCC handoffs qualify the portal scope without changing runtime claims', async t => {
     const f = await fixture(t);
     f.addReference();
     const { plan } = await (async () => { await f.save(); return writePreparation(f); })();
@@ -98,7 +98,7 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
     assert.equal(f.descriptor.inbound.scope, 'access_as_user');
   });
 
-  test('legacy shared-auth bundles still verify with their historical rendering and digest', async t => {
+  await t.test('legacy shared-auth bundles still verify with their historical rendering and digest', async t => {
     const f = await fixture(t);
     const { bundle } = await planAuthRegistrationBundle(f.options);
     delete bundle.handoffVersion;
@@ -112,7 +112,7 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
     assert.deepEqual(await f.importBundle(), bundle);
   });
 
-  test('portal scope does not guess missing, malformed, duplicated or already-qualified values', () => {
+  await t.test('portal scope does not guess missing, malformed, duplicated or already-qualified values', () => {
     assert.equal(portalSsoScope(undefined, 'access_as_user').status, 'missing');
     for (const [uri, scope] of [
       [`api://${resource}/`, 'access_as_user'], [`api://${resource}/access_as_user`, 'access_as_user'],

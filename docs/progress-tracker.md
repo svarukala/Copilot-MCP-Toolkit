@@ -54,6 +54,12 @@ Directly affected regressions passed 79/79; after aligning creation/handover
 reference checks with canonical runtime identities, the mixed-case full SDK,
 handover and foreign-reference checks passed 3/3. The final PR revision still
 requires the configured Ubuntu/Windows and Node 22/24 CI matrix.
+Clean-CI fixture corrections await nested Node 22 subtests, make diagnostic
+timestamps distinct, and use native symlink-test paths; their local regression
+run passed 107/107. Fresh packed-consumer installation now uses a deterministic
+lock and private verified tarballs without registry metadata. Root and generated
+runtime locks share the existing recipe's `fast-uri` 3.1.8 pin. Tests remain
+offline; no additional runtime authority or live qualification is introduced.
 Actual Azure conditional creation, downloads, provider compatibility and
 consumer acceptance remain live-unqualified.
 

@@ -515,9 +515,9 @@ test('FCC rejects unsafe paths, wrong output type, absent workspace and symlinks
   await assert.rejects(planFccBundle({ ...f.options, workspaceRoot: undefined }), { code: 'MCP_FCC_WORKSPACE' });
   await assert.rejects(planFccBundle({ ...f.options, output: path.join(f.root, 'bundle.zip') }), { code: 'MCP_FCC_OUTPUT' });
   await assert.rejects(planFccBundle({ ...f.options, output: path.join(f.root, '..', 'escape.json') }), /inside|directory/);
-  f.config.source.descriptorFile = '..\\escape.json'; await f.save();
+  f.config.source.descriptorFile = path.join('..', 'escape.json'); await f.save();
   await assert.rejects(planFccBundle(f.options));
-  f.config.source.descriptorFile = 'linked\\descriptor.json'; await f.save();
+  f.config.source.descriptorFile = path.join('linked', 'descriptor.json'); await f.save();
   await symlink(f.root, path.join(f.root, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(planFccBundle(f.options), /Symlinks|junctions/);
 });
