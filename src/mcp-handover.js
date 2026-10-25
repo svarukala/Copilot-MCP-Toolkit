@@ -118,7 +118,7 @@ export async function readHandoverRelease(directory, project) {
 
 async function referenceEvidence(directory, project, cutoff) {
   const origin = await readControl(path.join(directory, 'recipe-origin.json'));
-  const reference = await readMcpServerProject(directory), a = project.input.authentication;
+  const reference = await readMcpServerProject(directory), a = project.runtime.authentication;
   const inbound = { type: 'entra', tenantId: a.tenantId, clientId: a.audience,
     applicationIdUri: a.applicationIdUri, scope: a.scope, allowedClientIds: a.allowedClientIds };
   requireHandover(origin.schemaVersion === 1 && origin.kind === 'recipe-endpoint-reference'

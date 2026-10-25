@@ -248,7 +248,7 @@ async function artifactBinding(run, phase) {
   if (phase === 'reference') {
     const source = await readRecipeProject(fileAt(run, 'source'));
     const ref = await readMcpServerProject(fileAt(run, 'reference'));
-    const origin = await readControl(fileAt(run, 'reference/recipe-origin.json')), a = source.input.authentication;
+    const origin = await readControl(fileAt(run, 'reference/recipe-origin.json')), a = source.runtime.authentication;
     requireRun(origin.sourceManifestDigest === source.manifest.contentDigest && origin.recipe === source.input.recipe
       && origin.endpoint === ref.review.descriptor.endpoint
       && (!source.runtime.gateway || origin.endpoint === source.runtime.gateway.publicUrl)

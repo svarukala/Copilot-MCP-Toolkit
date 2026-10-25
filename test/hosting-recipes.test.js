@@ -37,6 +37,46 @@ async function setup(t, input) {
   const config = path.join(root, 'input.json'); await writeFile(config, JSON.stringify(input));
   return { workspaceRoot: root, config, output: path.join(root, 'server') };
 }
+test('mixed-case configured GUIDs preserve caller and gateway identity while scopes and URIs remain exact', async t => {
+  const input = gatewayInput();
+  const tenant = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const audience = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const client = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const gatewayAudience = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const principal = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  input.azure.tenantId = tenant;
+  Object.assign(input.authentication, { tenantId: tenant.toUpperCase(), audience: audience.toUpperCase(),
+    allowedClientIds: [client.toUpperCase()] });
+  Object.assign(input.azure.gateway, { audience: gatewayAudience.toUpperCase(), principalId: principal.toUpperCase() });
+  const original = structuredClone(input);
+  const compiled = compileHostingRecipe(input), { runtime } = compiled;
+  assert.deepEqual(input, original);
+  assert.equal(runtime.authentication.applicationIdUri, input.authentication.applicationIdUri);
+  assert.equal(runtime.authentication.scope, input.authentication.scope);
+  const generated = await planHostingRecipe(await setup(t, input));
+  const policy = JSON.parse(generated.files['infra/apim-gateway.json']).resources[0].resources
+    .find(resource => resource.type === 'policies').properties.value;
+  assert.ok(policy.includes(`<value>${client}</value>`));
+  assert.ok(policy.includes(`<value>${tenant}</value>`));
+  assert.ok(!policy.includes(client.toUpperCase()));
+  const keys = await generateKeyPair('RS256');
+  const sign = (claims, aud) => new SignJWT({ tid: tenant, ver: '2.0', ...claims })
+    .setProtectedHeader({ alg: 'RS256' }).setIssuer(`https://login.microsoftonline.com/${tenant}/v2.0`)
+    .setAudience(aud).setIssuedAt().setNotBefore('0s').setExpirationTime('5m').sign(keys.privateKey);
+  const caller = createTokenVerifier(input.authentication, keys.publicKey);
+  const claims = { oid: principal, azp: client, scp: input.authentication.scope };
+  await caller(await sign(claims, audience));
+  await assert.rejects(caller(await sign({ ...claims, azp: principal }, audience)));
+  await assert.rejects(caller(await sign({ ...claims, scp: input.authentication.scope.toUpperCase() }, audience)));
+  await assert.rejects(caller(await sign(claims, gatewayAudience)));
+  const gateway = createGatewayVerifier({ ...runtime.gateway, tenantId: tenant.toUpperCase(),
+    audience: gatewayAudience.toUpperCase(), principalId: principal.toUpperCase() }, keys.publicKey);
+  await gateway(await sign({ oid: principal, roles: ['Mcp.Gateway'] }, gatewayAudience));
+  await assert.rejects(gateway(await sign({ oid: client, roles: ['Mcp.Gateway'] }, gatewayAudience)));
+  const sameAudience = structuredClone(input);
+  sameAudience.azure.gateway.audience = audience;
+  assert.throws(() => compileHostingRecipe(sameAudience), /separate/);
+});
 test('gateway recipe binds independent audiences, exact policy targets and both separately applied releases', async t => {
   const input = gatewayInput(), options = await setup(t, input);
   const plan = await planHostingRecipe(options);

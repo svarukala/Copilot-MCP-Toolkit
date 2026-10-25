@@ -81,11 +81,11 @@ function compile(value, hosting) {
     'Functions uses a source-only remote build; do not supply container imageBuild inputs.');
   requireRecipe(input.scaleProfile === undefined || ['container-apps-direct-v1', 'container-apps-apim-v1'].includes(input.recipe),
     'scaleProfile applies only to Container Apps; other hosts retain their own scaling contracts.');
-  requireRecipe(input.authentication.tenantId === input.azure.tenantId, 'Deployment and caller tenants must match.');
+  requireRecipe(input.authentication.tenantId.toLowerCase() === input.azure.tenantId.toLowerCase(), 'Deployment and caller tenants must match.');
   const key = input.backend.apiKey;
   if (key) {
     validateApiKeyPlacement(key);
-    requireRecipe(key.tenantId === input.azure.tenantId, 'Key Vault identity and deployment tenants must match.');
+    requireRecipe(key.tenantId.toLowerCase() === input.azure.tenantId.toLowerCase(), 'Key Vault identity and deployment tenants must match.');
     const vault = key.keyVaultResourceId.split('/').at(-1);
     requireRecipe(/^[a-z][a-z0-9-]{1,22}[a-z0-9]$/.test(vault) && !vault.includes('--')
       && new URL(key.secretIdentifier).hostname === `${vault}.vault.azure.net`,
@@ -97,7 +97,7 @@ function compile(value, hosting) {
   if (input.azure.storage) requireRecipe(/\/[a-z0-9]{3,24}$/.test(input.azure.storage.accountResourceId),
     'Use a valid lowercase 3-24 character storage account name in the resource ID.');
   if (input.azure.gateway) {
-    requireRecipe(input.azure.gateway.audience !== input.authentication.audience,
+    requireRecipe(input.azure.gateway.audience.toLowerCase() !== input.authentication.audience.toLowerCase(),
       'Use a separate v2 resource application for the gateway identity, not the delegated caller audience.');
     const uri = new URL(input.azure.gateway.applicationIdUri);
     requireRecipe(!uri.username && !uri.password && !uri.search && !uri.hash
@@ -242,7 +242,8 @@ async function prepare(options, hosting = false) {
   const appService = input.recipe === 'app-service-container-v1', functions = input.recipe === 'functions-sdk-v1';
   files[functions ? 'infra/functions.json' : appService ? 'infra/app-service.json' : 'infra/container-app.json'] =
     savedJson(functions ? functionsInfrastructure(input) : appService ? appServiceInfrastructure(input) : infrastructure(input));
-  if (input.azure.gateway) files['infra/apim-gateway.json'] = savedJson(gatewayInfrastructure(input, infrastructure(input)));
+  if (input.azure.gateway) files['infra/apim-gateway.json'] = savedJson(gatewayInfrastructure(
+    { ...input, authentication: runtime.authentication }, infrastructure(input)));
   files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'container-apps-recipe.md'), 'utf8');
   files['hosting-recipes.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'), 'utf8');
   files['deployment-handover.md'] = (await readFile(path.join(TOOLKIT_ROOT, 'docs', 'deployment-handover.md'), 'utf8'))

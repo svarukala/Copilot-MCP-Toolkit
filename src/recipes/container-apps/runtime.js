@@ -51,9 +51,16 @@ runtimeSchema.properties.backendAuthentication = {
 const ajv = new Ajv();
 addFormats(ajv);
 const validate = ajv.compile(runtimeSchema);
+const guid = value => typeof value === 'string' ? value.toLowerCase() : value;
+const canonicalCaller = value => ({ ...value, tenantId: guid(value.tenantId), audience: guid(value.audience),
+  allowedClientIds: value.allowedClientIds.map(guid) });
+const canonicalGateway = value => ({ ...value, tenantId: guid(value.tenantId), audience: guid(value.audience),
+  principalId: guid(value.principalId) });
 export function validateRuntimeConfig(value) {
   const config = structuredClone(value);
   if (!validate(config)) throw new Error('Invalid runtime configuration.');
+  config.authentication = canonicalCaller(config.authentication);
+  if (config.gateway) config.gateway = canonicalGateway(config.gateway);
   if (config.backendAuthentication) validateApiKeyPlacement(config.backendAuthentication);
   if (config.gateway && (config.gateway.tenantId !== config.authentication.tenantId
     || config.gateway.audience === config.authentication.audience)) throw new Error('Invalid independent gateway authentication.');
@@ -84,6 +91,7 @@ export function toolDefinitions(config) {
 }
 
 export function createTokenVerifier(authentication, key) {
+  authentication = canonicalCaller(authentication);
   const issuer = `https://login.microsoftonline.com/${authentication.tenantId}/v2.0`;
   const keys = key ?? createRemoteJWKSet(new URL(`https://login.microsoftonline.com/${authentication.tenantId}/discovery/v2.0/keys`),
     { timeoutDuration: 5000, cooldownDuration: 30000 });
@@ -93,10 +101,10 @@ export function createTokenVerifier(authentication, key) {
       requiredClaims: ['exp', 'iat', 'nbf', 'tid', 'oid', 'azp', 'scp', 'ver'],
       clockTolerance: 5,
     });
-    if (payload.ver !== '2.0' || payload.tid !== authentication.tenantId
+    if (payload.ver !== '2.0' || guid(payload.tid) !== authentication.tenantId
       || typeof payload.oid !== 'string' || !/^[0-9a-f-]{36}$/i.test(payload.oid)
       || typeof payload.scp !== 'string' || !payload.scp.split(' ').includes(authentication.scope)
-      || !authentication.allowedClientIds.includes(payload.azp)) {
+      || !authentication.allowedClientIds.includes(guid(payload.azp))) {
       throw Object.assign(new Error('Caller lacks the required delegated access.'), { code: 'CALLER_FORBIDDEN' });
     }
 
@@ -105,6 +113,7 @@ export function createTokenVerifier(authentication, key) {
 }
 
 export function createGatewayVerifier(gateway, key) {
+  gateway = canonicalGateway(gateway);
   const keys = key ?? createRemoteJWKSet(new URL(`https://login.microsoftonline.com/${gateway.tenantId}/discovery/v2.0/keys`),
     { timeoutDuration: 5000, cooldownDuration: 30000 });
   return async token => {
@@ -112,7 +121,7 @@ export function createGatewayVerifier(gateway, key) {
       issuer: `https://login.microsoftonline.com/${gateway.tenantId}/v2.0`, audience: gateway.audience,
       algorithms: ['RS256'], requiredClaims: ['exp', 'iat', 'nbf', 'tid', 'oid', 'roles', 'ver'], clockTolerance: 5,
     });
-    if (payload.ver !== '2.0' || payload.tid !== gateway.tenantId || payload.oid !== gateway.principalId
+    if (payload.ver !== '2.0' || guid(payload.tid) !== gateway.tenantId || guid(payload.oid) !== gateway.principalId
       || payload.scp !== undefined || !Array.isArray(payload.roles) || !payload.roles.includes(gateway.role)) {
       throw Object.assign(new Error('Gateway identity is not permitted.'), { code: 'CALLER_FORBIDDEN' });
     }

@@ -83,7 +83,13 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
     }
     assert.equal(method, 'GET');
     if (!resources.has(id)) throw Object.assign(new Error(`not found ${syntheticHostRegistryToken}`), { code: 'AZURE_RESOURCE_NOT_FOUND' });
-    return structuredClone(resources.get(id));
+    const result = structuredClone(resources.get(id));
+    if (id.endsWith('/policies/policy')) {
+      assert.equal(new URL(args[args.indexOf('--url') + 1]).searchParams.get('format'), 'rawxml');
+      delete result.properties.format;
+      result.properties.value = result.properties.value.replace(/\r?\n/g, '\r\n');
+    }
+    return result;
   };
   const seed = async () => withCliWorkspace(workspaceRoot, async () => {
     await mkdir(identityProject, { recursive: true });

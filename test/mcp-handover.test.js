@@ -18,12 +18,13 @@ import { planMcpDiscovery, discoverMcpToolsForTest } from '../src/mcp-discovery.
 const hash = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const digest = value => metadataDigest(boundedSnapshot(value));
 const recipes = ['container-apps-direct', 'container-apps-apim', 'app-service-container', 'functions-sdk'];
-async function setup(t, name = recipes[0], key = false) {
+async function setup(t, name = recipes[0], key = false, configure = () => {}) {
   const parent = path.join(TOOLKIT_ROOT, '.test-output');
   await mkdir(parent, { recursive: true });
   const root = await mkdtemp(path.join(parent, 'handover-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const input = JSON.parse(await readFile(new URL(`../examples/mcp/${name}${key ? '-api-key' : ''}.json`, import.meta.url)));
+  configure(input);
   const config = path.join(root, 'recipe.json');
   await writeFile(config, savedJson(input));
   const generation = { workspaceRoot: root, config, output: path.join(root, 'source') };
@@ -67,6 +68,20 @@ async function reference(f) {
   await writeRecipeReference({ ...options, approval: plan.approvalToken });
   return options.output;
 }
+
+test('mixed-case source authentication survives canonical reference and handover binding', async t => {
+  const f = await setup(t, recipes[0], false, input => {
+    input.authentication.allowedClientIds = ['CCCCCCCC-CCCC-4CCC-8CCC-CCCCCCCCCCCC'];
+  });
+  const directory = await reference(f);
+  const sourceBefore = await readFile(path.join(f.project, 'recipe-manifest.json'));
+  const ref = await withCliWorkspace(f.root, () => readMcpServerProject(directory));
+  assert.deepEqual(ref.review.input.inbound.allowedClientIds, ['cccccccc-cccc-4ccc-8ccc-cccccccccccc']);
+  await f.setConfig({ referenceProject: 'reference' });
+  const plan = await planHandover(f.options);
+  assert.equal(plan.manifest.executionReadiness, false);
+  assert.deepEqual(await readFile(path.join(f.project, 'recipe-manifest.json')), sourceBefore);
+});
 
 for (const recipe of recipes) for (const secured of [false, true]) {
   test(`${recipe} ${secured ? 'API-key' : 'anonymous'} handover preserves source, diagrams, release and honest scope`, async t => {

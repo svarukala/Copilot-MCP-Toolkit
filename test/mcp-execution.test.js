@@ -118,15 +118,17 @@ test('one execution grant advances anonymous generation/discovery/proof without 
   assert.equal((await executionStatus(f.active)).journalDigest, again.journalDigest);
 });
 
-test('Entra existing execution uses one sign-in and releases its matching proof approval without a question', async t => {
+for (const parameterized of [false, true]) test(`Entra existing execution uses one sign-in with parameterized=${parameterized}`, async t => {
   const f = await setup(t);
   const catalog = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'catalog.json')));
   f.definition.inbound = catalog.inbound;
   f.creation.discovery = { discoveryClientId: catalog.inbound.allowedClientIds[0], expectedUserId: user };
+  if (parameterized) f.creation.proof.arguments = { id: 'sample' };
   const descriptor = (await prepareMcpServer(f.definition)).descriptor;
   const fixture = observationTransport(descriptor, f.creation.discovery, { tools: [{
     name: 'read_record', description: 'Read a synthetic record',
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    inputSchema: { type: 'object', properties: parameterized ? { id: { type: 'string' } } : {},
+      ...(parameterized ? { required: ['id'] } : {}), additionalProperties: false },
     annotations: { readOnlyHint: true, destructiveHint: false },
   }] });
   let auth = 0, calls = 0;
@@ -138,6 +140,7 @@ test('Entra existing execution uses one sign-in and releases its matching proof 
   fixture.mcpTransport = async (url, request) => {
     const rpc = JSON.parse(request.body);
     if (rpc.method !== 'tools/call') return transport(url, request);
+    assert.deepEqual(rpc.params.arguments, f.creation.proof.arguments);
     calls++;
     return new Response(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: {
       content: [{ type: 'text', text: '{"ok":true}' }],
@@ -283,6 +286,11 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
       gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2');
     f.input.host.scannerImage = syntheticHostScannerImage;
     f.input.limits.maximumAzureCommands = 200;
+    if (!gateway && !key) {
+      const client = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      f.definition.authentication.allowedClientIds = [client.toUpperCase()];
+      f.creation.discovery.discoveryClientId = client;
+    }
     const plan = await f.start();
     assert.equal(plan.hostReview.downloads.scannerImage, syntheticHostScannerImage);
     assert.equal(plan.hostReview.ceilings.containerApps.maxReplicas, 1);
@@ -294,7 +302,7 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     const runtime = compileHostingRecipe(f.definition).runtime;
     const endpoint = runtime.gateway?.publicUrl
       ?? `https://${f.definition.azure.appName}.synthetic.eastus.azurecontainerapps.io/mcp`;
-    const auth = f.definition.authentication;
+    const auth = runtime.authentication;
     const descriptor = { endpoint, inbound: { type: 'entra', tenantId: auth.tenantId, clientId: auth.audience,
       applicationIdUri: auth.applicationIdUri, scope: auth.scope, allowedClientIds: auth.allowedClientIds } };
     const fixture = observationTransport(descriptor, f.creation.discovery, { tools: [{

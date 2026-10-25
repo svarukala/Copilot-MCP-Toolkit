@@ -63,6 +63,30 @@ async function execute(f) {
   return { plan, result: await runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies) };
 }
 
+for (const [name, from, to] of [
+  ['inheritance', '<base />', ''],
+  ['authentication', '<validate-jwt', '<removed-jwt'],
+  ['forwarding', 'copilotGatewayToken', 'changedGatewayToken'],
+]) test(`gateway policy readback rejects changed ${name} without creating routes or retrying`, async t => {
+  const f = await fixture(t, { gateway: true }), run = f.dependencies.runAzure;
+  f.dependencies.runAzure = async (...args) => {
+    const result = await run(...args), command = args[1];
+    if (command.includes('GET') && command.some(value => value.includes('/policies/policy?'))) {
+      assert.ok(result.properties.value.includes(from));
+      result.properties.value = result.properties.value.replace(from, to);
+    }
+    return result;
+  };
+  const { result, plan } = await execute(f);
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.code, 'HOST_EXECUTION_STAGE_STOPPED');
+  assert.equal(result.stage, 'gateway-policy');
+  assert.equal(f.calls.filter(call => call.system === 'azure' && call.args.includes('PUT')).length, 3);
+  const calls = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, calls);
+});
+
 test('host config is closed, pins scanner and bounds resource/download approvals', () => {
   const validator = new Ajv(); addFormats(validator);
   const validate = validator.compile(hostExecutionSchema);

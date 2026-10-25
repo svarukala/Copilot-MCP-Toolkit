@@ -38,14 +38,23 @@ a monetary cap, and local locks are not a distributed cloud lock.
 See [the execution contract](reusable-validation.md#bounded-execution-separate-contract-version-1).
 The older v2-only table and test counts below remain historical.
 
-The frozen implementation passed the full `npm run validate` gate:
+Baseline `1379297` passed the full `npm run validate` gate:
 **1022/1022**, with zero failures, skips or cancellations on Windows. Inventory,
 recursive syntax and strict public types passed. This includes complete
 synthetic direct/gateway SDK journeys with both anonymous and key backends,
 host health/readback, native/proxy caller reuse, one-proof/no-replay and
 parent/child integrity checks, legacy regressions and the fresh offline packed
-consumer. Closeout documentation followed the run without changing runtime
-code. Actual Azure conditional creation, downloads, provider compatibility and
+consumer. Subsequent PR review fixes policy readback without requiring optional
+format metadata, binds exact nonempty proof arguments in one-session execution,
+and canonicalizes GUID authentication identities while preserving scope/URI
+case. Regressions cover documented policy responses, changed policy rejection,
+parameterized one-call execution and signed mixed-case identity configurations.
+The 1022-test baseline predates these corrections.
+Directly affected regressions passed 79/79; after aligning creation/handover
+reference checks with canonical runtime identities, the mixed-case full SDK,
+handover and foreign-reference checks passed 3/3. The final PR revision still
+requires the configured Ubuntu/Windows and Node 22/24 CI matrix.
+Actual Azure conditional creation, downloads, provider compatibility and
 consumer acceptance remain live-unqualified.
 
 ### Bounded backend diagnostics

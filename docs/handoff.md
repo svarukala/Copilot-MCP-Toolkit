@@ -24,12 +24,21 @@ It contains public engineering context only, not credentials or execution author
   Azure exclusion. Historical ReqRes proofs remain consumed and provider-blocked.
   The v2-only scope and older validation counts below are historical baselines,
   not limitations or new verification claims for the opt-in execution layer.
-  The frozen implementation passed `npm run validate`: **1022/1022** tests,
+  Baseline `1379297` passed `npm run validate`: **1022/1022** tests,
   zero failures/skips/cancellations, asset inventory, recursive syntax and
   strict public types. Coverage includes all four complete synthetic SDK
   combinations (direct/gateway, anonymous/key backend), caller reuse, journal
   drift, consumed budgets and the fresh offline packed consumer. These
-  closeout notes followed that run; no runtime changes followed the full gate.
+  closeout notes followed that run. Subsequent PR review corrected optional
+  APIM policy-format readback, parameterized existing-MCP session selection and
+  case-insensitive GUID identity matching (without folding scopes or URI strings).
+  Those corrections have their own regressions; the 1022-test count is the
+  pre-review baseline, not evidence for the corrected revision.
+  The directly affected regression suite passed 79/79. Review follow-up aligned
+  creation-journey and handover reference checks with canonical runtime identities;
+  its mixed-case full SDK journey, handover and foreign-reference checks passed
+  3/3. Source input spelling, scope/URI case and immutable artifacts are preserved.
+  PR CI must qualify the final revision across the configured four-job matrix.
 
 - Newly generated SDK runtimes emit bounded backend failure categories and
   optional numeric HTTP status in operator logs while preserving the generic

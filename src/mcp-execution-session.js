@@ -23,7 +23,8 @@ function projection(options, childPlan, configDigest, minimumProofDelayMs) {
     && discovery?.source.kind === 'existing-mcp' && discovery.auth?.expectedUserId
     && proof && Object.keys(proof).every(key => ['toolName', 'arguments', 'safetyReview', 'resultAssertion'].includes(key))
     && typeof proof.toolName === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(proof.toolName)
-    && equal(proof.arguments, {}) && proof.safetyReview?.readOnly === true
+    && proof.arguments && typeof proof.arguments === 'object' && !Array.isArray(proof.arguments)
+    && proof.safetyReview?.readOnly === true
     && Object.keys(proof.safetyReview).sort().join(',') === 'readOnly,reason'
     && typeof proof.safetyReview.reason === 'string' && proof.safetyReview.reason.trim().length >= 12
     && proof.safetyReview.reason.length <= 1024, 'INVALID_CONFIG');
@@ -88,7 +89,7 @@ export function createExecutionProofApproval({ options, childPlan, authorization
         && equal(operation.discoveryPlan.auth, expected.auth)
         && operation.tool.name === expected.proof.toolName
         && operation.tool.annotations?.readOnlyHint === true && operation.tool.annotations?.destructiveHint === false
-        && digest(operation.arguments) === expected.proof.argumentsDigest && equal(operation.arguments, {})
+        && digest(operation.arguments) === expected.proof.argumentsDigest
         && equal(operation.safetyReview, { ...expected.proof.safetyReview, verified: false })
         && equal(operation.resultAssertion ?? null, expected.proof.resultAssertion)
         && !operation.nativeGetMapping && !operation.acceptanceProfile && !operation.qualification, 'METADATA_MISMATCH');

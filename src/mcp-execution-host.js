@@ -319,7 +319,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
     return controlOutput(await guarded('az', [...args, '--only-show-errors', '--output', 'json'], { ...identityOptions, ...extra }));
   };
   const rest = (resourceId, version, method = 'GET', file) => azure(['rest', '--method', method,
-    '--url', `https://management.azure.com${resourceId}?api-version=${version}`,
+    '--url', `https://management.azure.com${resourceId}?api-version=${version}${method === 'GET' && resourceId.endsWith('/policies/policy') ? '&format=rawxml' : ''}`,
     ...(file ? ['--headers', 'If-None-Match=*', '--body', `@${file}`] : [])]);
   const absentCloud = async (id, version) => {
     try { await rest(id, version); }
@@ -634,7 +634,14 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
             const state = actual.properties?.provisioningState;
             requireHost(!['Failed', 'Canceled', 'Cancelled'].includes(state), 'HOST_EXECUTION_PROVISION_FAILED');
             if (!state || state === 'Succeeded') {
-              requireHost(subset(body, actual) && expected(actual), 'HOST_EXECUTION_READBACK_MISMATCH');
+              const policy = id.endsWith('/policies/policy');
+              const matches = policy
+                ? [undefined, 'rawxml'].includes(actual.properties?.format)
+                  && typeof actual.properties?.value === 'string'
+                  && actual.properties.value.replace(/\r\n?/g, '\n').trim()
+                    === body.properties.value.replace(/\r\n?/g, '\n').trim()
+                : subset(body, actual);
+              requireHost(matches && expected(actual), 'HOST_EXECUTION_READBACK_MISMATCH');
               return { resourceId: id, readbackDigest: digest(actual) };
             }
             await sleep(scope.effective.pollIntervalMs, undefined, { signal });

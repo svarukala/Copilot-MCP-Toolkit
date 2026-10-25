@@ -135,6 +135,11 @@ test('authorization projection is closed, local, bounded, and pinned to original
     authorization: { ...context.authorization, extraAuthority: true } }), { code: 'APPROVAL_REQUIRED' });
   context.input.proof.arguments = { id: 1 };
   await writeFile(context.options.config, JSON.stringify(context.input));
+  const changed = await planExecutionSession(context.options);
+  assert.notEqual(changed.authorizationDigest, context.authorization.authorizationDigest);
+  assert.notEqual(changed.proof.argumentsDigest, context.authorization.proof.argumentsDigest);
+  context.input.proof.arguments = [];
+  await writeFile(context.options.config, JSON.stringify(context.input));
   await assert.rejects(planExecutionSession(context.options), { code: 'INVALID_CONFIG' });
 });
 
