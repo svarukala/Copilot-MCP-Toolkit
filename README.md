@@ -226,14 +226,24 @@ For a new direct Container Apps setup, the [operator workflow](docs/hosting-reci
 now includes prerequisite templates, immutable operation records, preserving-update
 reviews, real-terminal handoffs and separate cost/cleanup planning. Container
 Dockerfiles require reviewed builder/runtime image digests; no mutable base image
-is selected automatically. These tools prepare and record work, not deploy it.
+is selected automatically. Those operator commands prepare and record work, not deploy it.
 Separate [host operations](docs/hosting-recipes.md#environment-diagnostics-and-private-image-pulls)
 can diagnose Docker/npm connectivity or pull an exact private image without
 shared Docker login. An opt-in terminal session can reuse one in-memory sign-in
 across discovery and a separately approved proof; it never skips that approval.
 
-The four SDK hosting recipes currently generate source, deployment review files
-and local release bundles. **They do not automatically deploy to Azure.** Real
+For fewer interruptions, the separate opt-in
+[bounded execution runner](docs/reusable-validation.md#bounded-execution-separate-contract-version-1)
+accepts one reviewed, expiring grant for a fresh creation journey, then checks and
+runs its authorized phases without repeated approval questions. It covers the
+five existing validation families, including bounded Container Apps host
+automation. Genuine sign-in and unsupported/manual acceptance gates remain
+explicit; failed or uncertain work is never retried. Legacy validation and
+terminal-session commands retain their separate approvals.
+
+The four SDK recipe commands generate source, deployment review files
+and local release bundles; **generation itself never deploys to Azure.** App
+Service and Functions still require separately performed deployment. Real
 hosting behavior and Copilot Read-only labels still need live validation.
 All four accept anonymous or [Key Vault API-key REST backends](docs/hosting-recipes.md#api-key-backends)
 with a dedicated header or reviewed query parameter and a separate secret-reading

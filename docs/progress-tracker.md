@@ -9,6 +9,45 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### One-plan bounded execution
+
+The separate `mcp-execution-*` contract is implemented across the five existing
+creation families. Its explicit reviewed grant expires within 24 hours and pins
+definition/build, identity, resource templates, downloads, limits and one proof.
+Legacy v1/v2 phase approvals do not gain future-operation authority. The outer
+journal binds exact child approvals and history; failed, unknown or interrupted
+dispatch stays consumed. Offline synthetic tests exercise the adapters and
+orchestrator; no new live validation, provider attempt or publication is implied.
+
+| Family | New automatic path | Remaining live / human boundary |
+| --- | --- | --- |
+| Direct Container Apps | Generate, pinned build, zero-critical/high scan, isolated smoke, push, create/readback/health, release/reference, discovery/proof | Existing directory/resource prerequisites; live build/cloud qualification; MFA, provider and consumer acceptance |
+| Container Apps behind APIM | Direct path plus selected gateway creation/readback | Live gateway/conditional-create qualification, bypass and two-token negative acceptance |
+| Native APIM REST | Existing guarded private account, foundation/finalize/gateway/reconcile and protocol operations under one grant | Existing proof restrictions and genuine prerequisite/secret evidence |
+| Existing MCP | New reference and anonymous/Entra discovery/proof without cloud authority | Provider-owned deployment and consumer behavior; unsupported caller authentication |
+| MCP proxies | Guarded v2/v3 lifecycle and memory-reused discovery/proof | Experimental v3 restrictions, upstream compatibility and unsupported OAuth/password profiles |
+
+Eligible SDK/existing Entra paths share one short memory session. Native/proxy
+separate phases lazily reuse matching caller authentication in the same process;
+no MCP refresh token/cache or cross-process sign-in promise is added. Azure uses
+the explicitly selected private identity, not a shared account switch. Actual
+SDK startup/health can establish injected-key presence, not provider validity,
+rotation or independent Key Vault access. Genuine owner evidence can be supplied
+once; consumer/negative tests are never manufactured. Resource ceilings are not
+a monetary cap, and local locks are not a distributed cloud lock.
+See [the execution contract](reusable-validation.md#bounded-execution-separate-contract-version-1).
+The older v2-only table and test counts below remain historical.
+
+The frozen implementation passed the full `npm run validate` gate:
+**1022/1022**, with zero failures, skips or cancellations on Windows. Inventory,
+recursive syntax and strict public types passed. This includes complete
+synthetic direct/gateway SDK journeys with both anonymous and key backends,
+host health/readback, native/proxy caller reuse, one-proof/no-replay and
+parent/child integrity checks, legacy regressions and the fresh offline packed
+consumer. Closeout documentation followed the run without changing runtime
+code. Actual Azure conditional creation, downloads, provider compatibility and
+consumer acceptance remain live-unqualified.
+
 ### Bounded backend diagnostics
 
 Newly generated SDK runtimes retain fixed backend failure categories and optional

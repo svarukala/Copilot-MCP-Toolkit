@@ -265,3 +265,12 @@ export const runMcpProjectSessionOperation = (projectDir, options, session, proo
       'AUTH_CONFIG_INVALID');
     return runMcpSessionOperation(source, execution, proof, session, guard, hooks);
   }, undefined, validationGuard);
+
+// Internal bounded-runner adapter. The ordinary executor still owns approvals, ARM checks and dispatch history.
+export const runMcpProjectExecutionOperation = (projectDir, options, proof, { session, runAzure, validationGuard, dependencies } = {}) =>
+  execute(projectDir, options, proof, (source, execution, guard, hooks) => {
+    const guarded = { ...dependencies, ...hooks, beforeRequest: guard, ...(session ? { entraSession: session } : {}) };
+    return hooks.mapping
+      ? runMcpProjectMappedProof(source, execution, hooks.mapping, guarded)
+      : runMcpSessionOperation(source, execution, proof, session, guard, guarded);
+  }, runAzure, validationGuard);

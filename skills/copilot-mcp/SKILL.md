@@ -17,6 +17,21 @@ review, not silent installation, skill replacement or stale-approval reuse.
 
 ## New or resume
 
+When the owner wants a minimally interrupted, single-reviewed execution, read
+the **separate bounded execution contract** in `docs/reusable-validation.md` and
+`mcp-execution-schema`. Prepare a fresh `mcp-execution-plan` with the exact v2
+scenario, identities, related histories, host/download choices, resource limits,
+expiry and one proof. Have the owner review that complete grant once, record it
+with `mcp-execution-start`, then use `mcp-execution-run` without further phase
+approval questions. Do not implement an agent-side loop that blindly approves
+legacy plans. Never infer this grant from generation, old approvals or live
+history. Resume only the same unexpired, settled run and pinned toolkit build.
+Use a real terminal for required sign-in; the assistant cannot perform MFA.
+Retain pending consumer, negative and rotation gates as such. Submit genuine
+pending owner evidence with `mcp-execution-record`; it cannot erase a failure.
+Scope/security/identity drift, exhausted budgets and unknown dispatches stop
+without retry. An execution expiry is not resource cleanup or a billing cap.
+
 For reusable validation of an **existing direct Container Apps deployment** (v1),
 read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private
 run with reviewed `mcp-validation-plan/start`, then drive

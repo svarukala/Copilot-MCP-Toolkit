@@ -8,12 +8,12 @@ function backendSummary(backend) {
   return key ? `Backend: API key in ${key.headerName ? 'header' : 'query'} ${safe(key.headerName ?? key.queryParameterName)}; shared entitlement, not per-user access\nKey Vault: ${safe(key.keyVaultResourceId)}\nSecret reference: ${safe(key.secretIdentifier)}\nSecret identity: ${safe(key.identityResourceId)}; tenant: ${safe(key.tenantId)}\nNo secret resolution or role grants; unresolved credentials prevent startup. Review platform diagnostics and rotation separately.\n`
     : 'Backend: anonymous JSON; caller authorization remains required.\n';
 }
-const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume', 'mcp-validation-run'];
+const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume', 'mcp-validation-run', 'mcp-execution-run'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
   'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan', 'mcp-handover-plan',
   'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan',
-  'mcp-validation-plan', 'mcp-validation-next'];
+  'mcp-validation-plan', 'mcp-validation-next', 'mcp-execution-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -130,6 +130,10 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-execution-start') {
+    writeFeedback(state, `[bounded execution review]\nScenario: ${safe(plan.creation.scenario)}\nNew run: ${safe(plan.outputPath)}\nExpires: ${safe(plan.input.expiresAt)}\nGranted phases: ${plan.grants.map(safe).join(', ')}\nLimits: ${safe(JSON.stringify(plan.input.limits))}\nExact proof: ${safe(plan.creation.proof.toolName)}; arguments ${safe(JSON.stringify(plan.creation.proof.arguments))}\nAzure resources: ${safe(JSON.stringify(plan.targets.azure))}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nThis new contract grants the displayed phases, not arbitrary operations. Review the complete identities, sources, host downloads and limits on stdout before start.\n`);
+    return;
+  }
   if (['mcp-validation-start', 'mcp-validation-next'].includes(plan.action)) {
     writeFeedback(state, `[validation summary]\nPhase: ${safe(plan.phase ?? plan.status ?? 'start')}\nRun: ${safe(plan.runDirectory ?? plan.outputPath ?? plan.report?.runDirectory)}\nRequired effect flags: ${(plan.requiredFlags ?? []).map(safe).join(' ') || 'none'}\n${(plan.effects ?? [plan.reason]).map(safe).join('\n')}\n${plan.approvalToken ? `EXACT approvalToken: ${safe(plan.approvalToken)}` : 'Paused; no operation is authorized.'}\nReview the full child plan on stdout. This approval covers only the displayed phase, never later deployment or renewed proof authority.\n`);
     return;

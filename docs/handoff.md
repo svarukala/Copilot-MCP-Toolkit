@@ -5,6 +5,32 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Opt-in `mcp-execution-schema/plan/start/run/status/record` now layers one
+  explicit, expiring execution grant over unchanged validation v1/v2. It covers
+  all five existing creation families: direct ACA, ACA behind APIM, native APIM
+  REST, existing MCP and proxies. The SDK adapter performs bounded build, strict
+  scan, isolated smoke, push and create-only hosting; initial review includes
+  downloads, exact infrastructure, identities, resource limits and one proof.
+  Private Azure authentication is reused; eligible MCP discovery/proof shares
+  memory-only authentication without a second proof-approval question.
+  Parent/child journal binding, write-ahead budgets, input/build checks and
+  consumed/unknown barriers prevent silent adoption or retry.
+  See [bounded execution](reusable-validation.md#bounded-execution-separate-contract-version-1).
+  This is offline engineering, not live qualification or authority for a run.
+  Genuine prerequisites, MFA/consent, failed security checks and unsupported
+  profiles remain human boundaries. Health-backed key injection is not provider
+  validity or rotation; consumer/negative/bypass acceptance remains distinct.
+  Resource limits are not an invoice cap and local locks are not distributed
+  Azure exclusion. Historical ReqRes proofs remain consumed and provider-blocked.
+  The v2-only scope and older validation counts below are historical baselines,
+  not limitations or new verification claims for the opt-in execution layer.
+  The frozen implementation passed `npm run validate`: **1022/1022** tests,
+  zero failures/skips/cancellations, asset inventory, recursive syntax and
+  strict public types. Coverage includes all four complete synthetic SDK
+  combinations (direct/gateway, anonymous/key backend), caller reuse, journal
+  drift, consumed budgets and the fresh offline packed consumer. These
+  closeout notes followed that run; no runtime changes followed the full gate.
+
 - Newly generated SDK runtimes emit bounded backend failure categories and
   optional numeric HTTP status in operator logs while preserving the generic
   MCP error, no-retry behavior, response bounds and credential redaction.

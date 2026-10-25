@@ -4,6 +4,135 @@ The same six commands support the existing-deployment v1 contract below and
 [fresh creation journeys in v2](#fresh-creation-runners-version-2). Starting a
 run is a local record operation, not approval for its future phases.
 
+## Bounded execution, separate contract version 1
+
+`mcp-execution-schema/plan/start/run/status/record` is the opt-in **execution**
+contract. It does not change either legacy validation version below. A new plan
+explicitly grants each listed operation against the copied v2 scenario, exact
+definition/build, identity choices, resources, proof selection and limits.
+Approving an old `mcp-validation/*` token never grants later phases.
+
+One execution approval can therefore authorize generation through the supported
+protocol proof. The runner derives and checks the ordinary child plans internally;
+there is no generic shell command or arbitrary next-plan auto-approval interface.
+`start` records the grant locally, and `run` advances without further phase-token
+questions. Genuine sign-in, an unsupported operation, changed inputs, failed
+security checks and failed/unknown dispatches still stop execution.
+
+| Family | Automatic execution under the new grant | Remaining boundary |
+| --- | --- | --- |
+| Direct Container Apps | Generate, bounded host adapter, release/reference, discovery and one proof | Existing Azure/Entra prerequisites; consumer, rotation and negative-test acceptance are not inferred |
+| Container Apps behind APIM | SDK host path plus the selected gateway resources, release/reference and protocol path | Existing compatible gateway prerequisites and separate consumer/bypass acceptance |
+| Native APIM REST | Generate, private account, existing guarded foundation/finalize/gateway/reconcile, discovery/proof | Existing proof-profile restrictions, actual prerequisite/secret evidence and manual consumer gates |
+| Existing MCP | Generate reference, discovery/proof; no Azure authority | Anonymous/Entra only; provider-owned runtime is not inspected or certified |
+| MCP proxies | Existing v2/v3 guarded lifecycle and protocol paths | Experimental v3 restrictions remain; unsupported OAuth/password/backend exchanges are not implemented |
+
+### Prepare and approve once
+
+Copy the synthetic [execution example](../examples/mcp/execution-existing.json),
+its [v2 scenario](../examples/mcp/execution-scenario-existing.json) and referenced
+definition into a private workspace. Replace the synthetic endpoint/tool and
+identity data, declare **all related endpoint histories**, and set `expiresAt`
+to an explicit UTC instant within the next 24 hours. The example's 2099 date is
+intentionally not executable. Review actual read-only semantics, provider
+entitlement, source inputs and each operation in the plan.
+
+```powershell
+copilot-mcp mcp-execution-schema --json
+copilot-mcp mcp-execution-plan --workspace-root C:\McpRuns --config C:\McpRuns\execution.json --output C:\McpRuns\new-run --summary --json
+copilot-mcp mcp-execution-start --workspace-root C:\McpRuns --config C:\McpRuns\execution.json --output C:\McpRuns\new-run --approve EXACT_EXECUTION_TOKEN --json
+copilot-mcp mcp-execution-run --workspace-root C:\McpRuns --project C:\McpRuns\new-run --interactive --progress --json
+copilot-mcp mcp-execution-status --workspace-root C:\McpRuns --project C:\McpRuns\new-run --json
+```
+
+Only `start` accepts an approval token. `run` uses the retained, unexpired grant.
+Omit `--interactive` for anonymous execution or to stop before a required user
+sign-in; resume the same run in a terminal without another execution approval.
+Redirect JSON stdout only, not terminal authentication challenges on stderr.
+There is no automatic retry or adoption of an older failed run.
+
+Cloud scenarios require `cloud.resourcePolicy: "pinned-scenario-only"`,
+`spendingPolicy: "resource-limits-not-an-invoice-cap"` and explicit
+`ongoingChargesReviewed: true`. `allowSecretAccessGrants` must match the selected
+profile: only the existing generated APIM secret-access operation can grant the
+exact secret-scoped role to the selected APIM identity. SDK hosting and other
+profiles grant no role changes. Full generated infrastructure definitions appear
+in the plan, including default resource sizes. **This is not an Azure invoice
+cap. Expiration or cancellation does not delete resources or stop their bills.**
+
+SDK scenarios additionally require the closed `host` schema and an explicit new
+`referenceServerId`. All image/scanner/download choices belong to that initial
+review, including exact package-lock identity, scanner database references,
+effective time/size bounds and CPU/memory/replica ceilings. The executor checks
+that projection again against generated source before dispatch. No tool silently
+chooses newer dependencies or waives vulnerability findings.
+The existing recipe must admit at least four MCP POSTs per minute and
+`minimumProofDelayMs` must be 65000. The wait covers the aggregate initialization,
+notification, metadata and call window, not just provider calls.
+
+The [SDK envelope example](../examples/mcp/execution-container-apps.json) is also
+synthetic: replace both expiries, the scanner digest, account, identifiers and
+resource choices, and add actual reviewed `imageBuild` builder/runtime digests
+to the copied recipe definition. The runner does not select image versions.
+`host.dockerSocket` selects an explicitly trusted local engine; it is not a Docker
+context or remote daemon fallback. `privateLoginReviewed: true` permits login to
+the new source project's private Azure profile if needed. Alternatively supply
+an absolute `azureIdentityProject` for an already selected private identity,
+without copying its cache. Download and create-only/resource-ceiling
+acknowledgments are part of the same review, not independent attestations.
+SDK cloud creation requires absence checks, conditional create requests and
+readbacks. Local locks are not a distributed Azure lock; conditional creation
+behavior is not yet live-qualified against concurrent external Azure writers.
+No rollback/deletion or replacement of pre-existing resources is authorized.
+
+### Authentication and interruption boundaries
+
+The new plan selects session mode for eligible Entra SDK/existing references,
+sharing one in-memory sign-in across discovery and proof. The exact post-discovery
+proof is compared with the preauthorized selection before its one-use approval
+is released. Pacing is cancellable and retains the same memory session. No token,
+refresh token, device code or dashboard cookie is persisted by this mechanism.
+The existing short session lifetime and tenant/client/user/audience/endpoint
+bindings remain enforced; a fresh process does not inherit MCP credentials.
+Native APIM and proxy separate-phase runners also reuse a lazily acquired,
+memory-only caller session within the same invocation. Their ARM mapping and
+proof checks remain intact. Expiry, binding drift or cancellation closes that
+session without refresh; a restarted proof requires fresh caller authentication,
+not a repeated provider call.
+Azure uses the selected project-private identity/cache, never a shared account
+switch or copied cache. MFA, consent and tenant policies still belong to the user.
+These are distinct identity contexts, not a universal one-sign-in promise.
+
+The append-only outer journal reserves the provider budget **before** a
+proof-capable phase and counts Azure commands before invoking them. Its limits
+are phase count, logical Azure command count, one proof-purpose reservation,
+per-invocation time and absolute expiry. Logical CLI reads can retain their
+existing bounded transport retries; cloud mutations and consumed proofs are
+never retried. Cancellation between settled phases can resume the same grant.
+Cancellation, failure or interruption within a phase preserves an uncertainty
+barrier. Do not remove locks, reseal records, or start a new reference to evade it.
+
+Pre-existing owner evidence can be supplied once in `ownerEvidence`. A genuinely
+manual pending gate can be recorded later with `mcp-execution-record --config
+CHECKPOINT_JSON` using the v2 checkpoint schema; this is an evidence submission,
+not another execution approval. Passed declarations require evidence digests.
+SDK prerequisites are not inferred from deployment: supply genuine directory,
+resource and entitlement evidence once. The host adapter can record its actual
+build, scan, smoke, push, deployment and gateway observations. One bounded
+`/health` request, bound to the selected runtime/revision/configuration, can
+confirm startup with an injected backend key. It does not independently verify
+Key Vault access, provider-key validity or rotation and never reads the secret.
+Failed/deferred findings and unknown execution cannot be overwritten with passes.
+The runner never manufactures consumer, rotation or negative-test success.
+`execution-completed` means the selected protocol path completed; the returned
+milestone table still distinguishes pending/owner-reported acceptance. It never
+sets `executionReadiness`, consumer attestation or renewed proof authority.
+
+The new executor is CLI-only, like the legacy validation runners. Internal
+Docker, Azure and transport seams are synthetic test infrastructure, not public
+credential-provider or arbitrary-command APIs. Tests are offline; shipping this
+capability is not evidence of a live deployment or permission to perform one.
+
 ## Existing deployment, version 1
 
 The `mcp-validation-*` commands let an agent drive a repeatable validation

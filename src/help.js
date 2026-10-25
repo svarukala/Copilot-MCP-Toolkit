@@ -1,4 +1,6 @@
 export const commandFamilies = {
+  execution: ['mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
+    'mcp-execution-run', 'mcp-execution-status', 'mcp-execution-record'],
   validation: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
     'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
   hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
@@ -75,6 +77,15 @@ Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routin
 is explicit experimental opt-in, not forwarding proof.
 
 Review plan -> exact approval -> one supported phase -> retained status/resume.
+Bounded execution: mcp-execution-schema/plan/start/run/status/record is a separate
+opt-in contract for all five fresh-creation families. A reviewed plan explicitly
+grants its pinned phases, limits, identity and one proof; start records that one
+approval. Run advances without per-phase prompts, using --interactive only when
+a real sign-in is needed. Never supply a legacy phase token as an execution grant.
+Owner evidence remains distinguishable from actual execution; record only genuine
+pending milestones. Failed/unknown attempts stop, never retry. Cloud costs are
+resource-bounded, not a billing cap; expiry does not delete running resources.
+See docs/reusable-validation.md for SDK host prerequisites and remaining boundaries.
 Validation: schema/plan/start/next/run/status for existing direct ACA (v1), or
 fresh direct ACA, ACA behind APIM, native APIM REST, existing MCP and proxies (v2).
 Use --workspace-root and a NEW run --output; continuation --project is the run.

@@ -21,7 +21,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   return withCliFeedback(() => mainWithFeedback(args, dependencies));
 }
 async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider,
-  hostOperationDependencies, sessionDependencies, sessionProofApproval } = {}) {
+  hostOperationDependencies, sessionDependencies, sessionProofApproval, executionDependencies } = {}) {
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
@@ -85,6 +85,41 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
+    if (['mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
+      'mcp-execution-run', 'mcp-execution-status', 'mcp-execution-record'].includes(command)) {
+      const kind = command.slice('mcp-execution-'.length);
+      const allowed = {
+        schema: ['json'],
+        plan: ['workspace-root', 'config', 'output', 'json', 'summary'],
+        start: ['workspace-root', 'config', 'output', 'json', 'approve'],
+        run: ['workspace-root', 'project', 'json', 'interactive', 'progress'],
+        status: ['workspace-root', 'project', 'json'],
+        record: ['workspace-root', 'project', 'config', 'json'],
+      }[kind];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || kind !== 'schema' && (!workspaceRoot
+        || (['plan', 'start'].includes(kind) ? !options.config || !options.output : !options.project)
+        || kind === 'record' && !options.config)) {
+        throw new Error('Execution plan/start requires --config and NEW --output; run/status/record selects --project. Only start accepts the exact execution --approve. Legacy phase tokens and effect flags are not execution grants.');
+      }
+      const runner = await import('../src/mcp-execution.js');
+      if (kind === 'schema') { print(runner.executionSchema, true); return 0; }
+      if (options.interactive && !onMcpDeviceCode && (!process.stdin.isTTY || !process.stderr.isTTY)) {
+        throw new Error('Execution sign-in requires a real terminal; no device challenge may be stored in redirected output.');
+      }
+      const controller = new AbortController(), cancel = () => controller.abort();
+      process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+      try {
+        const operation = { plan: runner.planExecution, start: runner.startExecution, run: runner.runExecution,
+          status: runner.executionStatus, record: runner.recordExecutionEvidence }[kind];
+        const result = await operation({ workspaceRoot, project: options.project, config: options.config,
+          output: options.output, approval: options.approve, signal: controller.signal,
+          ...(onMcpDeviceCode || options.interactive ? { onDeviceCode: terminalCallbacks().onDeviceCode } : {}),
+        }, { ...executionDependencies, sessionDependencies: executionDependencies?.sessionDependencies ?? sessionDependencies,
+          mcpProjectOperation: executionDependencies?.mcpProjectOperation ?? mcpProjectOperation, runAzure });
+        print(result, true);
+        return ['blocked', 'paused', 'waiting-for-owner', 'input-required', 'sign-in-required'].includes(result.status) ? 2 : 0;
+      } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+    }
     if (['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
       'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'].includes(command)) {
       const kind = command.slice('mcp-validation-'.length);

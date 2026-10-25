@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "scenario": "existing-mcp-create-v2",
+  "definitionFile": "existing-anonymous.json",
+  "discovery": {},
+  "proof": {
+    "toolName": "read_record",
+    "arguments": {},
+    "safetyReview": {
+      "readOnly": true,
+      "reason": "Synthetic example only. Review the actual fixed GET and provider entitlement."
+    }
+  },
+  "probeMode": "separate",
+  "consumer": "none",
+  "relatedProjects": [],
+  "historyReviewed": true,
+  "privateExportReviewed": true
+}
