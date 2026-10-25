@@ -254,14 +254,21 @@ test('secret-bearing backend errors, redirects and obvious encoded reflections f
       { headers: { 'content-type': 'application/json' } }),
     () => new Response(credential, { headers: { 'content-type': 'text/plain' } }),
   ];
-  for (const failure of failureCases) {
+  const diagnostics = [
+    { failureKind: 'request' },
+    { failureKind: 'http-status', httpStatus: 401 },
+    { failureKind: 'http-status', httpStatus: 302 },
+    ...Array.from({ length: 6 }, () => ({ failureKind: 'credential-reflection', httpStatus: 200 })),
+    { failureKind: 'content-type', httpStatus: 200 },
+  ];
+  for (const [index, failure] of failureCases.entries()) {
     let calls = 0; const logs = [];
     const client = await protocol(t, runtime, { request: async () => { calls++; return failure(); }, log: e => logs.push(e) });
     const result = await call(client);
     assert.equal(result.isError, true);
     assert.match(result.content[0].text, /No retry/);
     assert.equal(calls, 1);
-    assert.deepEqual(logs, [{ event: 'backend-call-failed', tool: 'get_information' }]);
+    assert.deepEqual(logs, [{ event: 'backend-call-failed', tool: 'get_information', ...diagnostics[index] }]);
     for (const secret of [credential, encodeURIComponent(credential), Buffer.from(credential).toString('base64')]) {
       assert.ok(!JSON.stringify({ result, logs }).includes(secret));
     }

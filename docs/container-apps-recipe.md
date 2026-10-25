@@ -188,19 +188,37 @@ source annotations nor a successful tool call alone proves the final UI behavior
   the actual intended settings rather than broadening the allowlist.
 - **503:** token validation is unavailable, including signing-key access failure.
 - **429:** per-process request or concurrency limit. The request budget includes
-  rejected sign-in attempts. Counters reset on restart; revisions/replicas do
+  all MCP POSTs, including initialization, notifications, discovery, proof
+  preflight and rejected sign-in attempts, not just backend calls. A discovery
+  followed immediately by proof can exhaust a small budget before dispatch.
+  Inspect the persisted dispatch receipt before considering another operation;
+  a tool error or unknown dispatched outcome remains consumed.
+  Counters reset on restart; revisions/replicas do
   not share a counter. This is not a billing limit or DDoS defense.
 - **405:** the stateless `/mcp` endpoint accepts POST, not a persistent SSE GET.
   It returns JSON through the SDK's Streamable HTTP transport.
 - **Tool error:** the backend request failed, redirected, timed out, exceeded
   1 MiB or did not return valid JSON. Requests have a 10-second backend timeout,
   and are never automatically retried. Failure does not prove nonexecution.
+  Newly generated runtimes log `backend-call-failed` with `failureKind` and,
+  when a valid HTTP response status was received, numeric `httpStatus`.
+  Categories are `request`, `timeout`, `cancelled`, `http-status`, `redirect`,
+  `content-type`, `response-too-large`, `response-empty`, `response-read`,
+  `invalid-json` and `credential-reflection`. `request` includes transport
+  failures and redirects rejected by fetch before a response is available;
+  it does not establish the provider received the request. An HTTP status
+  alone does not identify an invalid key or prove a specific entitlement issue.
 - MCP requests are capped at 64 KiB and 20 concurrent requests per process.
-  Logs contain fixed event names and tool identifiers, not tokens or bodies.
+  Logs contain fixed event names, tool identifiers, bounded failure categories
+  and optional HTTP status, not tokens, URLs, headers, bodies or raw errors.
   Review platform diagnostics separately; application redaction cannot control
   every hosting or network log.
 - Review DNS and egress rules for the chosen backend. A fixed configured URL is
   not a guarantee about future DNS resolution or upstream behavior.
+
+These diagnostics do not modify existing generated source or deployments, recover
+missing details from old failures, or authorize a replay. Adopting them requires
+newly generated/reviewed source and the normal build/deployment boundaries.
 
 Customer ownership, maintenance and the repository's MIT/as-is terms still
 apply to generated source. Keep real configurations, generated projects and

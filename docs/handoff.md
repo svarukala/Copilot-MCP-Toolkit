@@ -5,6 +5,13 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- Newly generated SDK runtimes emit bounded backend failure categories and
+  optional numeric HTTP status in operator logs while preserving the generic
+  MCP error, no-retry behavior, response bounds and credential redaction.
+  Existing deployed images and consumed proof receipts remain unchanged.
+  The diagnostics cannot retroactively explain historical generic failures;
+  any subsequent provider attempt remains a separate reviewed operation.
+
 - Container runtime inputs now support explicit digest-pinned distroless Node 22
   Debian 13 nonroot images alongside the unchanged Debian 12 profile. Generate
   a new source project when switching; never retrofit sealed source or treat a

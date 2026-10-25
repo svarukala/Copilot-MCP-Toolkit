@@ -175,6 +175,8 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
       || typeof params.arguments !== 'object' || Array.isArray(params.arguments) || Object.keys(params.arguments).length)) {
       throw new McpError(ErrorCode.InvalidParams, 'Select a listed tool and supply an empty arguments object.');
     }
+    let failureKind = 'request';
+    let httpStatus, timeout, requestSignal;
     try {
       const url = new URL(`${config.backendOrigin}${tool.path}`);
       const headers = { accept: 'application/json' };
@@ -183,28 +185,42 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
         if (auth.headerName) headers[auth.headerName] = credential;
         else url.searchParams.set(auth.queryParameterName, credential);
       }
-      const timeout = AbortSignal.timeout(10000);
+      timeout = AbortSignal.timeout(10000);
+      requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
       const response = await request(url.href, {
         method: 'GET', redirect: 'error', headers,
-        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        signal: requestSignal,
       });
+      if (Number.isInteger(response.status) && response.status >= 100 && response.status <= 599) httpStatus = response.status;
       if (!response.ok || response.redirected || !/^application\/(?:[a-z0-9.+-]+\+)?json(?:;|$)/i.test(response.headers.get('content-type') ?? '')) {
+        failureKind = response.redirected ? 'redirect' : !response.ok ? 'http-status' : 'content-type';
         await response.body?.cancel();
         throw new Error('Backend rejected the call or did not return JSON.');
       }
       if (Number(response.headers.get('content-length')) > 1048576) {
+        failureKind = 'response-too-large';
         await response.body?.cancel();
         throw new Error('Backend response exceeds the limit.');
       }
+      failureKind = 'response-empty';
       if (!response.body) throw new Error('Backend returned no response body.');
+      failureKind = 'response-read';
       const content = await readBounded(response.body, 1048576);
+      failureKind = 'invalid-json';
       const parsed = JSON.parse(content);
+      failureKind = 'credential-reflection';
       if (credential !== undefined && reflectsCredential(content, parsed, credential)) {
         throw new Error('Backend response contains credential material.');
       }
       return { content: [{ type: 'text', text: content }] };
-    } catch {
-      log({ event: 'backend-call-failed', tool: tool.name });
+    } catch (error) {
+      if (['request', 'response-read'].includes(failureKind) && requestSignal?.aborted) {
+        failureKind = timeout.aborted && requestSignal.reason === timeout.reason ? 'timeout' : 'cancelled';
+      } else if (failureKind === 'response-read' && error?.code === 'PAYLOAD_TOO_LARGE') {
+        failureKind = 'response-too-large';
+      }
+      log({ event: 'backend-call-failed', tool: tool.name, failureKind,
+        ...(httpStatus === undefined ? {} : { httpStatus }) });
       return { isError: true, content: [{ type: 'text',
         text: 'The backend call failed or returned an unsupported response. No retry was performed; execution may have occurred.' }] };
     }

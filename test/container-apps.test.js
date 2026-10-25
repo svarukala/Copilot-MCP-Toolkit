@@ -162,15 +162,24 @@ test('actual MCP SDK publishes accurate hints and invokes only the fixed reviewe
 
 test('backend failures are explicit, bounded and never retried or reflected into logs', async () => {
   const failures = [
-    () => { throw new Error('private backend detail'); },
-    () => new Response('private backend detail', { status: 401 }),
-    () => new Response('redirect detail', { status: 302, headers: { location: 'https://other.example.com' } }),
-    () => new Response('text', { headers: { 'content-type': 'text/plain' } }),
-    () => new Response('not JSON', { headers: { 'content-type': 'application/json' } }),
-    () => new Response('{}', { headers: { 'content-type': 'application/json', 'content-length': '1048577' } }),
-    () => new Response(' '.repeat(1048577), { headers: { 'content-type': 'application/json' } }),
+    [() => { throw new Error('private backend detail'); }, { failureKind: 'request' }],
+    [() => new Response('private backend detail', { status: 401 }), { failureKind: 'http-status', httpStatus: 401 }],
+    [() => new Response('redirect detail', { status: 302, headers: { location: 'https://other.example.com' } }),
+      { failureKind: 'http-status', httpStatus: 302 }],
+    [() => Object.defineProperty(Response.json({}), 'redirected', { value: true }),
+      { failureKind: 'redirect', httpStatus: 200 }],
+    [() => new Response('text', { headers: { 'content-type': 'text/plain' } }), { failureKind: 'content-type', httpStatus: 200 }],
+    [() => new Response('not JSON', { headers: { 'content-type': 'application/json' } }), { failureKind: 'invalid-json', httpStatus: 200 }],
+    [() => new Response('{}', { headers: { 'content-type': 'application/json', 'content-length': '1048577' } }),
+      { failureKind: 'response-too-large', httpStatus: 200 }],
+    [() => new Response(' '.repeat(1048577), { headers: { 'content-type': 'application/json' } }),
+      { failureKind: 'response-too-large', httpStatus: 200 }],
+    [() => new Response(null, { status: 204, headers: { 'content-type': 'application/json' } }),
+      { failureKind: 'response-empty', httpStatus: 204 }],
+    [() => new Response(new ReadableStream({ start(controller) { controller.error(new Error('private backend detail')); } }),
+      { headers: { 'content-type': 'application/json' } }), { failureKind: 'response-read', httpStatus: 200 }],
   ];
-  for (const failure of failures) {
+  for (const [failure, diagnostic] of failures) {
     let calls = 0; const logs = [];
     const server = createProtocolServer(runtime, { request: async () => { calls++; return failure(); }, log: e => logs.push(e) });
     const client = new Client({ name: 'offline-test', version: '1' });
@@ -181,7 +190,7 @@ test('backend failures are explicit, bounded and never retried or reflected into
       assert.equal(result.isError, true);
       assert.match(result.content[0].text, /No retry/);
       assert.equal(calls, 1);
-      assert.deepEqual(logs, [{ event: 'backend-call-failed', tool: 'get_information' }]);
+      assert.deepEqual(logs, [{ event: 'backend-call-failed', tool: 'get_information', ...diagnostic }]);
       assert.doesNotMatch(JSON.stringify(result), /private backend detail|redirect detail/);
     } finally { await client.close(); await server.close(); }
   }
@@ -205,6 +214,45 @@ test('real signature validation enforces delegated tenant, audience, scope, clie
     [{}, { key: otherKeys.privateKey }],
   ]) await assert.rejects(verify(await token(claims, options)));
   await assert.rejects(verify('invalid'));
+});
+
+test('backend diagnostics distinguish request/body timeout from caller cancellation without exposing reasons', async t => {
+  for (const stage of ['request', 'response-read']) {
+    for (const failureKind of ['timeout', 'cancelled']) {
+      await t.test(`${stage} ${failureKind}`, async t => {
+        const deadline = new AbortController(), caller = new AbortController();
+        t.mock.method(AbortSignal, 'timeout', milliseconds => {
+          assert.equal(milliseconds, 10000);
+          return deadline.signal;
+        });
+        let calls = 0;
+        const logs = [];
+        const fail = () => {
+          const error = new Error('private cancellation reason');
+          (failureKind === 'timeout' ? deadline : caller).abort(error);
+          return error;
+        };
+        const server = createProtocolServer(runtime, { signal: caller.signal, log: event => logs.push(event),
+          request: async () => {
+            calls++;
+            if (stage === 'request') throw fail();
+            return new Response(new ReadableStream({ pull(controller) { controller.error(fail()); } }),
+              { headers: { 'content-type': 'application/json' } });
+          } });
+        const client = new Client({ name: 'offline-test', version: '1' });
+        const [ct, st] = InMemoryTransport.createLinkedPair();
+        t.after(async () => { await client.close(); await server.close(); });
+        await server.connect(st); await client.connect(ct);
+        const result = await client.callTool({ name: 'get_information', arguments: {} });
+        assert.equal(result.isError, true);
+        assert.match(result.content[0].text, /No retry/);
+        assert.equal(calls, 1);
+        assert.deepEqual(logs, [{ event: 'backend-call-failed', tool: 'get_information', failureKind,
+          ...(stage === 'response-read' ? { httpStatus: 200 } : {}) }]);
+        assert.doesNotMatch(JSON.stringify({ result, logs }), /private cancellation reason/);
+      });
+    }
+  }
 });
 
 async function httpFixture(t, config = runtime, overrides = {}) {
@@ -307,6 +355,7 @@ test('backend timeout cancels one dispatched call without retry', { timeout: 150
   assert.equal((await response.json()).result.isError, true);
   assert.equal(calls, 1);
   assert.equal(aborted, true);
+  assert.deepEqual(fixture.logs, [{ event: 'backend-call-failed', tool: 'get_information', failureKind: 'timeout' }]);
   assert.ok(performance.now() - started >= 9900);
   assert.ok(performance.now() - started < 14000);
 });

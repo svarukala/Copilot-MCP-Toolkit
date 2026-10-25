@@ -9,6 +9,21 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Bounded backend diagnostics
+
+Newly generated SDK runtimes retain fixed backend failure categories and optional
+numeric HTTP status in operator logs. The MCP client error remains generic;
+URLs, credentials, response bodies, headers and raw exceptions are not logged.
+Timeout/cancellation, HTTP rejection, content/size/JSON/read failures and rejected
+credential reflection can be distinguished without retrying the tool. The
+request-rate documentation now explicitly counts all MCP POSTs, including
+discovery and proof preflight. This is a source improvement, not a deployed
+change, retroactive diagnosis, new proof authority or a passed live validation.
+The focused offline container, API-key and hosting run passed **35/35** checks,
+including exact log shapes, secret-bearing failures, request/body cancellation,
+the actual 10-second timeout and the 1 MiB response boundary. Asset inventory and
+strict public types passed. The full suite was not rerun for this increment.
+
 ### Debian 13 runtime profile
 
 Container recipes now also accept explicitly digest-pinned
