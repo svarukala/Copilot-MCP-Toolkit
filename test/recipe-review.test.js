@@ -26,12 +26,12 @@ test('container recipes require linux/amd64 images and Functions remains source-
     }
   }
 });
-async function fixture(t) {
+async function fixture(t, recipe = 'container-apps-direct-api-key', imageBuild = build) {
   await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
   const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'recipe-review-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const input = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct-api-key.json', import.meta.url)));
-  input.imageBuild = build;
+  const input = JSON.parse(await readFile(new URL(`../examples/mcp/${recipe}.json`, import.meta.url)));
+  input.imageBuild = imageBuild;
   const config = path.join(root, 'hosting.json'); await writeFile(config, JSON.stringify(input));
   const generation = { workspaceRoot: root, config, output: path.join(root, 'server') };
   const generated = await planHostingRecipe(generation);
@@ -39,7 +39,7 @@ async function fixture(t) {
   const manifest = JSON.parse(await readFile(path.join(generation.output, 'recipe-manifest.json')));
   const image = `${input.azure.registry.server}/mcp@${hash}`, now = new Date(Date.now() - 1000).toISOString();
   const qualification = { schemaVersion: 1, kind: 'image-qualification', image,
-    sourceManifestDigest: manifest.contentDigest, build, builder: { run: 'synthetic-build-1', evidenceDigest: hash },
+    sourceManifestDigest: manifest.contentDigest, build: imageBuild, builder: { run: 'synthetic-build-1', evidenceDigest: hash },
     scan: { image, scanner: 'synthetic-1', databaseUpdatedAt: now, scannedAt: now,
       critical: 0, high: 0, medium: 23, low: 8, reportDigest: hash },
     smoke: { image, networkDisabled: true, nonroot: true, status: 'passed', evidenceDigest: hash },
@@ -70,6 +70,43 @@ test('minimal image inputs and all qualification receipts bind to a newly sealed
   assert.equal(release.review.artifact.imageSourceCorrespondence, 'operator-asserted-not-verified');
   f.qualification.scan.high = 1; await f.save();
   await assert.rejects(planRecipeReview({ ...f.options, output: path.join(f.root, 'failed.json') }), /zero critical\/high/);
+});
+for (const recipe of ['container-apps-direct-api-key', 'container-apps-apim-api-key', 'app-service-container-api-key']) {
+  test(`${recipe}: Debian 13 binds generation and qualification without changing the Debian 12 profile`, async t => {
+    const imageBuild = { ...build, runtimeImage: build.runtimeImage.replace('debian12', 'debian13') };
+    const f = await fixture(t, recipe, imageBuild);
+    assert.ok(f.generated.files.Dockerfile.includes(`FROM --platform=linux/amd64 ${imageBuild.runtimeImage}`));
+    assert.match(f.generated.files.Dockerfile, /USER 65532:65532/);
+    const plan = await planRecipeReview(f.options);
+    assert.deepEqual(plan.bundle.result.build, imageBuild);
+    assert.deepEqual(plan.bundle.result.policy, { maximumCritical: 0, maximumHigh: 0, maximumAgeHours: 24 });
+    f.qualification.build = build;
+    await f.save();
+    await assert.rejects(planRecipeReview(f.options), /explicit digest-pinned imageBuild/);
+    f.qualification.build = imageBuild;
+    f.qualification.scan.high = 1;
+    await f.save();
+    await assert.rejects(planRecipeReview(f.options), /zero critical\/high/);
+    assert.equal(compileHostingRecipe({ ...f.input, imageBuild: build }).input.imageBuild.runtimeImage, build.runtimeImage);
+  });
+}
+test('runtime profiles reject mutable, root, debug, other-version and foreign-registry images', async () => {
+  const input = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
+  for (const runtimeImage of [
+    'gcr.io/distroless/nodejs22-debian13:nonroot',
+    `gcr.io/distroless/nodejs22-debian13@${hash}`,
+    `gcr.io/distroless/nodejs22-debian13:debug-nonroot@${hash}`,
+    `gcr.io/distroless/nodejs24-debian13:nonroot@${hash}`,
+    `gcr.io/distroless/nodejs22-debian14:nonroot@${hash}`,
+    `other.example.com/distroless/nodejs22-debian13:nonroot@${hash}`,
+  ]) {
+    assert.throws(() => compileHostingRecipe({ ...input, imageBuild: { ...build, runtimeImage } }),
+      { code: 'MCP_CONTAINER_APPS_INPUT' });
+  }
+  const functions = JSON.parse(await readFile(new URL('../examples/mcp/functions-sdk.json', import.meta.url)));
+  assert.throws(() => compileHostingRecipe({ ...functions, imageBuild: {
+    ...build, runtimeImage: build.runtimeImage.replace('debian12', 'debian13'),
+  } }), /source-only remote build/);
 });
 test('image review rejects mismatched images, source/build, stale database and fabricated future evidence', async t => {
   const f = await fixture(t);

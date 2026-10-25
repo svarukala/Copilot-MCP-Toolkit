@@ -301,6 +301,14 @@ these placeholders are not accepted inputs):
 }
 ```
 
+The runtime may explicitly select either `nodejs22-debian12:nonroot` or
+`nodejs22-debian13:nonroot` from `gcr.io/distroless`, with a reviewed digest.
+Debian 12 inputs remain supported and unchanged; there is no automatic runtime
+upgrade. Switching distributions requires a new source project and fresh
+source-matched image qualification. A newer distribution or a previously
+successful deployment is not evidence that the selected image passes today's
+scan. The builder remains the pinned Node 22 bookworm-slim profile.
+
 The multistage Dockerfile installs locked dependencies with scripts disabled,
 then copies only runtime dependencies, application files and notices into the
 distroless nonroot runtime. The container recipes accept only `linux/amd64`;

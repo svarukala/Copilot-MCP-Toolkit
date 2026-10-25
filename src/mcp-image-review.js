@@ -10,7 +10,7 @@ const count = { type: 'integer', minimum: 0, maximum: 1000000 };
 const label = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._:/ -]{0,119}$' };
 export const imageBuildSchema = object({
   builderImage: { type: 'string', pattern: '^node:22-bookworm-slim@sha256:[a-f0-9]{64}$' },
-  runtimeImage: { type: 'string', pattern: '^gcr\\.io/distroless/nodejs22-debian12:nonroot@sha256:[a-f0-9]{64}$' },
+  runtimeImage: { type: 'string', pattern: '^gcr\\.io/distroless/nodejs22-debian(?:12|13):nonroot@sha256:[a-f0-9]{64}$' },
   platform: { const: 'linux/amd64' },
 });
 export const imageReviewSchema = object({

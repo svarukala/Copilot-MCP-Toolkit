@@ -1,9 +1,17 @@
 # Session handoff
 
-Last updated: 2026-10-23. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-25. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- Container runtime inputs now support explicit digest-pinned distroless Node 22
+  Debian 13 nonroot images alongside the unchanged Debian 12 profile. Generate
+  a new source project when switching; never retrofit sealed source or treat a
+  historical passing scan as current qualification. The zero-critical/high,
+  24-hour scan/database, nonroot smoke and source-binding requirements remain.
+  This does not change Functions, automatically select a digest, authorize
+  deployment or declare the ongoing live validation complete.
 
 - Current priority is reusable **fresh creation** validation for direct ACA,
   ACA behind APIM, native APIM REST and existing MCP/proxies. V2 is implemented

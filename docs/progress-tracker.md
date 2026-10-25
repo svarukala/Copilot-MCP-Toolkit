@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-23.
+Last updated: 2026-10-25.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,21 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### Debian 13 runtime profile
+
+Container recipes now also accept explicitly digest-pinned
+`gcr.io/distroless/nodejs22-debian13:nonroot` runtime inputs. Debian 12 remains
+supported; existing sealed source, image bindings and historical evidence are
+not rewritten. Both profiles retain Linux/amd64, nonroot, exact source/build
+correspondence, fresh scan/SBOM/smoke evidence and the zero-critical/high policy.
+Functions remains source-only. This is an additive input capability, not a
+claim of a qualified image or a completed live validation.
+The focused offline hosting, registry and qualification run passed **30/30**
+checks, including Debian 13 generation/review for all three container recipes,
+unchanged Debian 12 admission, source/build mismatch and high-finding rejection.
+Asset inventory and strict public types passed. No full-suite or live result is
+claimed for this increment.
 
 ### Priority: reusable fresh-creation runners
 
