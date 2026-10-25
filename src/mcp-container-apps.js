@@ -203,12 +203,13 @@ function dockerfile(build, registryUrl) {
 WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json .npmrc ./
-RUN mkdir /tmp/mcp-npm && touch /tmp/mcp-npm/user.npmrc /tmp/mcp-npm/global.npmrc && env -i PATH="$PATH" HOME=/tmp/mcp-npm npm ci --userconfig=/tmp/mcp-npm/user.npmrc --globalconfig=/tmp/mcp-npm/global.npmrc --cache=/tmp/mcp-npm/cache --registry=${registryUrl} --replace-registry-host=never --strict-ssl=true --fetch-retries=0 --omit=dev --ignore-scripts --no-audit --fund=false
+RUN mkdir /tmp/mcp-npm && touch /tmp/mcp-npm/user.npmrc /tmp/mcp-npm/global.npmrc && env -i PATH="$PATH" HOME=/tmp/mcp-npm npm ci --userconfig=/tmp/mcp-npm/user.npmrc --globalconfig=/tmp/mcp-npm/global.npmrc --cache=/tmp/mcp-npm/cache --registry=${registryUrl} --replace-registry-host=never --strict-ssl=true --fetch-retries=0 --include=dev --ignore-scripts --no-audit --fund=false
+COPY server.js runtime.js build-runtime.mjs runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
+RUN env -i PATH="$PATH" HOME=/tmp/mcp-npm node build-runtime.mjs
 FROM --platform=${build.platform} ${build.runtimeImage}
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=dependencies --chown=65532:65532 /app/node_modules ./node_modules
-COPY --chown=65532:65532 package.json server.js runtime.js runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
+COPY --from=dependencies --chown=65532:65532 /app/dist/ ./
 USER 65532:65532
 EXPOSE 3000
 ENTRYPOINT ["/nodejs/bin/node"]
@@ -227,15 +228,24 @@ async function prepare(options, hosting = false) {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const producer = await getLibraryInfo();
   const files = {};
-  for (const file of ['runtime.js', 'server.js', 'package.json', 'package-lock.json']) {
+  for (const file of ['runtime.js', 'server.js', 'package.json', 'package-lock.json', 'build-runtime.mjs']) {
     files[file] = await readFile(path.join(TOOLKIT_ROOT, 'src', 'recipes', 'container-apps', file), 'utf8');
   }
   const npmRegistryUrl = resolveNpmRegistryUrl(input.npmRegistryUrl);
   const lock = mapRuntimeLock(JSON.parse(files['package-lock.json']), npmRegistryUrl);
+  if (input.recipe === 'functions-sdk-v1') {
+    const pkg = JSON.parse(files['package.json']);
+    delete pkg.devDependencies;
+    delete pkg.scripts.build;
+    files['package.json'] = savedJson(pkg);
+    delete lock.packages[''].devDependencies;
+    for (const [name, entry] of Object.entries(lock.packages)) if (entry.dev) delete lock.packages[name];
+    delete files['build-runtime.mjs'];
+  }
   files['package-lock.json'] = savedJson(lock);
   files['.npmrc'] = `registry=${npmRegistryUrl}\nreplace-registry-host=never\nstrict-ssl=true\nfetch-retries=0\n`;
-  files['.gitignore'] = 'node_modules/\n.env\n.env.*\n*.log\n';
-  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!.npmrc\n!server.js\n!runtime.js\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
+  files['.gitignore'] = 'node_modules/\ndist/\n.env\n.env.*\n*.log\n';
+  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!.npmrc\n!server.js\n!runtime.js\n!build-runtime.mjs\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
   if (input.imageBuild) files['Dockerfile'] = dockerfile(input.imageBuild, npmRegistryUrl);
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
@@ -279,6 +289,9 @@ ajv 8.20.0 (MIT, LICENSE), ajv-formats 3.0.1 (MIT, LICENSE) and
 jose 6.2.12 (MIT, LICENSE.md). See package-lock.json for the full dependency tree.
 Preserve the actual license texts and notices for all packages, including
 transitive dependencies, when distributing a container or bundled artifact.
+Container builds copy contributing packages' original metadata and notice files
+beside the bundled runtime. runtime-bundle.json records code contributions and
+their locked identities. This inventory is not a vulnerability scan or attestation.
 This notice is not a complete dependency license audit or a service-content license.
 `;
   const review = {
@@ -286,6 +299,11 @@ This notice is not a complete dependency license audit or a service-content lice
     producer: { name: producer.name, version: producer.version, buildId: producer.contentDigest },
     target: input.azure, authentication: input.authentication, backend: input.backend, toolDefinitions: toolDefinitions(runtime),
     npmRegistryUrl,
+    runtimePackaging: functions ? { kind: 'source-only-unbundled' } : {
+      kind: 'bundled-runtime-v1', buildCommand: 'node build-runtime.mjs',
+      bundler: { name: 'esbuild', version: JSON.parse(files['package.json']).devDependencies.esbuild },
+      inventory: 'Contributing package metadata, locked identities, code digests and original notices. Not scan evidence.',
+    },
     imageBuild: input.recipe === 'functions-sdk-v1' ? { status: 'source-only-remote-build' }
       : input.imageBuild ? { status: 'reviewed-inputs-not-built', ...input.imageBuild }
         : { status: 'blocked-missing-digest-pinned-inputs' },

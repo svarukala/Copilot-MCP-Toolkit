@@ -42,6 +42,11 @@ $env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'
 npm start
 ```
 
+To exercise the container-equivalent distribution instead, install with
+`--include=dev`, run `npm run build` in a fresh project, then use
+`node dist/server.js`. See [bundled runtime packaging](hosting-recipes.md#bundled-container-runtime);
+component/license inventory does not replace fresh image qualification.
+
 API-key local runs require the shared guide's separately approved process-only
 secret injection; local Node cannot resolve platform reference strings. Missing,
 empty or unresolved values fail startup, never fall back to anonymous.

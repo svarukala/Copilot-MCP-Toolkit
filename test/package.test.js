@@ -179,14 +179,19 @@ syncBuiltinESMExports();
   // The generated runtime has its own reviewed lock. Seed any additional exact
   // tarballs only after proving the consumer needs nothing beyond the root lock.
   const runtimeLock = JSON.parse(await readFile(path.join(containerOutput, 'package-lock.json')));
-  await seedTarballs(Object.fromEntries(Object.entries(runtimeLock.packages).filter(([name, entry]) => name && !entry.dev)));
-  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
+  await seedTarballs(Object.fromEntries(Object.entries(runtimeLock.packages).filter(([name, entry]) => name
+    && (!entry.os || entry.os.includes(process.platform)) && (!entry.cpu || entry.cpu.includes(process.arch)))));
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--include=dev'],
     { cwd: containerOutput, encoding: 'utf8', timeout: 60000 });
+  execFileSync(process.execPath, ['build-runtime.mjs'], { cwd: containerOutput, encoding: 'utf8', timeout: 60000 });
+  const bundle = JSON.parse(await readFile(path.join(containerOutput, 'dist', 'runtime-bundle.json')));
+  assert.ok(bundle.components.length > 0);
+  assert.ok(!bundle.components.some(component => ['express', 'body-parser', 'esbuild'].includes(component.name)));
   const runtimeSmoke = path.join(consumer, 'container-runtime-smoke.mjs');
   await writeFile(runtimeSmoke, `
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { validateRuntimeConfig, toolDefinitions, createProtocolServer } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'runtime.js')).href)};
+import { validateRuntimeConfig, toolDefinitions, createProtocolServer } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'dist', 'runtime.js')).href)};
 const config = validateRuntimeConfig(JSON.parse(await readFile(${JSON.stringify(path.join(containerOutput, 'runtime-config.json'))})));
 assert.equal(toolDefinitions(config)[0].annotations.readOnlyHint, true);
 const server = createProtocolServer(config);

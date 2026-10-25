@@ -19,6 +19,13 @@ there is no generic shell command or arbitrary next-plan auto-approval interface
 questions. Genuine sign-in, an unsupported operation, changed inputs, failed
 security checks and failed/unknown dispatches still stop execution.
 
+New SDK container source reviews also disclose the locked build-only bundler.
+The host build context includes the sealed `build-runtime.mjs`; only its
+bundled distribution enters the runtime image, including truthful component
+metadata and notices for scanning. See [runtime packaging](hosting-recipes.md#bundled-container-runtime).
+This does not waive the zero-critical/high gate or authorize a new run.
+Old source/build pins and consumed grants cannot adopt the changed packaging.
+
 | Family | Automatic execution under the new grant | Remaining boundary |
 | --- | --- | --- |
 | Direct Container Apps | Generate, bounded host adapter, release/reference, discovery and one proof | Existing Azure/Entra prerequisites; consumer, rotation and negative-test acceptance are not inferred |
@@ -127,6 +134,19 @@ The runner never manufactures consumer, rotation or negative-test success.
 `execution-completed` means the selected protocol path completed; the returned
 milestone table still distinguishes pending/owner-reported acceptance. It never
 sets `executionReadiness`, consumer attestation or renewed proof authority.
+
+Image qualification binds the exact exported image bytes, not just matching
+filesystem layers. Classic Docker-save config IDs and containerd OCI manifest
+IDs are resolved through a single-image export with verified config and layer
+hashes (and the OCI manifest chain when applicable). Trivy must report that
+config digest and the same ordered diff IDs. Ambiguous exports, missing blobs,
+changed configuration or layer bytes and mismatched scanner metadata stop the
+run without push or deployment. Bounded raw scanner/database files are retained
+privately even when qualification rejects them; they are diagnostic data, not
+accepted scan evidence. Stage failures retain `unknown-no-replay` with the
+existing stop code and an allowlisted `reasonCode`, never raw exception text.
+Fixing a binding or dependency issue does not authorize replay or transfer a
+historical vulnerability exception.
 
 The new executor is CLI-only, like the legacy validation runners. Internal
 Docker, Azure and transport seams are synthetic test infrastructure, not public

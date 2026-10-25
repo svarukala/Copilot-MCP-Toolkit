@@ -11,6 +11,39 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ### One-plan bounded execution
 
+PR #3 is merged (`214df63`); its final Ubuntu/Windows and Node 22/24 matrix
+passed. The first separately approved live attempt passed private identity,
+infrastructure preflight and image build, then stopped in scan. No image push,
+app creation or provider proof occurred. The consumed run remains unchanged.
+Diagnosis identified OCI manifest IDs versus Trivy config IDs. The follow-up
+fix verifies exported config/manifest/layer bytes and ordered scanner diff IDs,
+retains rejected reports privately and emits allowlisted failure reasons.
+Its execution regressions passed **74/74** with inventory, syntax and public
+types. Live qualification remains pending, not retroactively passed.
+
+| Pilot gate | Result | Remaining work |
+| --- | --- | --- |
+| Private identity / infrastructure preflight / build | Passed in the approved attempt, without another sign-in | No consumer or runtime acceptance implied |
+| Scanner image binding | Original attempt inconclusive; corrected and offline verified | New reviewed build/run, never replay the consumed attempt |
+| Zero-critical/high policy | Original image blocked: diagnostic report lists HIGH `CVE-2026-111181`, `body-parser` 2.3.0 | Fixed distribution remains unavailable through the configured feed. Approved alternative bundles new container runtimes without unused Express/body-parser; fresh image scan still required, without weakening policy |
+| Smoke / push / deploy / discovery / proof | Not reached | Binding and security gates must pass first |
+| Caller rejection / consumer / cost closeout | Not established by this attempt | Preserve separate acceptance and ownership boundaries |
+
+New container generation now includes a locked build-only bundler and sealed
+build script. Final images copy the bundled distribution with truthful
+contributing-package metadata, license texts and digest inventory, not the full
+installed dependency tree. Direct ACA, ACA/APIM and App Service share this path;
+Functions and historical projects are unchanged. Source installs still contain
+the complete SDK dependency tree. This is packaging remediation, not an upstream
+dependency fix or a passing live vulnerability scan.
+Local verification: **90/90** packaging/hosting/handover/packed-consumer checks
+and **74/74** execution regressions passed with zero failures/skips/cancellations;
+asset inventory, recursive syntax and strict public types passed. The bundle
+is reproducible, independently executable, retains its component notices and
+rejects outside inputs, unlocked build tools and missing licenses. All three
+container families pass anonymous and API-key backend runtime checks. New CI
+matrix and live image qualification remain separate, unperformed gates.
+
 The separate `mcp-execution-*` contract is implemented across the five existing
 creation families. Its explicit reviewed grant expires within 24 hours and pins
 definition/build, identity, resource templates, downloads, limits and one proof.

@@ -100,7 +100,12 @@ for (const name of recipes) test(`${name}: registry binds generation, build, rel
   assert.equal(JSON.parse(plan.files['recipe-review.json']).npmRegistryUrl, registry);
   assert.equal(JSON.parse(plan.files['recipe-definition.json']).npmRegistryUrl, registry);
   assert.equal(plan.files['.npmrc'], `registry=${registry}\nreplace-registry-host=never\nstrict-ssl=true\nfetch-retries=0\n`);
-  assert.deepEqual(JSON.parse(plan.files['package-lock.json']), mapRuntimeLock(structuredClone(runtimeLock), registry));
+  const expectedLock = mapRuntimeLock(structuredClone(runtimeLock), registry);
+  if (name === 'functions-sdk') {
+    delete expectedLock.packages[''].devDependencies;
+    for (const [location, entry] of Object.entries(expectedLock.packages)) if (entry.dev) delete expectedLock.packages[location];
+  }
+  assert.deepEqual(JSON.parse(plan.files['package-lock.json']), expectedLock);
   if (name !== 'functions-sdk') {
     assert.ok(plan.files['.dockerignore'].split('\n').includes('!.npmrc'));
     const [dependencies, runtime] = plan.files.Dockerfile.split(`FROM --platform=linux/amd64 ${build.runtimeImage}`);
@@ -108,11 +113,16 @@ for (const name of recipes) test(`${name}: registry binds generation, build, rel
     assert.match(dependencies, /RUN mkdir \/tmp\/mcp-npm && touch \/tmp\/mcp-npm\/user\.npmrc \/tmp\/mcp-npm\/global\.npmrc && env -i PATH="\$PATH" HOME=\/tmp\/mcp-npm npm ci/);
     for (const flag of ['--userconfig=/tmp/mcp-npm/user.npmrc', '--globalconfig=/tmp/mcp-npm/global.npmrc', '--cache=/tmp/mcp-npm/cache',
       `--registry=${registry}`, '--replace-registry-host=never', '--strict-ssl=true', '--fetch-retries=0',
-      '--omit=dev', '--ignore-scripts', '--no-audit', '--fund=false']) assert.ok(dependencies.includes(flag));
+      '--include=dev', '--ignore-scripts', '--no-audit', '--fund=false']) assert.ok(dependencies.includes(flag));
+    assert.match(dependencies, /node build-runtime\.mjs/);
+    assert.match(runtime, /COPY --from=dependencies --chown=65532:65532 \/app\/dist\/ \.\//);
+    assert.doesNotMatch(runtime, /\/app\/node_modules|build-runtime/);
     assert.doesNotMatch(runtime, /\.npmrc|npm ci|npm-cache/);
     assert.doesNotMatch(dependencies, /registry\.npmjs\.org|NPM_TOKEN|_auth|--mount/);
   } else {
     assert.equal(plan.files.Dockerfile, undefined);
+    assert.equal(plan.files['build-runtime.mjs'], undefined);
+    assert.equal(JSON.parse(plan.files['package.json']).devDependencies, undefined);
     assert.ok(!plan.files['.funcignore'].split('\n').includes('.npmrc'));
   }
   await writeHostingRecipe({ ...f.options, approval: plan.approvalToken });

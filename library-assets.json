@@ -148,6 +148,7 @@
     "src/mcp-validation.js",
     "src/npm-registry-diagnostic.js",
     "src/npm-registry.js",
+    "src/recipes/container-apps/build-runtime.mjs",
     "src/recipes/container-apps/package-lock.json",
     "src/recipes/container-apps/package.json",
     "src/recipes/container-apps/runtime.js",

@@ -309,13 +309,43 @@ source-matched image qualification. A newer distribution or a previously
 successful deployment is not evidence that the selected image passes today's
 scan. The builder remains the pinned Node 22 bookworm-slim profile.
 
-The multistage Dockerfile installs locked dependencies with scripts disabled,
-then copies only runtime dependencies, application files and notices into the
-distroless nonroot runtime. The container recipes accept only `linux/amd64`;
+New container projects use the multistage Dockerfile to install locked dependencies
+including build-only `esbuild 0.25.10`, with lifecycle scripts disabled. The sealed
+`build-runtime.mjs` bundles the runtime and the final distroless nonroot image
+copies only `dist/`, not the installed dependency tree, build tool or npm cache.
+The container recipes accept only `linux/amd64`;
 [Container Apps requires this architecture](https://learn.microsoft.com/en-us/azure/container-apps/containers#limitations),
 and the App Service recipe uses the same bounded image profile. ARM64 and
 Windows images are rejected before generation. Review and refresh base digests;
 no image is downloaded or declared safe by generation.
+
+### Bundled container runtime
+
+Direct Container Apps, Container Apps behind APIM and App Service container
+projects share this packaging. The runtime uses Node HTTP rather than Express;
+the bundle excludes unused Express/body-parser code, while retaining contributing
+components' original `package.json` and license/notice files under their original
+`node_modules` locations. Those directories contain metadata and notices, **not**
+executable dependency modules. This preserves attribution and npm scanner
+inventory instead of hiding used dependencies. `runtime-bundle.json` records
+the exact bundler, source-lock and bundle digests, contributing source hashes,
+locked component identities and notice hashes. It is build inventory, not a
+scan, signed attestation or proof of artifact safety.
+
+`npm run build` creates a fresh `dist/`; `node dist/server.js` runs it.
+Build fails if `dist/` already exists, an input is outside the source project,
+a contributing package is not production-locked, or its notices are missing.
+A failed build is not a reusable distribution. Use a new clean build workspace;
+never modify sealed source or reuse partial output to bypass these checks.
+`npm start` still runs the original source for local development.
+
+This is not a dependency upgrade: source/build installations retain the complete
+SDK dependency tree, which can still include affected packages. Only the new
+final image omits unused components, and a **fresh image scan** must establish
+its findings. Zero-critical/high policy and scanner completeness requirements
+are unchanged. Functions remains source-only without the bundler/dev entries.
+Historical generated projects and consumed execution grants are not upgraded;
+regenerate and review new source/build/download pins before a new live run.
 
 Use `mcp-recipe-review-schema` and the `image-qualification` input for a
 separate `mcp-recipe-review-plan/bundle` (explicit private workspace, sealed

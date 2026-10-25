@@ -11,9 +11,10 @@ import { TOOLKIT_ROOT, withCliWorkspace } from '../src/config.js';
 import { planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { readRecipeProject, planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
 import { planHostExecution, runHostExecution, hostExecutionSchema, describeHostExecution } from '../src/mcp-execution-host.js';
-import { executionDockerRequest, executionTar, executionTarFile, executionJson } from '../src/mcp-execution-docker.js';
+import { executionDockerRequest, executionTar, executionTarFile, executionJson,
+  executionImageBinding } from '../src/mcp-execution-docker.js';
 import { sealRecipeFiles } from '../src/mcp-recipe-artifacts.js';
-import { createSyntheticExecutionHost } from './support/execution-host.js';
+import { createSyntheticExecutionHost, syntheticExecutionImage, syntheticArchive } from './support/execution-host.js';
 
 const imageId = `sha256:${'a'.repeat(64)}`, imageDigest = `sha256:${'b'.repeat(64)}`;
 const scannerImage = `aquasec/trivy@sha256:${'c'.repeat(64)}`;
@@ -21,7 +22,7 @@ const socket = String.raw`\\.\pipe\docker_engine`;
 const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value)) });
 const flags = { allowLocal: true, allowCloud: true, allowNetwork: true };
 const secret = 'synthetic-registry-token-never-persist';
-async function fixture(t, { gateway = false, key = false, login = false } = {}) {
+async function fixture(t, { gateway = false, key = false, login = false, oci = false } = {}) {
   const root = path.join(TOOLKIT_ROOT, '.test-output', `host-execution-${randomUUID()}`);
   await mkdir(root, { recursive: true });
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -54,7 +55,7 @@ async function fixture(t, { gateway = false, key = false, login = false } = {}) 
     resourceCeilingsReviewed: true, createOnlyReviewed: true, ...(login ? { privateLoginReviewed: true } : {}) };
   const options = { workspaceRoot: root, project, config: path.join(root, 'host.json'), output: path.join(root, 'run') };
   await writeFile(options.config, JSON.stringify(config));
-  const synthetic = await createSyntheticExecutionHost({ workspaceRoot: root, project, host: config, seedIdentity: !login });
+  const synthetic = await createSyntheticExecutionHost({ workspaceRoot: root, project, host: config, seedIdentity: !login, oci });
   return { root, options, config, ...synthetic,
     save: () => writeFile(options.config, JSON.stringify(config)) };
 }
@@ -171,6 +172,7 @@ test('zero high policy failure is consumed and never pushes or creates resources
   f.findings.push({ Severity: 'HIGH', VulnerabilityID: 'SYNTHETIC-1', Description: secret });
   const { result, plan } = await execute(f);
   assert.equal(result.status, 'unknown-no-replay'); assert.equal(result.stage, 'scan');
+  assert.equal(result.reasonCode, 'HOST_EXECUTION_SCAN_POLICY');
   assert.ok(!f.calls.some(call => call.route?.includes('/push?') || call.args?.includes('PUT')));
   const count = f.calls.length;
   await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies),
@@ -181,12 +183,58 @@ test('zero high policy failure is consumed and never pushes or creates resources
   assert.ok((await readFile(path.join(f.options.output, 'scanner.private.json'), 'utf8')).includes(secret));
 });
 
+test('containerd manifest ImageID binds to the exported config digest before accepting Trivy', async t => {
+  const f = await fixture(t, { oci: true }), image = syntheticExecutionImage({ oci: true });
+  assert.notEqual(image.imageId, image.configDigest);
+  const { result } = await execute(f);
+  assert.equal(result.status, 'passed');
+  const scan = JSON.parse(await readFile(path.join(f.options.output, 'scan.result.json')));
+  assert.equal(scan.value.binding.imageId, image.imageId);
+  assert.equal(scan.value.binding.configDigest, image.configDigest);
+  assert.deepEqual(scan.value.binding.diffIds, image.diffIds);
+});
+
+for (const mismatch of ['config', 'layers']) test(`scanner ${mismatch} mismatch retains diagnostics and cannot push`, async t => {
+  const f = await fixture(t, { oci: true }), original = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = async (...args) => {
+    const result = await original(...args);
+    if (args[1].includes('/archive?') && args[1].endsWith('report.json')) {
+      const report = JSON.parse(executionTarFile(result.body, 'report.json'));
+      if (mismatch === 'config') report.Metadata.ImageID = imageId;
+      else report.Metadata.DiffIDs = [imageId];
+      return response(executionTar({ 'report.json': JSON.stringify(report) }));
+    }
+    return result;
+  };
+  const { result, plan } = await execute(f);
+  assert.equal(result.reasonCode, 'HOST_EXECUTION_SCAN_INCONCLUSIVE');
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.ok((await readdir(f.options.output)).includes('scanner.private.json'));
+  assert.ok(!f.calls.some(call => call.route?.includes('/push?') || call.args?.includes('PUT')));
+  const calls = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, calls);
+});
+
+test('archive identity mismatch stops before scanner execution and remains consumed', async t => {
+  const f = await fixture(t), original = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = (...args) => args[1].endsWith('/get')
+    ? response(syntheticExecutionImage({ oci: true }).archive) : original(...args);
+  const { result, plan } = await execute(f);
+  assert.equal(result.reasonCode, 'DOCKER_IMAGE_ARCHIVE_INVALID');
+  assert.ok(!f.calls.some(call => call.route?.includes('/containers/create?') || call.args?.includes('PUT')));
+  const calls = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, calls);
+});
+
 test('a zero-finding but incomplete scanner report is not image qualification', async t => {
   const f = await fixture(t), original = f.dependencies.dockerRequest;
   f.dependencies.dockerRequest = (socket, route, options) => {
     if (route.includes('/archive?') && route.endsWith('report.json')) return response(executionTar({
       'report.json': JSON.stringify({ SchemaVersion: 2, ArtifactType: 'container_image',
-        Metadata: { ImageID: imageId, OS: { Family: 'debian' } },
+        Metadata: { ImageID: syntheticExecutionImage().configDigest, DiffIDs: syntheticExecutionImage().diffIds,
+          OS: { Family: 'debian' } },
         Results: [{ Class: 'os-pkgs', Type: 'debian', Packages: [{ Name: 'synthetic' }], Vulnerabilities: [] }] }),
     }));
     return original(socket, route, options);
@@ -194,6 +242,8 @@ test('a zero-finding but incomplete scanner report is not image qualification', 
   const { result } = await execute(f);
   assert.equal(result.stage, 'scan');
   assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.reasonCode, 'HOST_EXECUTION_SCAN_INCONCLUSIVE');
+  assert.ok((await readFile(path.join(f.options.output, 'scanner.private.json'), 'utf8')).includes('synthetic'));
   assert.ok(!f.calls.some(call => call.route?.includes('/push?') || call.args?.includes('PUT')));
 });
 
@@ -201,11 +251,12 @@ test('unknown push outcome persists sanitized barrier and new output cannot repl
   const f = await fixture(t);
   const original = f.dependencies.dockerRequest;
   f.dependencies.dockerRequest = (socket, route, execution) => {
-    if (route.includes('/push?')) throw new Error(`uncertain ${secret}`);
+    if (route.includes('/push?')) throw Object.assign(new Error(`uncertain ${secret}`), { code: secret });
     return original(socket, route, execution);
   };
   const { result } = await execute(f);
   assert.equal(result.stage, 'push'); assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.reasonCode, 'HOST_EXECUTION_UNCLASSIFIED_FAILURE');
   assert.ok(!JSON.stringify(result).includes(secret));
   const other = { ...f.options, output: path.join(f.root, 'replacement') };
   const plan = await planHostExecution(other), count = f.calls.length;
@@ -459,4 +510,45 @@ test('binary Docker transport and tar reader are bounded and shell-free', async 
   await assert.rejects(executionDockerRequest(socket, '/version', { maxBytes: 1 }, { requestImpl }),
     { code: 'DOCKER_OUTPUT_LIMIT' });
   await assert.rejects(executionDockerRequest('tcp://untrusted:2375', '/version', {}, { requestImpl }));
+});
+
+test('image export binding verifies both classic and OCI config, manifest and layer bytes', () => {
+  for (const oci of [false, true]) {
+    const image = syntheticExecutionImage({ oci });
+    const binding = executionImageBinding(image.archive, image.imageId);
+    assert.equal(binding.configDigest, image.configDigest);
+    assert.deepEqual(binding.diffIds, image.diffIds);
+    assert.match(binding.archiveDigest, /^sha256:[a-f0-9]{64}$/);
+    const manifest = JSON.parse(image.files['manifest.json'])[0];
+    for (const name of [manifest.Config, ...manifest.Layers,
+      ...(oci ? [`blobs/sha256/${image.imageId.slice(7)}`] : [])]) {
+      const files = { ...image.files, [name]: Buffer.concat([Buffer.from(image.files[name]), Buffer.from(' ')]) };
+      assert.throws(() => executionImageBinding(syntheticArchive(files), image.imageId),
+        { code: 'DOCKER_IMAGE_ARCHIVE_INVALID' });
+    }
+    const files = { ...image.files };
+    delete files[manifest.Layers[0]];
+    assert.throws(() => executionImageBinding(syntheticArchive(files), image.imageId));
+    assert.throws(() => executionImageBinding(image.archive, imageDigest));
+  }
+});
+
+test('image export rejects ambiguous selection, bad paths, duplicates, links and truncation', () => {
+  const image = syntheticExecutionImage({ oci: true });
+  const assertInvalid = archive => assert.throws(() => executionImageBinding(archive, image.imageId),
+    { code: 'DOCKER_IMAGE_ARCHIVE_INVALID' });
+  const selection = JSON.parse(image.files['manifest.json']);
+  assertInvalid(syntheticArchive({ ...image.files, 'manifest.json': JSON.stringify([...selection, ...selection]) }));
+  const index = JSON.parse(image.files['index.json']);
+  index.manifests.push(index.manifests[0]);
+  assertInvalid(syntheticArchive({ ...image.files, 'index.json': JSON.stringify(index) }));
+  for (const name of ['../escape', '/absolute', 'blobs/../escape', './manifest.json']) {
+    assertInvalid(syntheticArchive({ ...image.files, [name]: 'x' }));
+  }
+  assertInvalid(Buffer.concat([image.archive.subarray(0, -1024), syntheticArchive({ 'manifest.json': '[]' })]));
+  assertInvalid(image.archive.subarray(0, -513));
+  const badChecksum = Buffer.from(image.archive); badChecksum[0] ^= 1; assertInvalid(badChecksum);
+  const link = Buffer.from(image.archive); link[156] = 50; link.fill(32, 148, 156);
+  link.write(link.subarray(0, 512).reduce((sum, byte) => sum + byte, 0).toString(8).padStart(6, '0') + '\0 ', 148, 8);
+  assertInvalid(link);
 });

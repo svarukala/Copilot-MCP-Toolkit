@@ -48,6 +48,10 @@ only after [reviewing `npmRegistryUrl` and a clean build environment](hosting-re
 without ambient npm configuration or credentials,
 with `npm ci --ignore-scripts --no-audit --fund=false`, set
 `$env:PUBLIC_MCP_URL = 'http://localhost:3000/mcp'`, then run `npm start`.
+For the container-equivalent distribution, install with `--include=dev`, run
+`npm run build` in a fresh project and use `node dist/server.js` instead.
+See [bundled runtime packaging](hosting-recipes.md#bundled-container-runtime);
+the gateway and backend authentication boundaries are unchanged.
 Only health/public metadata can be checked without tokens. Both real gateway and
 caller tokens are still required for MCP; this is not an APIM emulator.
 Repository tests use synthetic local signing keys without weakening generated
