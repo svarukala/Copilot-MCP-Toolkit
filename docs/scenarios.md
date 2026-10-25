@@ -2,6 +2,13 @@
 
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
+| Resumable existing Container Apps validation | Existing source-matched Entra reference and explicit discovery user/client | Sealed direct recipe anonymous or Key Vault API-key backend | Private run/report; approved discovery and separately approved one-call proof; owner-reported deployment/FCC checkpoints and approved handover; no deployment, registration, automatic retry or live-readiness attestation. [Guide](reusable-validation.md) |
+| Fresh creation validation v2 | Direct ACA, ACA behind APIM, native REST APIM, existing MCP references or v2/v3 MCP proxies | Existing supported header/query Key Vault keys and distinct Entra caller / narrow native Entra backend profiles | Versioned resumable source/release/reference and guarded APIM lifecycle/protocol. SDK builds/deployment and human consumer acceptance remain explicit owner gates. Unsupported combinations block; existing endpoints are referenced, not redeployed. Related consumed histories stay consumed. [Matrix and sequence](reusable-validation.md#fresh-creation-runners-version-2) |
+| Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous or Key Vault API-key HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; separate secret identity for keys; no automatic deployment/live qualification |
+| Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
+| App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |
+| Functions SDK recipe 4 | Same delegated checks | Same | Explicit public-preview acceptance; Linux FC1 custom handler, stateless JSON, identity-based storage and separately reviewed source ZIP |
+| Hosting deployment handover | No authentication operation | All four sealed SDK recipe projects | Private offline two-tab HTML, SVG/editable Excalidraw, source and optional matched release; configured/owner-reported/historical outcomes stay distinct; repeat-environment guide is not a deployment executor |
 | Native APIM from REST | Explicit Entra tenant, resource, scope and client allowlist | Anonymous | OpenAPI 3.0.x JSON and explicit operation IDs |
 | Native APIM from REST | Same | API key | Versionless Key Vault reference; APIM system identity; dedicated header OR query parameter |
 | Native APIM from REST | Same | Entra delegated | Same-token passthrough; backend must accept that resource/audience and authorize the user |
@@ -13,17 +20,30 @@
 | Existing MCP OAuth reference | OAuth marker | Provider-owned | Descriptor and local FCC form/reference draft only; no integrated provider login, exchange, discovery, import packaging or runtime proof |
 | Custom federated connector onboarding | Matching Entra SSO, anonymous public-data declaration or OAuth reference | Existing toolkit descriptor | Local human copy/paste form/auth fields; OAuth reference drafts stay blocked with discovery/import unsupported; not tenant registration or consumer verification |
 | Shared authentication registration preparation | Matching Entra or OAuth descriptor | Resource/provider-owned | Local explicit SSO/OAuth settings, PKCE or versioned Key Vault reference, and FCC/plugin metadata; no provider execution or secret resolution |
-| Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate Linux tmpfs initialize/login/register/close approvals; SSO, PKCE or private versioned Key Vault secret; created-unverified receipts and no replay; real Linux/provider qualification outstanding, Windows/macOS refused |
+| Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate initialize/login/register/close approvals; native Windows user-managed profile for secretless SSO with explicit shared-profile review, or isolated Linux tmpfs for SSO/PKCE/private Key Vault secret. Created-unverified receipts, no replay, no macOS adapter; complete native Windows registration remains live-unqualified |
 
 Anonymous **backend** does not automatically make generated inbound anonymous.
 Entra remains the guided default; public access is a separate explicit choice.
 Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator
 secret-write rights and service secret-read rights are separate. No shared-service
-identity PATCH, user-assigned identity, default-role fallback, app-role assignment
+identity PATCH, native-APIM user-assigned identity, default-role fallback, app-role assignment
 mutation, OBO, backend client-secret flow or automatic consent is implemented.
 The separate auth-config executor registers confidential OAuth metadata; it does
 not add a backend token-exchange flow or OAuth MCP discovery/proof.
+
+For SDK servers rather than native APIM tool generation, see
+[all four hosting recipes](hosting-recipes.md). Generated annotations are not
+observed evidence. Source projects and local releases are not deployed resources.
+A separately approved endpoint reference can use existing discovery/proof/FCC
+flows without fabricating captures. All four need live platform and consumer
+qualification; the Functions host itself has not been run by the offline suite.
+Their API-key profile supports dedicated header/query placement, exact selected
+OpenAPI security matching, a separate pre-existing user-assigned secret identity
+and native host Key Vault references. Shared entitlement and query exposure
+require explicit review. It does not add arbitrary query arguments, OAuth,
+per-user backend credentials, role grants or public callers. This separate
+profile does not widen native APIM key generation or proof support.
 
 ## Public anonymous APIM
 

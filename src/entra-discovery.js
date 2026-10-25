@@ -6,7 +6,7 @@ import { probeMcp, safeMcpDiagnostics } from './mcp-protocol.js';
 
 import { cliStage } from './cli-feedback.js';
 
-import { anonymousLimits, requireMetadata } from './anonymous-metadata.js';
+import { anonymousLimits, boundedSnapshot, requireMetadata } from './anonymous-metadata.js';
 
 export function safeEntraDiagnostics(value) {
   const rpc = value && (value.rpcMethod !== undefined || value.rpcStage !== undefined || value.toolSchemaIssue !== undefined)
@@ -198,22 +198,27 @@ async function discoverEndpoint(plan, { signal, onDeviceCode, toolCall, beforeRe
   let authenticated = false;
   let callReturned = false;
   try {
-    app = new PublicClientApplication({
-      auth: { clientId: plan.auth.discoveryClientId, authority: plan.auth.authority },
-      system: {
-        networkClient: msalNetwork(plan, controller.signal, beforeRequest
-          ? async (url, requestOptions) => {
-            await beforeRequest();
-            return (dependencies.authTransport ?? publicHttpsTransport({
-              requestPolicy: authorityPolicy(plan), allowErrorStatus: true,
-            }))(url, requestOptions);
-          } : dependencies.authTransport, state),
-        loggerOptions: { piiLoggingEnabled: false, loggerCallback: () => {} },
-      },
-    });
-    // Await SDK cancellation (including its bounded polling delay); never abandon a still-polling Promise.
-    cliStage('mcp-auth', dependencies.authTimeoutMs ?? plan.authTimeoutMs);
-    result = await app.acquireTokenByDeviceCode(request);
+    if (dependencies.session?.cached) {
+      result = dependencies.session.cached;
+      for (const value of dependencies.session.sensitive) state.sensitive.add(value);
+    } else {
+      app = new PublicClientApplication({
+        auth: { clientId: plan.auth.discoveryClientId, authority: plan.auth.authority },
+        system: {
+          networkClient: msalNetwork(plan, controller.signal, beforeRequest
+            ? async (url, requestOptions) => {
+              await beforeRequest();
+              return (dependencies.authTransport ?? publicHttpsTransport({
+                requestPolicy: authorityPolicy(plan), allowErrorStatus: true,
+              }))(url, requestOptions);
+            } : dependencies.authTransport, state),
+          loggerOptions: { piiLoggingEnabled: false, loggerCallback: () => {} },
+        },
+      });
+      // Await SDK cancellation (including its bounded polling delay); never abandon a still-polling Promise.
+      cliStage('mcp-auth', dependencies.authTimeoutMs ?? plan.authTimeoutMs);
+      result = await app.acquireTokenByDeviceCode(request);
+    }
     requireMetadata(!controller.signal.aborted, expired ? 'AUTHENTICATION_TIMEOUT' : 'ABORTED');
     clearTimeout(timer);
     state.diagnostics.failureKind = 'response-shape';
@@ -223,8 +228,15 @@ async function discoverEndpoint(plan, { signal, onDeviceCode, toolCall, beforeRe
     for (const value of [result.account?.username, result.account?.localAccountId, result.account?.homeAccountId]) {
       if (value) state.sensitive.add(value);
     }
+    if (dependencies.session && !dependencies.session.cached) {
+      dependencies.session.cached = {
+        tenantId: result.tenantId, account: { tenantId: result.account.tenantId, localAccountId: result.account.localAccountId },
+        tokenType: result.tokenType, accessToken: token, expiresOn: result.expiresOn, scopes: [...result.scopes],
+      };
+      dependencies.session.sensitive = new Set(state.sensitive);
+    }
     result = undefined;
-    app.clearCache();
+    await app?.clearCache();
     state.diagnostics = { authStage: 'metadata', failureKind: 'sdk' };
     const transport = dependencies.mcpTransport ?? publicHttpsTransport({ allowErrorStatus: true });
     const observed = await probeMcp(plan.target.endpoint, {
@@ -278,7 +290,7 @@ async function discoverEndpoint(plan, { signal, onDeviceCode, toolCall, beforeRe
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
     abort();
-    app?.clearCache();
+    await app?.clearCache();
     result = undefined;
     token = undefined;
     app = undefined;
@@ -290,3 +302,43 @@ async function discoverEndpoint(plan, { signal, onDeviceCode, toolCall, beforeRe
 export const discoverEntraEndpoint = (plan, options) => discoverEndpoint(plan, options);
 
 export const discoverEntraEndpointForTest = (plan, options, dependencies) => discoverEndpoint(plan, options, dependencies);
+
+// Internal, one discovery followed by one independently approved proof; never a persistent MSAL cache.
+export function createEntraDiscoverySession(dependencies = {}) {
+  const now = dependencies.now ?? Date.now;
+  const state = { cached: undefined, sensitive: new Set() };
+  const deadline = now() + 15 * 60 * 1000;
+  const controller = new AbortController();
+  let timer;
+  let binding, calls = 0, busy = false, closed = false;
+  const close = () => {
+    closed = true;
+    clearTimeout(timer);
+    controller.abort();
+    state.cached = undefined;
+    state.sensitive.clear();
+  };
+  timer = setTimeout(close, 15 * 60 * 1000);
+  timer.unref();
+  return {
+    close,
+    async run(plan, options) {
+      try {
+        requireMetadata(!closed && !busy && calls < 2 && now() + plan.metadataTimeoutMs < deadline,
+          'AUTH_SESSION_EXPIRED');
+        requireMetadata(plan.auth.expectedUserId && (calls === 0 ? options.toolCall === undefined : options.toolCall !== undefined),
+          'AUTH_CONFIG_INVALID');
+        const next = JSON.stringify(boundedSnapshot({ auth: plan.auth, endpoint: plan.target.endpoint,
+          sourceDigest: plan.source.descriptorDigest }));
+        requireMetadata(binding === undefined || binding === next, 'AUTH_CONFIG_INVALID');
+        binding = next;
+        busy = true;
+        calls++;
+        return await discoverEndpoint(plan, { ...options, signal: options.signal
+          ? AbortSignal.any([options.signal, controller.signal]) : controller.signal }, { ...dependencies, session: state });
+      }
+      catch (error) { close(); throw error; }
+      finally { busy = false; if (calls === 2) close(); }
+    },
+  };
+}

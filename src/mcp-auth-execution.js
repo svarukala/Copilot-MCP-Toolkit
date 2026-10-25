@@ -9,6 +9,7 @@ import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { loadAuthRegistration, authRegistrationAction, registrationIdSchema, validApplicationIdUri } from './mcp-auth-registration.js';
 import { atkProvider } from './mcp-atk-provider.js';
+import { windowsAtkProvider } from './mcp-atk-windows-provider.js';
 import { readAzureIdentity, azureIdentityGuard } from './azure-identity.js';
 import { runAzureCommand } from './azure.js';
 
@@ -16,12 +17,20 @@ const text = { type: 'string', minLength: 1, maxLength: 2048 };
 export const authExecutionSchema = {
   type: 'object', additionalProperties: false, required: ['schemaVersion', 'registrationConfig', 'providerRoot'],
   properties: { schemaVersion: { const: 1 }, registrationConfig: text, providerRoot: text, secretIdentityProject: text,
-    allowAnyAppValidationPlaceholder: { type: 'boolean' } },
+    allowAnyAppValidationPlaceholder: { type: 'boolean' },
+    authenticationMode: { enum: ['linux-isolated', 'windows-user-managed'] },
+    sharedProfileReviewed: { const: true } },
+  allOf: [{
+    if: { required: ['authenticationMode'], properties: { authenticationMode: { const: 'windows-user-managed' } } },
+    then: { required: ['sharedProfileReviewed'], not: { required: ['secretIdentityProject'] } },
+    else: { not: { required: ['sharedProfileReviewed'] } },
+  }],
 };
 const validConfig = new Ajv().compile(authExecutionSchema);
 const hash = value => metadataDigest(boundedSnapshot(value));
 const anyAppValidationId = '00000000-0000-4000-8000-000000000000';
 const providerStartupNotice = 'ATK startup also requests https://default.exp-tas.com/vscode/ab with a machine-derived client identifier and CLI metadata. --telemetry false does not disable this experimentation request.';
+const windowsProfileNotice = 'Native Windows mode uses ATK normal user-profile files, Windows Credential Manager and possibly the native broker. It is NOT project-isolated. ATK login may replace its previous sign-in. Do not run other ATK authentication commands concurrently. Provider caches/logs may persist; toolkit close neither logs out nor removes them.';
 function requireExecution(ok, code, message) {
   if (!ok) throw Object.assign(new Error(message), { code: `MCP_AUTH_EXECUTION_${code}` });
 }
@@ -58,7 +67,9 @@ function recordShape(record, keys) {
 async function stateAt(project) {
   const session = await optional(path.join(project, 'session.json'));
   if (!session) return null;
-  requireExecution(session.schemaVersion === 1 && session.kind === 'mcp-auth-private-session'
+  const windows = session.kind === 'mcp-auth-user-managed-session';
+  requireExecution(session.schemaVersion === 1 && (session.kind === 'mcp-auth-private-session' || windows)
+    && (windows ? session.authenticationMode === 'windows-user-managed' : session.authenticationMode === undefined)
     && session.owner?.project === project && typeof session.owner.epoch === 'string'
     && typeof session.owner.workspaceRoot === 'string' && typeof session.runtime === 'string'
     && isDigest(session.inputDigest) && isDigest(session.targetDigest) && session.provider
@@ -158,7 +169,10 @@ async function context(options, provider) {
     'The explicit private Key Vault Azure identity must match the selected registration tenant/operator.');
   }
   const inputDigest = hash({ configFile, config, registrationConfig, input: selected.input, descriptor: selected.descriptor });
-  return { project, state, selected, installation, inputDigest, request, target, targetDigest,
+  const authenticationMode = config.authenticationMode ?? 'linux-isolated';
+  if (state) requireExecution((state.session.kind === 'mcp-auth-user-managed-session') === (authenticationMode === 'windows-user-managed'),
+    'CHANGED', 'Authentication mode cannot change within an existing session.');
+  return { project, state, selected, installation, inputDigest, request, target, targetDigest, authenticationMode,
     reservation, reservations, consumed, confidential, azureIdentity, secretProject, compatibility };
 }
 async function prepare(options, provider) {
@@ -171,11 +185,17 @@ async function prepare(options, provider) {
     requireExecution(state && state.session.owner.workspaceRoot === path.resolve(options.workspaceRoot)
       && !state.records.closed, 'STATE', 'Select an existing owned, unclosed authentication session.');
     const plan = { action: 'mcp-auth-execution', phase, project, status: 'planned', gaps: [],
-      stateDigest: hash(state), session: state.session, effects: ['Remove only this session owned tmpfs runtime, including credentials and transient provider files. Retain all immutable local evidence and consumed reservations.'] };
+      stateDigest: hash(state), session: state.session, effects: [state.session.kind === 'mcp-auth-user-managed-session'
+        ? 'Remove only this session owned Windows job directory. Do NOT log out or read/remove normal-profile credentials, broker state, caches or provider logs. Retain immutable evidence and consumed reservations.'
+        : 'Remove only this session owned tmpfs runtime, including credentials and transient provider files. Retain all immutable local evidence and consumed reservations.'] };
     return { ...plan, approvalToken: `mcp-auth-execution/${hash(plan)}` };
   }
   const c = await context(options, provider), gaps = [];
-  if (provider.platform() !== 'linux') gaps.push('LINUX_TMPFS_REQUIRED');
+  const windows = c.authenticationMode === 'windows-user-managed';
+  if (windows) {
+    if (provider.platform() !== 'win32') gaps.push('WINDOWS_REQUIRED');
+    if (c.request.registration.type !== 'entra-sso') gaps.push('WINDOWS_SSO_ONLY');
+  } else if (provider.platform() !== 'linux') gaps.push('LINUX_TMPFS_REQUIRED');
   if (!c.request.registration.appId && !c.compatibility) gaps.push('REAL_M365_APP_ID_REQUIRED');
   if (phase === 'initialize') {
     requireExecution(!c.state, 'STATE', 'Initialize requires a new session directory.');
@@ -183,7 +203,7 @@ async function prepare(options, provider) {
     catch (error) { if (error.code !== 'ENOENT') throw error; }
     requireExecution((await lstat(path.dirname(c.project))).isDirectory(), 'INPUT', 'Session parent directory must already exist.');
   } else {
-    requireExecution(c.state?.records.initialized && !c.state.records.closed, 'STATE', 'Initialize a private provider session first.');
+    requireExecution(c.state?.records.initialized && !c.state.records.closed, 'STATE', 'Initialize the selected provider session first.');
     requireExecution(c.state.session.inputDigest === c.inputDigest
       && hash(c.state.session.provider) === hash(c.installation), 'CHANGED', 'Registration inputs or selected provider installation changed. No existing session can execute them.');
     if (phase === 'login') requireExecution(!c.state.records['login-attempt'] && !c.state.records['register-attempt'],
@@ -197,6 +217,7 @@ async function prepare(options, provider) {
     }
   }
   const plan = { action: 'mcp-auth-execution', phase, project: c.project,
+    authenticationMode: c.authenticationMode,
     status: gaps.length ? 'blocked' : 'planned', gaps, inputDigest: c.inputDigest,
     producerBuild: (await getLibraryInfo()).contentDigest, provider: c.installation,
     operator: c.selected.input.operator, endpoint: c.selected.descriptor.endpoint,
@@ -206,13 +227,21 @@ async function prepare(options, provider) {
     azureIdentity: phase === 'register' ? c.azureIdentity : null,
     identityEvidence: c.state?.records.login?.identity ?? null,
     effects: phase === 'initialize'
-      ? ['Create one owner-only Linux tmpfs runtime and private session metadata. No provider login or cloud mutation.']
+      ? windows
+        ? [windowsProfileNotice, 'Create a session-owned disk-backed Windows job directory in the selected private workspace. It inherits workspace ACLs; this is not credential isolation. No provider login or cloud mutation.']
+        : ['Create one owner-only Linux tmpfs runtime and private session metadata. No provider login or cloud mutation.']
       : phase === 'login'
-        ? [providerStartupNotice,
+        ? windows
+          ? [providerStartupNotice, windowsProfileNotice,
+            'Run one public ATK login with the explicit tenant in a real terminal using the normal Windows profile; review the account picker and organization. No authentication URL is retained by the toolkit.',
+            'Check public ATK account output and selected-tenant metadata only, not cached tokens. This is not token-issuer attestation or consent to registration.',
+            'Create an exclusive per-user toolkit operation lock under LocalAppData/CopilotMcpToolkit. Other toolkit Windows auth phases are blocked until release; external ATK activity is not controlled.']
+          : [providerStartupNotice,
           'Sign in through the public ATK CLI with the explicit tenant in a fresh private cache. ATK may open the Windows default browser under WSL; browser cookies/history are not isolated by the toolkit.',
           'The toolkit does not retain authentication URLs. If opening the displayed URL manually, use a browser with access to the Linux loopback callback, including separately verified Windows-to-WSL forwarding.',
           'Check the public ATK account output and selected-tenant metadata. This is not token-issuer attestation or consent to registration.']
-        : [providerStartupNotice,
+        : [providerStartupNotice, ...(windows ? [windowsProfileNotice,
+          'Hold the per-user toolkit operation lock while rechecking identity and registering. This does not prevent external ATK profile changes.'] : []),
           'Recheck the exact signed-in account and selected tenant; --confirm-identity confirms your manual review of the displayed organization and expected tenant.',
           ...(c.confidential ? ['Read only the exact versioned Key Vault secret with the separately selected private Azure identity; pass it in a child-only environment. Provider files/logs stay on owner-only tmpfs.'] : []),
           'Reserve this target durably BEFORE one public ATK oauth/register dispatch. Any failed, cancelled or unknown dispatch stays consumed.',
@@ -225,8 +254,20 @@ async function inWorkspace(options, action) {
   requireExecution(typeof options.workspaceRoot === 'string', 'WORKSPACE', 'An explicit private --workspace-root is required.');
   return withCliWorkspace(options.workspaceRoot, action);
 }
-export async function planAuthExecution(options, { provider = atkProvider } = {}) {
-  return inWorkspace(options, () => prepare(options, provider));
+async function selectedProvider(options, override) {
+  requireExecution(typeof options.project === 'string' && (options.phase === 'close' || typeof options.config === 'string'),
+    'INPUT', 'Authentication execution requires an explicit session project and configuration.');
+  if (override) return override;
+  if (options.phase === 'close') {
+    const state = await stateAt(await assertProjectPath(path.resolve(options.project)));
+    return state?.session.kind === 'mcp-auth-user-managed-session' ? windowsAtkProvider : atkProvider;
+  }
+  const config = await readJson(await assertProjectPath(path.resolve(options.config)));
+  requireExecution(validConfig(config), 'INPUT', 'Use mcp-auth-execution-schema and review the selected authentication mode.');
+  return config.authenticationMode === 'windows-user-managed' ? windowsAtkProvider : atkProvider;
+}
+export async function planAuthExecution(options, { provider } = {}) {
+  return inWorkspace(options, async () => prepare(options, await selectedProvider(options, provider)));
 }
 async function journal(project, name, value) {
   await writeControl(path.join(project, `${name}.json`), value, { create: true });
@@ -257,6 +298,8 @@ export async function readAuthExecutionStatus(options) {
     return { status: reservation && !state.records.closed && !state.records.result
       ? 'registration-unknown-consumed' : statusOf(state), project, evidence: 'local-retained-only',
       targetReservation: reservation ? 'consumed' : 'not-observed',
+      authenticationMode: state?.session.kind === 'mcp-auth-user-managed-session' ? 'windows-user-managed'
+        : state ? 'linux-isolated' : null,
       registration: state?.records.result?.registration ?? null, executionReadiness: false,
       replayAuthorized: false, runtimeAvailability: 'not-assessed' };
   });
@@ -289,8 +332,9 @@ export async function fetchRegistrationSecret(secretIdentifier, token, { signal,
   'SECRET', 'The exact versioned Key Vault secret was not obtained; values are never logged.');
   return data.value;
 }
-export async function executeAuthPhase(options, { provider = atkProvider, runAzure = runAzureCommand, keyVaultFetch } = {}) {
+export async function executeAuthPhase(options, { provider: override, runAzure = runAzureCommand, keyVaultFetch } = {}) {
   return inWorkspace(options, async () => {
+    const provider = await selectedProvider(options, override);
     const plan = await prepare(options, provider);
     requireExecution(plan.status === 'planned' && options.approval === plan.approvalToken, 'APPROVAL',
       'Exact current phase approval and no blocking gaps are required.');
@@ -308,7 +352,7 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
     if (options.phase === 'initialize') await mkdir(project, { mode: 0o700 });
     const lockPath = path.join(project, '.auth-operation.lock');
     const lock = await open(lockPath, 'wx', 0o600);
-    let retainLock = false;
+    let retainLock = false, releaseProfile;
     try {
       await lock.writeFile(JSON.stringify({ toolkitPid: process.pid, phase: options.phase, startedAt: new Date().toISOString() }));
       await lock.sync();
@@ -320,7 +364,9 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
         const c = await context(options, provider);
         requireExecution(c.inputDigest === plan.inputDigest && hash(c.installation) === hash(plan.provider), 'CHANGED', 'Inputs/provider changed before initialization.');
         const owner = { epoch: randomUUID(), project, workspaceRoot: path.resolve(options.workspaceRoot) };
-        const session = { schemaVersion: 1, kind: 'mcp-auth-private-session', owner,
+        const windows = plan.authenticationMode === 'windows-user-managed';
+        const session = { schemaVersion: 1, kind: windows ? 'mcp-auth-user-managed-session' : 'mcp-auth-private-session', owner,
+          ...(windows ? { authenticationMode: plan.authenticationMode } : {}),
           runtime: provider.path(owner), provider: plan.provider, inputDigest: plan.inputDigest,
           targetDigest: plan.targetDigest, operator: plan.operator };
         await journal(project, 'session', session);
@@ -328,6 +374,7 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
         await journal(project, 'initialized', { completedAt: new Date().toISOString() });
       } else {
         const state = await stateAt(project), session = state.session;
+        if (network && provider.acquireProfileLease) releaseProfile = await provider.acquireProfileLease(plan.provider, session.owner);
         if (options.phase === 'close') {
           await provider.close(session.runtime, session.owner);
           await journal(project, 'closed', { completedAt: new Date().toISOString() });
@@ -390,8 +437,10 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
     } catch (error) {
       retainLock = error.code === 'ATK_TERMINATION_UNCONFIRMED';
       if (retainLock && Number.isSafeInteger(error.pid) && error.pid > 0) {
-        const text = JSON.stringify({ toolkitPid: process.pid, providerProcessGroup: error.pid, phase: options.phase,
-          status: 'termination-unconfirmed', instruction: 'Confirm this owned process group has exited before reviewed lock recovery or runtime removal.' });
+        const text = JSON.stringify({ toolkitPid: process.pid,
+          ...(plan.authenticationMode === 'windows-user-managed' ? { providerProcessId: error.pid } : { providerProcessGroup: error.pid }),
+          phase: options.phase, status: 'termination-unconfirmed',
+          instruction: 'Confirm this owned process/tree has exited before reviewed lock recovery or runtime removal. Preserve any per-user profile operation lock.' });
         await lock.truncate(0); await lock.write(text, 0, 'utf8'); await lock.sync();
       }
       throw Object.assign(new Error(retainLock
@@ -400,6 +449,12 @@ export async function executeAuthPhase(options, { provider = atkProvider, runAzu
           ? 'Account or selected-tenant verification failed. Browser sign-in success alone is not verified identity. Preserve this attempt; registration dispatches remain consumed.'
           : 'Authentication phase failed. Read local status and preserve attempts; provider output and secrets are not logged. Registration dispatches remain consumed.'),
       { code: retainLock ? error.code : 'MCP_AUTH_EXECUTION_FAILED' });
-    } finally { await lock.close(); if (!retainLock) await unlink(lockPath); }
+    } finally {
+      await lock.close();
+      if (!retainLock) {
+        await releaseProfile?.();
+        await unlink(lockPath);
+      }
+    }
   });
 }

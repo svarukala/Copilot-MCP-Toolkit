@@ -1,10 +1,301 @@
 # Session handoff
 
-Last updated: 2026-10-18. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-25. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
+- Opt-in `mcp-execution-schema/plan/start/run/status/record` now layers one
+  explicit, expiring execution grant over unchanged validation v1/v2. It covers
+  all five existing creation families: direct ACA, ACA behind APIM, native APIM
+  REST, existing MCP and proxies. The SDK adapter performs bounded build, strict
+  scan, isolated smoke, push and create-only hosting; initial review includes
+  downloads, exact infrastructure, identities, resource limits and one proof.
+  Private Azure authentication is reused; eligible MCP discovery/proof shares
+  memory-only authentication without a second proof-approval question.
+  Parent/child journal binding, write-ahead budgets, input/build checks and
+  consumed/unknown barriers prevent silent adoption or retry.
+  See [bounded execution](reusable-validation.md#bounded-execution-separate-contract-version-1).
+  This is offline engineering, not live qualification or authority for a run.
+  Genuine prerequisites, MFA/consent, failed security checks and unsupported
+  profiles remain human boundaries. Health-backed key injection is not provider
+  validity or rotation; consumer/negative/bypass acceptance remains distinct.
+  Resource limits are not an invoice cap and local locks are not distributed
+  Azure exclusion. Historical ReqRes proofs remain consumed and provider-blocked.
+  The v2-only scope and older validation counts below are historical baselines,
+  not limitations or new verification claims for the opt-in execution layer.
+  Baseline `1379297` passed `npm run validate`: **1022/1022** tests,
+  zero failures/skips/cancellations, asset inventory, recursive syntax and
+  strict public types. Coverage includes all four complete synthetic SDK
+  combinations (direct/gateway, anonymous/key backend), caller reuse, journal
+  drift, consumed budgets and the fresh offline packed consumer. These
+  closeout notes followed that run. Subsequent PR review corrected optional
+  APIM policy-format readback, parameterized existing-MCP session selection and
+  case-insensitive GUID identity matching (without folding scopes or URI strings).
+  Those corrections have their own regressions; the 1022-test count is the
+  pre-review baseline, not evidence for the corrected revision.
+  The directly affected regression suite passed 79/79. Review follow-up aligned
+  creation-journey and handover reference checks with canonical runtime identities;
+  its mixed-case full SDK journey, handover and foreign-reference checks passed
+  3/3. Source input spelling, scope/URI case and immutable artifacts are preserved.
+  PR CI must qualify the final revision across the configured four-job matrix.
+  Clean CI exposed test portability assumptions: unawaited nested tests on
+  Node 22, colliding clock-derived diagnostic fixtures, a Windows-only symlink
+  path and reliance on ambient npm metadata. Fixtures now await subtests, use
+  fixed distinct timestamps and native paths. Packed installation uses a
+  deterministic consumer lock and a private, integrity-verified tarball cache
+  without registry metadata. Root `fast-uri` is aligned to the recipe's already
+  pinned 3.1.8 so ordinary CI dependency restoration supplies the required bytes.
+  None of these changes permits network access from `npm test`.
+
+- Newly generated SDK runtimes emit bounded backend failure categories and
+  optional numeric HTTP status in operator logs while preserving the generic
+  MCP error, no-retry behavior, response bounds and credential redaction.
+  Existing deployed images and consumed proof receipts remain unchanged.
+  The diagnostics cannot retroactively explain historical generic failures;
+  any subsequent provider attempt remains a separate reviewed operation.
+
+- Container runtime inputs now support explicit digest-pinned distroless Node 22
+  Debian 13 nonroot images alongside the unchanged Debian 12 profile. Generate
+  a new source project when switching; never retrofit sealed source or treat a
+  historical passing scan as current qualification. The zero-critical/high,
+  24-hour scan/database, nonroot smoke and source-binding requirements remain.
+  This does not change Functions, automatically select a digest, authorize
+  deployment or declare the ongoing live validation complete.
+
+- Current priority is reusable **fresh creation** validation for direct ACA,
+  ACA behind APIM, native APIM REST and existing MCP/proxies. V2 is implemented
+  alongside the unchanged v1 existing-deployment contract. Focused integration
+  passed **164/164**, including the fresh packed consumer; a follow-up **8/8**
+  check covered terminal feedback, private identity, actual finalize delegation
+  and uncertain gateway barriers. The full suite was not rerun for v2.
+  It reuses exact existing phase planners/executors, preserves
+  separate approvals, explicit private identity, related consumed histories and
+  unsupported authentication/proof gates. SDK builds/deployment and real consumer
+  actions remain separate owner operations. See the
+  [v2 support matrix and sequence](reusable-validation.md#fresh-creation-runners-version-2).
+  Third-party OAuth REST, OBO and username/password profiles are next, not part
+  of this runner implementation; no ROPC assumption or live authorization.
+  The older frozen `d9d091d` full offline gate passed **925/925**. A subsequent
+  separately approved real Entra metadata discovery passed with **no tools/call**;
+  historical provider proof remained consumed. Neither result qualifies v2
+  fresh creation or consumer execution. Keep real identities/captures private.
+
+- Resumable validation now has `mcp-validation-schema/plan/start/next/run/status`
+  for an existing direct Container Apps source/reference and optional matched
+  release. A private build-pinned run reuses existing local readers, MCP session/
+  proof execution and separately approved handover. Owner checkpoints can be
+  batched and deferred; they remain declarations. Successful proof is retained
+  as historical evidence, while failed/unknown outcomes and locks block replay.
+  Sign-in and the session's new exact proof approval stay terminal-only. The
+  runner does not deploy, register authentication/FCC, resolve secrets or certify
+  consumer acceptance. See [reusable validation](reusable-validation.md).
+  The focused offline integration run passed **154/154** tests, including 14
+  runner regressions and the fresh packed CLI with network/process execution
+  denied. Adjacent session, handover, feedback and public-boundary tests passed.
+  Inventory, syntax and public types passed. Closeout documentation followed
+  that run; the full repository suite was not rerun for this increment. No live
+  run, deployment, registration, installed-skill update or merge is authorized.
+
+- Validation-readiness fixes are integrated following the owner's review:
+  generic result-assertion receipts now pass shared strict evidence validation
+  across Status/Resume/diagnosis/handover, with consumed barriers retained through
+  export/restore. All four SDK recipes accept explicit `npmRegistryUrl` before
+  generation; source locks, npm configuration, Docker, release review and
+  destination guidance retain that feed without changing versions/integrities.
+  Omission preserves historical public npm. No authenticated feeds, implicit
+  installation, fallback or old-source resealing is added.
+  [The acceptance checklist](validation-readiness.md) pins commit,
+  build and skill identity, distinguishes source/release/reference/auth paths,
+  and records per-host gates. `npm run validate` is the repeatable full offline
+  gate; CI is configured for Windows/Linux and Node 22/24 but configuration alone
+  is not a successful matrix run. Native Windows registration remains deferred.
+  Do not infer that the feature branch has been merged into `main` or that
+  installed skill copies have been updated. No live approval is implied.
+  The integrated `npm run validate` gate passed **911/911** tests at `eaba3dd`,
+  with zero failures, skips or cancellations on Windows, including the fresh
+  packed consumer. Inventory, recursive syntax and public types passed; 140
+  local documentation links were checked. The earlier run passed 910 tests
+  but cancelled the packed journey at its five-minute outer test deadline.
+  Its test-only budget is now ten minutes; individual subprocess and runtime
+  deadlines are unchanged. The packed journey passed alone and in the full
+  rerun. Subsequent closeout edits record evidence only. Real builds/downloads,
+  cloud/consumer acceptance and other CI matrix environments remain separate.
+
+- Deployment handover implementation (2026-10-22): the four sealed SDK hosting
+  recipes now have `mcp-handover-schema/plan/bundle`. A separately reviewed local
+  export produces two-tab offline HTML, a configured SVG architecture diagram
+  and editable Excalidraw source, unchanged generated source, optional
+  source-matched release assets, and a hash-bound machine-readable manifest.
+  Repeat instructions distinguish destination field edits, local CLI commands,
+  manual host deployment and per-operation approvals. Owner reports, pending/
+  deferred milestones and historical protocol evidence are not promoted to live
+  readiness. There are no browser uploads, external HTML assets, credentials,
+  raw capture exports, implicit installs, cloud operations or proof replay.
+  The shipped skill and generated project guides include the closeout step.
+  See [deployment handover](deployment-handover.md).
+  Final focused offline validation passed **57/57** tests with no failures,
+  skips or cancellations, including all four recipes with anonymous/API-key
+  backends, evidence and interrupted-write checks, adjacent hosting/operator
+  contracts and a fresh packed consumer. Syntax and strict public types passed.
+  An isolated local browser check exercised tabs, keyboard navigation, clipboard
+  success/fallback, light/dark themes, print and mobile with zero external page
+  requests; its generated PowerShell review script also parsed successfully.
+  The preview is synthetic, not a report of the deployed pilot. The full
+  repository suite was not rerun and no live qualification was performed.
+
+- Native Windows SSO implementation (2026-10-22): `mcp-auth-execution-*` now
+  supports explicit `authenticationMode: "windows-user-managed"` with
+  `sharedProfileReviewed: true` for secretless Entra SSO. It uses the normal
+  ATK 1.1.17 profile/broker, not isolated or copied credentials. Linux/WSL
+  remains optional for isolated SSO and required for custom OAuth execution;
+  omitted mode retains the historical Linux default. The Windows spike was
+  sign-in evidence only, not a completed registration executor to merge.
+  New code adds direct Windows Node invocation, owned-tree cancellation,
+  per-user toolkit operation locking, normal-profile account/tenant review,
+  and cleanup limited to owned disk-backed job files. Shared caches/logs and
+  existing authentication are never cleared on close. Exact phase approvals,
+  identity confirmation and cross-mode consumed-target barriers remain.
+  See [Windows SSO](auth-registration.md#native-windows-sso-user-managed-profile).
+  The platform restrictions described in older investigation sections below
+  are historical: native Windows is now explicitly supported without claiming
+  project isolation. No live login, registration or tenant mutation was run for
+  this implementation; complete Windows registration remains live-unqualified.
+  Final focused offline validation passed **111/111** tests with no failures,
+  skips or cancellations: both authentication modes, historical preparation and
+  result contracts, CLI feedback and a fresh packed consumer. The 11 Windows
+  provider checks include actual native execution/termination of a synthetic
+  Node child and owned-runtime cleanup, without ATK or network access. CLI syntax,
+  strict public types and 86 local documentation links also passed. The full
+  repository suite was not rerun for this change.
+
+- Docker qualification update on 2026-10-22: after the owner approved starting
+  Docker if needed, both supported Windows pipes were available. No start or
+  restart was needed. The toolkit's separately planned engine diagnostic passed
+  against the explicit Docker Desktop Linux pipe: Linux/amd64 and compatible
+  with API 1.44. The immutable intent/result remain private. A separate read-only
+  lookup found the required `node:22-bookworm-slim` builder image absent; no image
+  was downloaded or executed. Engine availability is no longer a blocker.
+  Container connectivity still needs an explicitly reviewed available image and
+  execution approval. ACR/private identity and interactive MCP session gates
+  remain separate; no Azure, M365 or provider call was performed.
+
+- Live qualification began on 2026-10-22 against implementation `47722e8`.
+  Correction after owner clarification: public npm is intentionally blocked;
+  the repository already configures an approved alternative registry. A bounded
+  HTTPS check to that feed's `/-/ping` path received HTTP 404 with certificate
+  verification enabled. This establishes an HTTPS response, not npm ping or
+  package-install success, and supersedes the general host-connectivity blocker.
+  Both built-in npm diagnostics initially hardcoded public npm. They now accept
+  an explicit approval-bound `registryProbe` for ping or a package-metadata URL,
+  preserving the old default without importing npm settings or credentials.
+  Host and container probes retain TLS/public-DNS checks and never install
+  packages. See the [operator guide](hosting-recipes.md#environment-diagnostics-and-private-image-pulls).
+  The updated toolkit's separately planned host package-metadata probe against
+  the approved feed returned HTTP 200. This qualifies that host connectivity
+  check only, not package installation, container connectivity or provider use.
+  All 18 focused registry/host checks and the fresh offline packed-consumer test
+  passed, as did CLI syntax and public types. No full-suite rerun was performed.
+  Do not switch the repository to public npm or bypass the network policy.
+  One host npm connectivity diagnostic returned `failed` at the `transport`
+  stage, without an HTTP status; root cause is not established. The original
+  intent/result remain private and no automatic retry was attempted. Docker
+  checks await explicit trusted-engine selection. Private ACR pull and
+  interactive discovery/proof await explicit targets/identities and separate
+  approvals. No packages were installed and no cloud, provider, consumer or
+  deployed-pilot operation was performed. See the
+  [qualification record](progress-tracker.md#hosting-pilot-feedback-implementation).
+  A user-directed follow-up narrowed the Node HTTPS error to `EPROTO`; a direct
+  Windows HTTPS comparison also failed. An explicit TLS 1.2 comparison returned
+  `alert handshake failure`; underlying cause remains unknown, with certificate
+  verification preserved. Neither supported Windows Docker pipe was present
+  during local directory inspection, so engine/container qualification is also
+  blocked on engine availability. Follow-up observations are separate from the
+  immutable original result; no Docker API or cloud target was contacted.
+
+- 2026-10-22: a first implementation pass across all seven consolidated
+  hosting/FCC feedback packages is committed on
+  `svarukala-custom-federated-connectors`; see the
+  [implementation tracker](progress-tracker.md#hosting-pilot-feedback-implementation)
+  and [operator guide](hosting-recipes.md). The API-key implementation has been
+  fast-forwarded into this branch. New capabilities cover qualified FCC portal
+  scopes, immutable operator/waiting records, digest-pinned minimal images and
+  image reviews, preserving update/readiness reviews, direct-host bootstrap,
+  real-terminal auth handoff, phase-aware policy status, same-call result
+  assertions and cost/closeout reviews. Historical auth bundles remain readable.
+  The full offline suite at `89406f4` passed all 831 tests. The final architecture
+  correction at `4b531e6` restricts container builds to `linux/amd64`; all 22
+  focused hosting/artifact checks passed afterward, as did CLI syntax and strict
+  public types. The full suite was not rerun after that narrow correction.
+  Those first-pass capabilities are local preparation/review, not new cloud executors.
+  A follow-up now implements separately approved `mcp-host-*` diagnostics and
+  private ACR pulls, plus optional `mcp-session-plan/session` sign-in continuity.
+  Implementation `91d5fbd` passed 139 focused checks and the full 854-test
+  offline suite, including the fresh packed consumer. Final Docker header
+  compatibility correction `577201a` passed 12 focused host-operation tests;
+  syntax/types and 112 local documentation links also passed. The full suite
+  was not rerun after that narrow correction and removal of repeated test
+  registrations. These are implementation checks, not live qualification.
+  See the shared guide for flags, private source-project account
+  selection, local socket/Docker API requirements, synthetic examples, cleanup
+  bounds and immutable pull reservations. The session is terminal-only,
+  15-minute, exact-user and memory-only; proof still needs its own new approval.
+  Host scheduler enforcement of waiting remains outside this repository.
+  Actual image builds/scans, Azure updates/Key Vault resolution and new consumer
+  scenarios still need separate qualification. New container source without
+  explicit digest-pinned `imageBuild` inputs intentionally has no Dockerfile;
+  old sealed projects are never rewritten.
+  The owner reports the direct Container Apps API Ninjas end-to-end pilot
+  completed; no new live verification or consumer/read-only-label claim is
+  inferred here. Keep private testing files, deployments and proofs untouched.
+
+- API-key REST backends were implemented across all four SDK hosting recipes
+  on the isolated API-key branch and are now integrated here, without changing
+  the user's testing checkout.
+  Use `backend.auth: "api-key"` and explicit `backend.apiKey` reference/identity/
+  header-or-query metadata in the [shared guide](hosting-recipes.md#api-key-backends).
+  Shared entitlement and query exposure have explicit review declarations.
+  Native host Key Vault references inject a process-only value using a dedicated
+  existing user-assigned identity, distinct from image-pull/Functions storage.
+  No credentials are resolved by generation/release and no roles are granted.
+  Missing/unresolved/malformed values fail startup; caller/gateway checks,
+  fixed parameter-free GETs, request limits, redirect rejection and no retries
+  remain. Obvious credential reflection is rejected with generic errors.
+  Source/release reviews bind all nonsecret auth choices. Anonymous and historical
+  native APIM profiles remain separate and unchanged. Implementation milestones
+  `d864ed2` and `b6711f7` were pushed to `svarukala-api-key-hosting-recipes`.
+  Final `npm test` passed all **807 offline tests**, including the extended fresh
+  packed CLI/generated-runtime checks; CLI syntax and strict public types passed.
+  See the progress tracker for scope and remaining qualification boundaries.
+  No live Azure/provider/M365 operation, image/package publication, installed
+  skill update or consumer qualification is implied. Key Vault resolution,
+  identity access, safe diagnostics and rotation/restart still need separate
+  approved live qualification, especially for the Functions preview.
+- Alternative hosting is now an explicit [ordered backlog B2-B5](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes):
+  (1) direct Container Apps, (2) Container Apps behind an APIM gateway,
+  (3) App Service, (4) Functions. All four local source/release/reference flows
+  are implemented and pushed in sequential milestones. Use `mcp-hosting-*` and
+  [the shared recipe guide](hosting-recipes.md). The original
+  `mcp-container-apps-*` remains direct-only. All share the SDK runtime with
+  Entra delegated checks and reviewed fixed GETs; the initial anonymous JSON
+  backend profile is now joined by the API-key profile above. APIM uses an HTTP proxy and independently signed gateway identity;
+  App Service uses an existing Linux plan; Functions is an explicit Linux FC1
+  preview custom-handler profile with identity-based blob storage.
+  Sealed source and release reviews are not attestations. An explicit
+  unverified endpoint reference can use existing discovery/proof/FCC without
+  synthesizing observations. These flows remain separate from the wizard,
+  historical APIM lifecycle and proposed WIQD endpoint contract.
+  The user delegated sequential implementation and periodic commits/pushes,
+  with live scenarios deferred. Automated cloud deployment is not implemented;
+  operator prerequisite/what-if/build/deploy reviews are documented. No image
+  publication, cloud operation, sign-in or live provider call was performed.
+  Actual Functions host/remote build, Azure routing/identities, APIM inherited
+  policies and consumer Read/Write labels remain unverified. No historical
+  descriptor, evidence, credential boundary or consumed proof was changed.
+  Final offline regression passed all 792 repository tests, CLI syntax and
+  strict public types. Final consistency work also corrected host-specific
+  approval summaries and rejects a direct-container reference for the gateway
+  recipe. The tracker and per-host guides retain the remaining live checks.
 - An opt-in [public npm installation guide](public-npm-setup.md) is linked from
   the README download step. It changes a fresh local checkout's project registry
   and locked download URLs while preserving all versions and integrity hashes.
@@ -197,7 +488,8 @@ The root API is deliberately bounded. Internal transport injections/executors ar
 not public APIs. The Copilot CLI skill drives the same CLI; it is not an MCP
 tool-server facade. No automatic host registration or global installation exists.
 
-This toolkit generates APIM deployment bundles, not arbitrary Node/Python servers.
+This toolkit generates APIM deployment bundles and a separate bounded Node.js
+Container Apps recipe, not arbitrary Node/Python servers.
 Do not describe all REST/OAuth/provider scenarios as supported. Read the narrower
 native-proof and experimental-proxy limits before proposing a live journey.
 
@@ -305,8 +597,9 @@ The user then directed continued autonomous implementation. The separate
 `mcp-auth-execution-status` now implement AUTH3/AUTH4:
 
 - Independent initialize/login/register/close approvals using public ATK 1.1.17.
-  Only Linux owner-only `/dev/shm` tmpfs is admitted. D-Bus keyrings and ambient
-  provider overrides are excluded; Windows/macOS execution is refused.
+  At this historical milestone only Linux owner-only `/dev/shm` tmpfs was
+  admitted. The explicit native Windows SSO mode described at the top of this
+  handoff now complements that isolated path; macOS remains unsupported.
 - Terminal-only browser sign-in URL with a same-host loopback callback.
   Public account output plus selected-tenant metadata is not issuer attestation;
   registration requires separate human identity confirmation.
@@ -365,7 +658,8 @@ still needs a reviewed Linux ATK installation and browser/callback setup before
 separately approved live work. Do not claim Windows isolation is impossible in
 a separate OS boundary, or that WSL presence alone qualifies authentication.
 Read [the assessment](auth-registration.md#windows-first-isolation-check).
-Keep the current Windows guard; no automatic cross-platform login/retry exists.
+The later Windows mode requires explicit shared-profile review; no automatic
+cross-platform login/retry exists.
 
 ### Resolved WSL setup and callback precheck
 
@@ -393,8 +687,9 @@ helper may automatically launch the Windows default browser under WSL, despite
 does not isolate browser cookies/history. No real browser/sign-in was exercised.
 
 This completes the local Windows-first/fallback precheck, not live authentication.
-Keep Windows execution blocked, retain the Linux provider and its independent
-phase approvals, and obtain real app/identity review before live operations.
+The Windows guard remained at that milestone; the later user-managed SSO mode
+is a separate implementation, not isolation evidence. Retain independent phase
+approvals and real app/identity review before live operations.
 Do not transfer this private tooling or any future account cache as repository
 evidence. See the auth runbook for exact validation scope.
 
@@ -419,9 +714,10 @@ entry, independent of its home-relative token files. The inspected code can
 fall back to unencrypted content when no encryption key is available. No
 private key-namespace override was found. No WIQD authentication/status command,
 credential-store access, settings change or token transfer was performed.
-Native Windows registration remains unimplemented: qualify a supported private
-credential boundary and registration-only interface before replacing the
-executor. See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
+A project-isolated native WIQD executor remains unimplemented. The separate
+native Windows ATK SSO mode now uses an explicitly reviewed normal profile,
+not a new private credential boundary.
+See [the investigation](auth-registration.md#native-windows-wiqd-investigation).
 
 Further source inspection found WIQD's separate cache-free CI refresh-token
 backend. It requires an explicit tenant and a caller-provided fresh delegated

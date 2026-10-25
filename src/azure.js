@@ -464,10 +464,14 @@ function retryableInspection(args) {
 const azureAbort = () => new ProvisioningCommandError('AZURE_CLI_ABORTED',
   'Azure CLI operation was cancelled. No retry or successful outcome is implied; retain any existing uncertain history.');
 
-export async function runAzureCommand(commandName, args, { cwd, azureConfigDir, signal, boundedInspection = false, onInspectionProcess, onAzureDeviceCode } = {}) {
+export async function runAzureCommand(commandName, args, { cwd, azureConfigDir, signal, boundedInspection = false, onInspectionProcess, onAzureDeviceCode, sensitiveOutput = false, allowInspectionRetry = true } = {}) {
   if (commandName !== 'az') throw new Error('Only Azure CLI execution is supported.');
   if (signal?.aborted) throw azureAbort();
   const capturedArgs = [...args];
+  if (sensitiveOutput && (!azureConfigDir || capturedArgs[0] !== 'acr' || capturedArgs[1] !== 'login'
+    || !capturedArgs.includes('--expose-token') || capturedArgs.some(arg => ['--debug', '--verbose'].includes(arg)))) {
+    throw new ProvisioningCommandError('AZURE_CLI_SENSITIVE_OUTPUT_INVALID', 'Transient registry output requires an explicit private Azure profile and expose-token command.');
+  }
   const deviceCodeLogin = onAzureDeviceCode !== undefined || capturedArgs.includes('--use-device-code');
   if (deviceCodeLogin && !(typeof onAzureDeviceCode === 'function' && azureConfigDir
     && capturedArgs.length === 6 && capturedArgs[0] === 'login' && capturedArgs[1] === '--tenant'
@@ -475,11 +479,9 @@ export async function runAzureCommand(commandName, args, { cwd, azureConfigDir, 
     && capturedArgs[5] === 'none')) {
     throw new ProvisioningCommandError('AZURE_DEVICE_CODE_INVALID', 'Device-code display is supported only for exact explicit private-context tenant login.');
   }
-  const maximumAttempts = retryableInspection(capturedArgs) ? 3 : 1;
+  const maximumAttempts = allowInspectionRetry && retryableInspection(capturedArgs) ? 3 : 1;
   const invocation = await resolveAzureCliInvocation(capturedArgs);
-  const env = { ...process.env, ...(azureConfigDir ? { AZURE_CONFIG_DIR: azureConfigDir,
-    AZURE_CORE_ENABLE_BROKER_ON_WINDOWS: 'false', AZURE_CORE_LOGIN_EXPERIENCE_V2: 'off',
-    AZURE_CORE_COLLECT_TELEMETRY: 'no' } : {}), ...(deviceCodeLogin ? { AZURE_CORE_NO_COLOR: 'true' } : {}) };
+  const env = azureCommandEnvironment({ azureConfigDir, deviceCodeLogin, sensitiveOutput });
   for (let attempt = 1; ; attempt++) {
     if (signal?.aborted) throw azureAbort();
     try { return await runAzureAttempt(invocation, { cwd, env, signal, boundedInspection, onInspectionProcess, onAzureDeviceCode }); }
@@ -493,6 +495,17 @@ export async function runAzureCommand(commandName, args, { cwd, azureConfigDir, 
       catch (error) { if (signal?.aborted) throw azureAbort(); throw error; }
     }
   }
+}
+
+export function azureCommandEnvironment({ azureConfigDir, deviceCodeLogin, sensitiveOutput }, inherited = process.env) {
+  if (sensitiveOutput && inherited.AZURE_CLI_DISABLE_CONNECTION_VERIFICATION) {
+    throw new ProvisioningCommandError('AZURE_CLI_SENSITIVE_OUTPUT_INVALID', 'Registry authentication refuses an environment that disables certificate verification.');
+  }
+  return { ...inherited, ...(azureConfigDir ? { AZURE_CONFIG_DIR: azureConfigDir,
+    AZURE_CORE_ENABLE_BROKER_ON_WINDOWS: 'false', AZURE_CORE_LOGIN_EXPERIENCE_V2: 'off',
+    AZURE_CORE_COLLECT_TELEMETRY: 'no' } : {}), ...(deviceCodeLogin ? { AZURE_CORE_NO_COLOR: 'true' } : {}),
+    ...(sensitiveOutput ? { AZURE_LOGGING_ENABLE_LOG_FILE: 'false', AZURE_CORE_LOG_LEVEL: 'error',
+      AZURE_EXTENSION_USE_DYNAMIC_INSTALL: 'no', AZURE_CORE_DISABLE_CONNECTION_VERIFICATION: 'false' } : {}) };
 }
 
 function runAzureAttempt(invocation, { cwd, env, signal, boundedInspection, onInspectionProcess, onAzureDeviceCode }) {

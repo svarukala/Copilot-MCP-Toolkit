@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "discovery": {
+    "discoveryClientId": "33333333-3333-4333-8333-333333333333",
+    "expectedUserId": "44444444-4444-4444-8444-444444444444"
+  },
+  "proof": {
+    "toolName": "get_information",
+    "arguments": {},
+    "safetyReview": {
+      "readOnly": true,
+      "reason": "Owner reviewed this fixed information lookup as read-only."
+    }
+  }
+}

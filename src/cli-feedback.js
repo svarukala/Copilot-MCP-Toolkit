@@ -2,9 +2,18 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { secretIssues } from './validation.js';
 
 const context = new AsyncLocalStorage();
-const commands = ['mcp-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume'];
+function backendSummary(backend) {
+  if (!backend) return '';
+  const key = backend.apiKey;
+  return key ? `Backend: API key in ${key.headerName ? 'header' : 'query'} ${safe(key.headerName ?? key.queryParameterName)}; shared entitlement, not per-user access\nKey Vault: ${safe(key.keyVaultResourceId)}\nSecret reference: ${safe(key.secretIdentifier)}\nSecret identity: ${safe(key.identityResourceId)}; tenant: ${safe(key.tenantId)}\nNo secret resolution or role grants; unresolved credentials prevent startup. Review platform diagnostics and rotation separately.\n`
+    : 'Backend: anonymous JSON; caller authorization remains required.\n';
+}
+const commands = ['mcp-account-switch', 'mcp-host-account-switch', 'mcp-reconcile', 'mcp-discover', 'mcp-proof', 'mcp-qualification', 'mcp-resume', 'mcp-validation-run', 'mcp-execution-run'];
 const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', 'mcp-proof-plan', 'mcp-qualification-plan', 'mcp-resume',
-  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan'];
+  'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
+  'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan', 'mcp-handover-plan',
+  'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan',
+  'mcp-validation-plan', 'mcp-validation-next', 'mcp-execution-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -121,6 +130,42 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (!plan.action) return;
+  if (plan.action === 'mcp-execution-start') {
+    writeFeedback(state, `[bounded execution review]\nScenario: ${safe(plan.creation.scenario)}\nNew run: ${safe(plan.outputPath)}\nExpires: ${safe(plan.input.expiresAt)}\nGranted phases: ${plan.grants.map(safe).join(', ')}\nLimits: ${safe(JSON.stringify(plan.input.limits))}\nExact proof: ${safe(plan.creation.proof.toolName)}; arguments ${safe(JSON.stringify(plan.creation.proof.arguments))}\nAzure resources: ${safe(JSON.stringify(plan.targets.azure))}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nThis new contract grants the displayed phases, not arbitrary operations. Review the complete identities, sources, host downloads and limits on stdout before start.\n`);
+    return;
+  }
+  if (['mcp-validation-start', 'mcp-validation-next'].includes(plan.action)) {
+    writeFeedback(state, `[validation summary]\nPhase: ${safe(plan.phase ?? plan.status ?? 'start')}\nRun: ${safe(plan.runDirectory ?? plan.outputPath ?? plan.report?.runDirectory)}\nRequired effect flags: ${(plan.requiredFlags ?? []).map(safe).join(' ') || 'none'}\n${(plan.effects ?? [plan.reason]).map(safe).join('\n')}\n${plan.approvalToken ? `EXACT approvalToken: ${safe(plan.approvalToken)}` : 'Paused; no operation is authorized.'}\nReview the full child plan on stdout. This approval covers only the displayed phase, never later deployment or renewed proof authority.\n`);
+    return;
+  }
+  if (plan.action === 'mcp-handover-bundle') {
+    writeFeedback(state, `[handover summary]\nOperation: local private handover files only\nNew destination: ${safe(plan.outputPath)}\nRecipe: ${safe(plan.manifest.summary.recipe)}\nSnapshot: ${safe(plan.manifest.snapshotAt)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the manifest and artifact hashes on stdout. This approval does not authorize any displayed command.\n`);
+    return;
+  }
+  if (['mcp-host-run', 'mcp-session'].includes(plan.action)) {
+    writeFeedback(state, `[separate operation review]\nOperation: ${safe(plan.action)} / ${safe(plan.input?.kind ?? 'discovery-then-separate-proof')}\nProject: ${safe(plan.projectDir)}\n${plan.effects.map(safe).join('\n')}\nEXACT approvalDigest: ${safe(plan.approvalDigest)}\nReview all targets, effects and bounds on stdout. This plan does not execute anything.\n`);
+    return;
+  }
+  if (['mcp-recipe-release-bundle', 'mcp-recipe-reference-create'].includes(plan.action)) {
+    if (plan.review?.npmRegistryUrl) writeFeedback(state, `Npm registry: ${safe(plan.review.npmRegistryUrl)}; separate install/build approval required.\n`);
+    const detail = plan.origin ? `Endpoint: ${safe(plan.origin.endpoint)}\n`
+      : `Tenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\nAccount: ${safe(plan.review.accountName)}\nArtifact: ${safe(plan.review.artifact.image ?? plan.sourceArchiveSha256)}\n${plan.review.gatewayBackendOrigin ? `Gateway backend: ${safe(plan.review.gatewayBackendOrigin)}\n` : ''}`;
+    writeFeedback(state, `[recipe artifact summary]\nOperation: ${safe(plan.action)}; local files only\nNew destination: ${safe(plan.outputPath)}\n${detail}${backendSummary(plan.review?.backend)}No Azure operation, image build/push, discovery, tool call or registration.\nSource/endpoint assertions are not live evidence. Existing consumed proofs remain consumed.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
+    return;
+  }
+  if (['mcp-bootstrap-bundle', 'mcp-operator-record', 'mcp-recipe-review-bundle'].includes(plan.action)) {
+    const detail = plan.event?.action ?? plan.bundle?.input?.kind ?? 'prerequisite-template-review';
+    writeFeedback(state, `[operator review summary]\nOperation: ${safe(plan.action)} / ${safe(detail)}\nDestination: ${safe(plan.outputPath ?? plan.journal)}\nLocal record/review only: no sign-in, cloud mutation, build, secret resolution or provider call.\nImported metadata is operator-declared, not service attestation. Review all inputs and effects on stdout.\nEXACT approvalToken: ${safe(plan.approvalToken)}\n`);
+    return;
+  }
+  if (['mcp-container-apps-create', 'mcp-hosting-create'].includes(plan.action)) {
+    const gateway = plan.review.target.gateway;
+    let host = gateway ? `APIM: ${safe(gateway.serviceName)}; resource group: ${safe(gateway.resourceGroup)}; path: ${safe(gateway.path)}\nGateway principal: ${safe(gateway.principalId)}; audience: ${safe(gateway.audience)}; role: ${safe(gateway.role)}\n`
+      : plan.review.recipe === 'functions-sdk-v1' ? 'Functions PUBLIC PREVIEW: Linux FC1, managed-identity storage, source-only release.\n' : '';
+    host += `Npm registry: ${safe(plan.review.npmRegistryUrl)}; credential-free downloads only, separate install/build approval required.\nImage inputs: ${safe(plan.review.imageBuild?.status)}; no build or scan is performed.\nScaling: ${safe(plan.review.scaling?.profile ?? 'host-specific')}; cost and cold starts need separate review.\n`;
+    writeFeedback(state, `[SDK hosting recipe summary]\nRecipe: ${safe(plan.review.recipe)}\nOperation: save local source and deployment review files only\nNew destination: ${safe(plan.outputPath)}\nApp: ${safe(plan.review.target.appName)}\nTenant: ${safe(plan.review.target.tenantId)}\nSubscription: ${safe(plan.review.target.subscriptionId)}\nResource group: ${safe(plan.review.target.resourceGroup)}\n${host}Access: Entra sign-in required${gateway ? '; independent signed gateway token also required' : '; no APIM'}\n${backendSummary(plan.review.backend)}Tools: ${plan.review.toolDefinitions.length} owner-reviewed fixed GETs; annotations are not observed evidence.\nNo install, image build/push, cloud operation or endpoint call.\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview all generated files on stdout before creating the project.\n`);
+    return;
+  }
   if (plan.action === 'mcp-auth-execution') {
     writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
     return;
@@ -157,6 +202,7 @@ export function cliPlanSummary(plan) {
       operation.source.inbound.type === 'entra' ? 'Identity: separate MCP public-client user, not Azure CLI login.' : 'Identity: declared anonymous MCP caller.');
     if (operation?.qualification) lines.push('Additional Tavily singleton: basic search normally costs 1 credit, not a billing guarantee.');
     if (operation?.acceptanceProfile) lines.push(`First-call acceptance: ${safe(operation.acceptanceProfile.kind)} in the SAME ordinary call; no additional qualification. Basic search normally costs 1 credit, not a billing guarantee.`);
+    if (operation?.resultAssertion) lines.push(`Same-call result assertion: ${safe(operation.resultAssertion.kind)}; field ${safe(operation.resultAssertion.field)}, max items ${operation.resultAssertion.maxItems}, max string length ${operation.resultAssertion.maxStringLength}. No raw result retention or replay.`);
     lines.push(`Next: ${safe(plan.next.command ?? plan.next.status)}`, safe(plan.next.reason),
       ...(plan.next.approval ? [`EXACT next.approval: ${safe(plan.next.approval)}`] : []),
       `Required effect flags: ${(plan.next.requiredFlags ?? []).map(safe).join(' ') || 'none'}`,
@@ -201,6 +247,7 @@ export function cliPlanSummary(plan) {
       : 'Calls: MCP initialize and bounded tools/list; no tools/call');
     if (operation.tool?.name) lines.push(`Tool: ${safe(operation.tool.name)}`);
     if (operation.acceptanceProfile) lines.push(`First-call acceptance: ${safe(operation.acceptanceProfile.kind)} in the SAME ordinary call; failed/inconclusive/unknown outcomes remain consumed. Basic search normally costs 1 credit, not a billing guarantee.`);
+    if (operation.resultAssertion) lines.push(`Same-call result assertion: ${safe(operation.resultAssertion.kind)}; field ${safe(operation.resultAssertion.field)}, max items ${operation.resultAssertion.maxItems}, max string length ${operation.resultAssertion.maxStringLength}. No extra provider call.`);
     if (state.command === 'mcp-qualification-plan') lines.push('Additional singleton qualification: Tavily basic search normally costs 1 credit; not a billing guarantee. Prior call approval is consumed.');
     const expiry = date(plan.readiness?.experimental?.configuration?.expiresAt);
     if (expiry) lines.push(`Configuration expires: ${expiry}; expiration requires separately approved read-only inspection`);

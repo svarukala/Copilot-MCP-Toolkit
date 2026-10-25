@@ -9,6 +9,7 @@ import { planAuthRegistrationBundle, writeAuthRegistrationBundle, readAuthRegist
 import { planFccBundle, writeFccBundle, fccTokenStoreClientId } from '../src/mcp-fcc.js';
 import { writeNewJsonBundle } from '../src/mcp-bundle-write.js';
 import { planAuthWiqdBundle, writeAuthWiqdBundle } from '../src/mcp-auth-wiqd.js';
+import { portalSsoScope, ssoScopeInstructions } from '../src/mcp-sso-scope.js';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
 const resource = '22222222-2222-4222-8222-222222222222';
@@ -82,6 +83,42 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
     with: { name: 'Synthetic registration', flow: 'authorizationCode', identityProvider: 'MicrosoftEntra',
       clientId: resource, appId, baseUrl: f.descriptor.endpoint, targetAudience: 'HomeTenant', applicableToApps: 'SpecificApp' },
     writeToEnvironmentFile: { configurationId: 'MCP_AUTH_REGISTRATION_ID', applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' },
+  });
+
+  await t.test('new shared and FCC handoffs qualify the portal scope without changing runtime claims', async t => {
+    const f = await fixture(t);
+    f.addReference();
+    const { plan } = await (async () => { await f.save(); return writePreparation(f); })();
+    const expected = `api://${resource}/access_as_user`;
+    assert.equal(plan.bundle.manualSetup.fields.find(field => field.label.startsWith('Portal OAuth')).value, expected);
+    assert.equal(plan.bundle.manualSetup.fields.find(field => field.label.startsWith('API permission')).value, 'access_as_user');
+    assert.equal(plan.bundle.routes.manualFcc.requiresAgentOrAppPackage, false);
+    const fcc = await planFccBundle((await fccOptions(f)).options);
+    assert.equal(fcc.bundle.manualSetup.authenticationRegistration.fields.find(field => field.label.startsWith('Portal OAuth')).value, expected);
+    assert.equal(f.descriptor.inbound.scope, 'access_as_user');
+  });
+
+  await t.test('legacy shared-auth bundles still verify with their historical rendering and digest', async t => {
+    const f = await fixture(t);
+    const { bundle } = await planAuthRegistrationBundle(f.options);
+    delete bundle.handoffVersion;
+    delete bundle.routes;
+    bundle.manualSetup.fields = bundle.manualSetup.fields.filter(field => !field.label.startsWith('Portal OAuth'));
+    bundle.manualSetup.fields.find(field => field.label.startsWith('API permission')).label = 'Delegated scope';
+    bundle.manualSetup.instructions = bundle.manualSetup.instructions.filter(item => !ssoScopeInstructions.includes(item));
+    delete bundle.contentDigest;
+    bundle.contentDigest = hash(bundle);
+    await writeFile(f.options.output, savedJson(bundle));
+    assert.deepEqual(await f.importBundle(), bundle);
+  });
+
+  await t.test('portal scope does not guess missing, malformed, duplicated or already-qualified values', () => {
+    assert.equal(portalSsoScope(undefined, 'access_as_user').status, 'missing');
+    for (const [uri, scope] of [
+      [`api://${resource}/`, 'access_as_user'], [`api://${resource}/access_as_user`, 'access_as_user'],
+      [`api://${resource}`, `api://${resource}/access_as_user`], ['https://example.com/a//b', 'read'],
+      ['https://name:secret@example.com', 'read'], ['api://example?x=1', 'read'],
+    ]) assert.equal(portalSsoScope(uri, scope).status, 'invalid');
   });
   assert.equal(plan.bundle.registrationReference.status, 'missing');
   assert.ok(!savedJson(plan.bundle).includes(f.config.operator.accountName));

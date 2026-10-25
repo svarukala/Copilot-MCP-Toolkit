@@ -3,10 +3,13 @@
 The toolkit prepares **secretless Entra SSO** and **custom OAuth** registration
 metadata for FCC and plugin consumers. The preparation/handoff commands remain
 local-only: no network, provider CLI, secret resolution or account changes.
-Separate **Linux-only execution commands** implement approval-bound ATK sign-in
-and registration. Their offline behavior is covered by synthetic providers;
-**real Linux/ATK registration is not yet qualified**. Windows/macOS execution
-is refused rather than falling back to shared credentials.
+Separate execution commands implement approval-bound ATK sign-in and registration.
+**Native Windows secretless Entra SSO** is available through an explicit
+user-managed profile mode; Linux/WSL is optional for isolated SSO and remains
+required for custom OAuth execution. Windows is not a private-cache fallback:
+its shared-profile effects require review. Offline checks use synthetic providers;
+the complete native Windows registration flow remains **live-unqualified**.
+macOS execution is unsupported.
 
 This is not the universal H1 endpoint/tool export or a WIQD integration. WIQD
 still owns plugin composition, packaging, validation and distribution. Custom
@@ -36,6 +39,21 @@ below for tenant-only SSO with `AnyApp`. It does not change the historical
 preparation format, create an app, or require a later portal restriction change.
 
 ## Local workflow
+
+New preparations include `handoffVersion: 2`: route-specific guidance and a
+**Portal OAuth scope (fully qualified)** field shared with FCC preparation.
+For a short permission `access_as_user`, use the supplied registered Application
+ID URI followed by `/access_as_user` in the portal. Keep the runtime's short
+`scp` check unchanged. The registration reference URI takes precedence over
+the descriptor URI, but neither is independently verified by local preparation.
+Missing or malformed values are not guessed. Previously written version-1
+preparations still verify against their original rendering and digest.
+
+If `AADSTS650053` says the custom permission was requested on Microsoft Graph,
+check the portal Scope resource first. A scope-only correction does not require
+Graph permissions, another app, an image rebuild or another provider proof.
+Other `invalid_client` errors require their own diagnosis. Never provide tokens,
+authorization codes, secrets or a full callback URL for troubleshooting.
 
 Use an existing private workspace containing a toolkit-generated or referenced
 `server/mcp-server.json` descriptor. No installed-code directory, credentials,
@@ -150,6 +168,87 @@ token-store client checks still apply. OAuth discovery/capture import remains
 unsupported; a registration reference cannot remove that gap.
 
 ## Separate execution workflow
+
+### Native Windows SSO: user-managed profile
+
+Select this mode when the operator accepts normal Windows ATK authentication,
+rather than requiring project-isolated credentials. The 2026-10-22 spike
+established owner-reported account selection and continued Teams operation.
+It did not complete an SSO registration or establish private Credential Manager/
+broker storage. The implementation below is separate from that sign-in experiment.
+
+Use Node.js 22+, an existing reviewed ATK **1.1.17** installation, a real Windows
+terminal and a private workspace with appropriate Windows ACLs. No WSL, Docker,
+provider installation or shared Azure CLI change is required. Supply the normal
+Windows ATK package directory, not its `.cmd` shim:
+
+```json
+{
+  "schemaVersion": 1,
+  "registrationConfig": "registration.json",
+  "providerRoot": "C:\\tools\\atk\\node_modules\\@microsoft\\m365agentstoolkit-cli",
+  "authenticationMode": "windows-user-managed",
+  "sharedProfileReviewed": true
+}
+```
+
+[The example](../examples/auth-registration/windows-sso-execution.json) is
+synthetic; the provider must already exist. `registration.json` is the existing
+preparation input with the explicit operator/tenant, matching Entra MCP
+descriptor, restrictions and intended app ID (or the separately reviewed AnyApp
+compatibility option below). Existing references never authorize recreation.
+This mode supports **secretless Entra SSO only**; PKCE/custom OAuth, secret
+references and Azure secret-identity projects are not admitted on Windows.
+
+`sharedProfileReviewed: true` is an explicit review of these effects, not a
+toolkit attestation:
+
+- ATK uses the normal Windows user profile, Credential Manager and potentially
+  its native broker. Folder redirection does not isolate them.
+- The provider's login may replace its previous ATK sign-in. The operator chooses
+  the account and organization in the real sign-in UI; the toolkit does not
+  automate that selection or promise no effect on other applications.
+- Provider-owned caches/logs may persist in the normal profile. The toolkit
+  never reads token-cache contents, copies credentials, clears Credential Manager,
+  runs an extra logout, or removes shared caches/logs during close.
+- Toolkit job files are disk-backed inside the selected session, inherit the
+  workspace ACLs and are not a tmpfs or credential-isolation boundary.
+
+The mode, profile metadata, provider entry hashes, expected identity and all
+registration choices are approval-bound. Explicit `linux-isolated`, or omission
+of `authenticationMode`, preserves the historical Linux path. No automatic
+platform fallback or conversion of an existing session occurs.
+
+```powershell
+copilot-mcp mcp-auth-execution-plan --workspace-root C:\private\demo --project C:\private\demo\windows-sso --config C:\private\demo\execution.json --phase initialize --json --summary
+copilot-mcp mcp-auth-execute --workspace-root C:\private\demo --project C:\private\demo\windows-sso --config C:\private\demo\execution.json --phase initialize --approve "EXACT_CURRENT_PHASE_TOKEN" --allow-provider --json
+```
+
+Use the same four phases and effect flags in the table below, each with a new
+plan and separate approval. `login` uses the normal Windows browser/broker and
+requires a real terminal. The account check reads public `atk auth list m365`
+output and only `.fx/account/tenantId.cache.appStudio` selected-tenant metadata;
+it does not attest the token issuer. Registration requires `--confirm-identity`
+after human review, rechecks the same account/tenant, and reserves the same
+cross-mode target before one dispatch. Switching OS/mode, output, session or
+app-validation options cannot reopen a consumed registration.
+
+Windows process invocation uses the selected Node executable and public CLI
+entry directly, without a `.cmd` shell, POSIX signals or detached process group.
+Cancellation targets only the owned CLI PID/tree through Windows `taskkill`.
+Both termination completion and the CLI close event must be confirmed. On an
+unconfirmed outcome, retain the project lock, runtime and per-user profile lock
+until the owned process tree has been reconciled; never retry registration.
+Normal exit does not kill a possibly reused PID.
+
+A per-user coordination file at
+`%LOCALAPPDATA%\CopilotMcpToolkit\atk-windows-operation.lock` prevents concurrent
+toolkit login/register phases using the same profile. It contains only ownership/
+process metadata, not credentials. It is released after confirmed completion,
+but stale/unconfirmed locks are not automatically removed. External ATK commands
+are outside this lock: do not run them concurrently. Closing a session removes
+only that session's owned job directory and retains evidence/reservations;
+**it does not sign the user out or reset shared authentication**.
 
 ### User-managed WIQD Windows handoff
 
@@ -305,9 +404,11 @@ temporary download and probe runtime files are cleaned up. Live browser sign-in,
 tenant/account verification and registration remain unperformed and require
 their original independent reviews.
 
-The toolkit therefore keeps its Windows execution guard and the explicit Linux
-fallback. It does not silently start WSL, install tooling, copy credentials or
-retry a registration on another platform.
+At that stage the toolkit retained its Windows execution guard and explicit
+Linux fallback. The later native Windows mode above admits explicitly reviewed
+normal-profile authentication, not the failed folder-isolation approach.
+Neither mode silently starts WSL, installs tooling, copies credentials or retries
+a registration on another platform.
 
 ### Native Windows WIQD investigation
 
@@ -343,13 +444,13 @@ reuse an existing session's token, or manufacture CI credentials to bypass
 these requirements. A separately reviewed fresh-credential bootstrap and secure
 delivery design would be necessary before using this backend in our executor.
 
-The native adapter remains unimplemented pending a supported private credential
+The project-isolated WIQD adapter remains unimplemented pending a supported private credential
 boundary and a reviewed registration-only interface covering both MicrosoftEntra
 SSO and Custom OAuth. An independent browser/MSAL implementation is another
 possible approach, but it still needs supported registration integration; a
-successful login alone would not close that gap. Keep existing ATK platform
-guards and phase approvals until a replacement is actually qualified. Do not
-advertise a native Windows registration capability from this source inspection.
+successful login alone would not close that gap. This source inspection does
+not qualify a WIQD execution adapter. The separate native Windows ATK mode above
+retains phase approvals and explicitly does not promise project isolation.
 
 ### Linux execution prerequisites and phases
 
@@ -412,10 +513,10 @@ registration request. The no-replay target deliberately ignores an `AnyApp`
 app ID, as before: switching to a supplied ID or disabling the option cannot
 reopen a consumed target. Missing or changed receipt disclosure is rejected.
 
-This compatibility check does not enable native Windows execution, qualify
+This compatibility check alone does not enable native Windows execution, qualify
 live ATK/token-store behavior, or approve login/registration. Source inspection
 establishes the intended omission; synthetic tests are not an observed provider
-request. The Linux isolation, identity review and separate phase approvals
+request. The selected mode's review, identity checks and separate phase approvals
 remain mandatory. Version-1 preparation and WIQD handoff behavior are unchanged.
 
 On that Linux host, use the following plan pattern, replacing the private paths

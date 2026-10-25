@@ -10,6 +10,7 @@ import { secretIssues } from './validation.js';
 import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 import { readAuthRegistrationBundle, registrationIdSchema, validApplicationIdUri } from './mcp-auth-registration.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
+import { portalSsoScope, ssoScopeInstructions } from './mcp-sso-scope.js';
 
 export const fccTokenStoreClientId = RESTRICTED_DISCOVERY_CLIENT_ID;
 const maximumBytes = 1048576;
@@ -38,6 +39,7 @@ export const fccInputSchema = object({
     dataAccess: { enum: ['public-data', 'shared-authorized-data', 'user-scoped'] },
     dataAccessReason: text(1000),
     legalPolicies: { enum: ['not-reviewed', 'placeholder', 'reviewed'] },
+    pocPolicyDeferral: { type: 'boolean' },
     tools: { type: 'array', maxItems: 1000, items: object({
       name: text(128), readOnly: { const: true }, reason: text(1000),
     }) },
@@ -162,7 +164,8 @@ function manualSetup(input, descriptor) {
         field('MCP endpoint URL', descriptor.endpoint),
         field('Tenant ID', descriptor.inbound.tenantId),
         field('Resource application client ID', descriptor.inbound.clientId),
-        field('Delegated scope', descriptor.inbound.scope),
+        field('API permission name (runtime scp)', descriptor.inbound.scope),
+        portalSsoScope(auth.applicationIdUri ?? descriptor.inbound.applicationIdUri, descriptor.inbound.scope),
         field('Endpoint Application ID URI', descriptor.inbound.applicationIdUri),
         field('Registration Application ID URI', auth.applicationIdUri),
         field('Web consent redirect URI', 'https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect'),
@@ -181,6 +184,7 @@ function manualSetup(input, descriptor) {
       'Missing developer fields and declared placeholder policies block submission, not local draft writing. Never invent developer names or legal URLs to fill gaps. Finalize policies before submission; this offline planner does not fetch or verify pages.',
       'A registration reference is caller-supplied, not verified by this bundle. Do not substitute an app/client ID, invent an ID or include credentials.',
       'After registration or metadata changes, update the private input and review a new plan/output. Never overwrite historical bundles or reuse their approvals.',
+      ...(isSso ? ssoScopeInstructions : []),
     ],
   };
 }
@@ -228,6 +232,8 @@ async function prepare(options) {
   }
   const legalPolicies = { status: input.review.legalPolicies ?? 'not-reviewed',
     evidence: 'caller-declaration-not-verified' };
+  requireFcc(!input.review.pocPolicyDeferral || legalPolicies.status !== 'reviewed',
+    'INPUT', 'PoC policy deferral cannot also declare finalized reviewed policies.');
   if (legalPolicies.status === 'placeholder') {
     gap('LEGAL_POLICIES_PLACEHOLDER', 'The supplied privacy/terms pages are declared placeholders. Finalize policies covering this connector before submission; URL presence is not legal readiness.');
   }
@@ -287,6 +293,13 @@ async function prepare(options) {
     evidence: { discovery, legalPolicies, configuration: 'not-verified', protocolProof: 'not-assessed',
       consumerExecution: 'not-verified', executionReadiness: false, proofReplayAuthorized: false },
     readiness: { status: gaps.length ? 'blocked' : 'manual-checkpoints-required', gaps },
+    phaseReadiness: {
+      localPreparation: 'available',
+      authorizationTroubleshooting: 'separate-review-required-not-blocked-by-policy-deferral',
+      policyDisposition: input.review.pocPolicyDeferral ? 'owner-deferred-not-finalized' : 'not-deferred',
+      submission: gaps.length ? 'blocked' : 'manual-checkpoints-required',
+      rollout: 'separate-explicit-review-required',
+    },
     checklist: [...authenticationChecklist(input.authentication), ...checklist],
     references: {
       setup: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/connectors/set-up-custom-federated-connectors',

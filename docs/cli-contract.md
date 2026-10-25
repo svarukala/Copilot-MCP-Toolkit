@@ -26,6 +26,20 @@ private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Au
 
 | Family | Plan/local view | Explicit continuation |
 | --- | --- | --- |
+| Bounded execution | `mcp-execution-schema`; `mcp-execution-plan --workspace-root ABS --config envelope.json --output NEW_RUN --summary` | `mcp-execution-start` records the exact new execution approval once; `mcp-execution-run --project RUN` advances within its pinned grants/budgets, optionally `--interactive` for genuine sign-in. `status` reads retained progress; `record --config CHECKPOINT` submits pending owner evidence, not execution authority. All five v2 families; old approvals are not transferable. See [bounded contract](reusable-validation.md#bounded-execution-separate-contract-version-1) |
+| Reusable validation | `mcp-validation-schema`; `mcp-validation-plan/start` selects a versioned definition and new run; `mcp-validation-next/status --workspace-root ABS --project RUN` reads retained progress | `mcp-validation-run` with exact next approval and only its `requiredFlags`. V1 existing direct ACA is unchanged. V2 fresh ACA/gateway/native APIM/existing MCP/proxy routes generation, release/reference, private APIM identity/lifecycle and protocol; `--allow-cloud` is limited to APIM phases/readback. `--config` selects owner checkpoints or release/reference inputs; v1 refresh/handover and v2 handover/archive remain local. See [contract and exit codes](reusable-validation.md) |
+| Hosting prerequisites | `mcp-bootstrap-schema`; `mcp-bootstrap-plan --workspace-root ABS --config input.json --output NEW.json` | `mcp-bootstrap-bundle` with exact approval; separate direct Container Apps templates, existing/new choices, directory handoff, no cloud actions |
+| Operator journal | `mcp-operator-schema`; `mcp-operator-plan --workspace-root ABS --project DIR --config event.json`; `mcp-operator-status` | `mcp-operator-record` with exact approval; append-only declaration, never dispatches an external operation |
+| Recipe reviews | `mcp-recipe-review-schema`; `mcp-recipe-review-plan --workspace-root ABS --project SOURCE --config review.json --output NEW.json` | `mcp-recipe-review-bundle` with exact approval; image, preserving-update, readiness, auth impact, secret metadata and cost/closeout reviews |
+| Real-terminal handoff | `mcp-terminal-handoff --workspace-root ABS --project REF --config selection.json --phase discovery\|proof\|session` | Copy the generated PowerShell command into a real terminal only after separate exact operation review; no cross-process token sharing or terminal launch |
+| Host diagnostics / private pull | `mcp-host-schema`; `mcp-host-plan --workspace-root ABS --project DIR --config operation.json --output NEW.json` | `mcp-host-run` with exact approval and applicable local/network/cloud flags. Explicit registry ping/package-metadata diagnostics or digest-only ACR pull; immutable intent and no implicit retry |
+| Hosting Azure identity | `mcp-host-account-plan --workspace-root ABS --project SOURCE --tenant-id UUID --subscription-id UUID --account-name NAME` | Separate `mcp-host-account-switch --approve TOKEN`; private source-project context, never shared account/cache changes |
+| Single-process MCP session | `mcp-session-plan --workspace-root ABS --project REF --config session.json` | `mcp-session --approve DIGEST --allow-network --interactive`; bounded in-memory sign-in reuse, separate new proof approval after discovery, unchanged no-replay journal |
+| Container Apps recipe | `mcp-container-apps-schema`; `mcp-container-apps-plan --workspace-root ABS --config recipe.json --output NEW_DIR` | `mcp-container-apps-create` with the same paths and exact `--approve approvalToken`; local SDK source and ARM files only |
+| All SDK hosting recipes | `mcp-hosting-schema`; `mcp-hosting-plan --workspace-root ABS --config recipe.json --output NEW_DIR` | `mcp-hosting-create` with identical paths and exact approval; four closed host profiles |
+| Recipe release | `mcp-recipe-source-plan --workspace-root ABS --project DIR`; `mcp-recipe-release-plan` with project/config/new output | `mcp-recipe-release-bundle` with exact approval; source archive and template parameters, never deployment |
+| Recipe endpoint reference | `mcp-recipe-reference-plan --workspace-root ABS --project DIR --config endpoint.json --output NEW_DIR` | `mcp-recipe-reference-create` with exact approval; new unverified existing-MCP reference, not captured tools |
+| Deployment handover | `mcp-handover-schema`; `mcp-handover-plan --workspace-root ABS --project SOURCE --config handover.json --output NEW_DIR` | `mcp-handover-bundle` with exact local export approval; two-tab offline HTML, SVG/Excalidraw, source and optional matched release; no live operation or evidence renewal |
 | Generate | `mcp-server-plan --config definition.json` | `mcp-server-create --config definition.json --output NEW --approve reviewDigest` |
 | GET/query authoring | `rest-tools-plan --config tools.json --output NEW.json` | `rest-tools-write` with same paths and top-level approval |
 | Resource selection | `mcp-resources-choose --config definition.json` (TTY) or `mcp-resources-plan --config choices.json` | `mcp-resources-write --config choices.json --output NEW.json --approve approvalToken` |
@@ -43,11 +57,33 @@ private Azure identity; MCP discovery takes `{}` without sign-in; FCC uses No Au
 | Controlled fixture | `mcp-fixture-plan --config definition.json` | `mcp-fixture-bundle --config definition.json --output NEW --approve reviewDigest`; no apply command |
 | Federated onboarding | `mcp-fcc-schema`; `mcp-fcc-plan --workspace-root ABS --config fcc.json --output NEW.json` | `mcp-fcc-bundle` with identical inputs and exact `--approve approvalToken`; local draft, no registration |
 | Auth registration preparation | `mcp-auth-registration-schema`; `mcp-auth-registration-plan --workspace-root ABS --config registration.json --output NEW.json` | `mcp-auth-registration-bundle` with identical inputs and exact `--approve approvalToken`; local metadata only, no login/registration/secret resolution |
-| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact current phase approval and required effect flags; Linux-only ATK adapter, live qualification outstanding. Config-only `allowAnyAppValidationPlaceholder` opt-in is limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
+| Auth registration execution | `mcp-auth-execution-schema`; `mcp-auth-execution-plan --workspace-root ABS --project SESSION --config execution.json --phase PHASE`; local `mcp-auth-execution-status` | `mcp-auth-execute` with exact phase approval/effect flags; Linux-isolated mode or explicit `windows-user-managed` mode with `sharedProfileReviewed: true` for secretless SSO. Live Windows registration remains unqualified. `allowAnyAppValidationPlaceholder` remains limited to Entra SSO / HomeTenant / AnyApp without a supplied app ID |
 
 Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
 probes. Unsupported flags are not substitutes for a reviewed plan.
+
+Container Apps has a separate versioned recipe contract, not an extension to the
+historical APIM input/descriptor. It requires Entra v2 delegated callers and
+explicitly reviewed fixed GETs against one anonymous or Key Vault API-key JSON backend. Plan supports
+`--summary`; create binds inputs, build, all generated bytes and new destination.
+Neither command installs packages, builds/pushes images or contacts Azure.
+Existing APIM lifecycle commands do not consume this project format. The explicit
+endpoint-reference flow creates a separate existing-MCP project for observed
+discovery, proof and FCC; it fabricates no captures or runtime evidence.
+Release preparation validates sealed source and a pinned image (containers) or
+exact source archive digest (Functions). It does not attest the remote build.
+All writes require a new destination and current approval; all live-effect flags
+are rejected. See [all four recipes and boundaries](hosting-recipes.md).
+Across all four, `backend.auth: "api-key"` requires `backend.apiKey` with
+`tenantId`, `keyVaultResourceId`, a distinct `identityResourceId`,
+`secretIdentifier`, `sharedAccessReviewed: true`, and exactly one `headerName`
+or `queryParameterName`. Query placement also requires
+`queryExposureReviewed: true`. Names, OpenAPI security and target bindings are
+validated; raw credentials are not accepted. Generation and release summaries
+include these nonsecret choices. Native platform references inject the value
+only at runtime; missing/unresolved keys prevent startup. The original
+`backend: { origin, auth: "anonymous" }` and native APIM contracts are unchanged.
 
 FCC plan/bundle requires an explicit workspace separate from installed code.
 Source descriptor/capture paths resolve relative to the config file. It preserves
@@ -76,11 +112,17 @@ no config and preserves consumed attempts. No other phase accepts those effect
 flags. Plans support `--summary`; status is local-only. Registration results can
 be imported into preparation with `source.registrationResultFile`; a supplied
 reference/result cannot trigger another registration. See the auth runbook for
-Linux prerequisites, terminal-only login and unknown-attempt reconciliation.
+mode-specific prerequisites, terminal-only login and unknown-attempt reconciliation.
+Native Windows SSO uses the normal ATK profile with explicit shared-profile
+review, not a copied/redirected credential cache. Plans disclose login replacement,
+provider-owned persistent caches/logs, and a per-user toolkit operation lock.
+Close removes only owned Windows job files, never shared credentials or logouts.
+Custom OAuth execution still requires Linux. Historical Linux sessions stay
+Linux-isolated; changing configuration cannot adopt them into Windows mode.
 Login/register summaries also disclose ATK's ancillary experimentation-service
 request and machine-derived client metadata; the provider's telemetry flag does
 not disable that request. Browser callbacks may use separately verified
-Windows-to-WSL localhost forwarding; no automatic host switch is performed.
+Windows-to-WSL localhost forwarding for Linux mode; no automatic host switch is performed.
 ATK may launch the Windows default browser under WSL. The login summary discloses
 that browser cookies/history are outside the toolkit's private-cache boundary.
 
@@ -200,6 +242,18 @@ guarantee. Profile/argument/source/capture changes cannot reopen a consumed
 operation. Default ordinary proof version 2, dedicated qualification version 3,
 and first-call version 4 remain distinct. Validated not-dispatched failures may
 permit fresh review; unknown/post-dispatch outcomes and locks prohibit replay.
+
+An **unused existing-MCP first proof** can instead select the bounded
+[`resultAssertion` array/string profile](hosting-recipes.md).
+Status and resume retain its validated `kind`, `status`, `assertionDigest` and
+`rawResultRetained: false`; diagnosis reports only its kind and historical verdict.
+An unknown call retains `not-evaluated`, not a passing assertion. Protocol success
+and a failed structural assertion are separate findings. Neither establishes
+business correctness or consumer readiness, and all dispatched outcomes remain
+consumed. Malformed or mismatched assertion receipts block strict readers rather
+than being omitted or promoted to success. Evidence export/restore preserves
+the original bytes, including invalid history, without certifying cross-record
+bindings or removing these barriers.
 
 ## Evidence, recovery and diagnosis
 

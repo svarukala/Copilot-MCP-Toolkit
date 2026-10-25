@@ -27,6 +27,10 @@ import { probeMcp, safeMcpDiagnostics } from '../src/mcp-protocol.js';
 import { validateToolDescription, toolSchemaIssues } from '../src/mcp-tools.js';
 
 import { safeEntraDiagnostics } from '../src/entra-discovery.js';
+import { createEntraDiscoverySession } from '../src/entra-discovery.js';
+import { planInteractiveSession, runInteractiveSession } from '../src/mcp-interactive-session.js';
+import { terminalHandoff } from '../src/mcp-terminal-handoff.js';
+import { main } from '../bin/copilot-mcp.js';
 
 import { readMcpStatus } from '../src/mcp-status.js';
 
@@ -134,6 +138,151 @@ function proofSelection(capture) {
   return { capture, toolName: tool.name, arguments: { id: 1 },
     safetyReview: { readOnly: true, reason: 'Owner reviewed this operation as a record lookup only.' } };
 }
+
+test('interactive session reuses one sign-in only after a separate exact proof approval and re-lists before dispatch', async t => {
+  const context = await workspace(t), source = await descriptor('entra'), fixture = transportFixture();
+  await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+  const config = path.join(context.workspaceRoot, 'session.json');
+  const { capture, ...proof } = proofSelection({});
+  await writeFile(config, pretty({ schemaVersion: 1, discovery: identity, proof }));
+  const options = { workspaceRoot: context.workspaceRoot, project: context.projectDir, config };
+  const plan = await planInteractiveSession(options);
+  let approvals = 0;
+  const result = await runInteractiveSession({ ...options, approval: plan.approvalDigest, allowNetwork: true,
+    onDeviceCode() {}, approveProof: next => {
+      approvals++; assert.equal(fixture.calls.filter(v => v === 'tools/call').length, 0);
+      assert.equal(next.operation.tool.name, tool.name);
+      return next.approvalDigest;
+    } }, fixture);
+  assert.equal(result.status, 'protocol-success');
+  assert.equal(approvals, 1);
+  assert.equal(fixture.calls.filter(v => v.endsWith('/devicecode')).length, 1);
+  assert.equal(fixture.calls.filter(v => v.endsWith('/token')).length, 1);
+  assert.equal(fixture.calls.filter(v => v === 'tools/list').length, 2);
+  assert.equal(fixture.calls.filter(v => v === 'tools/call').length, 1);
+  for (const file of [result.captureFile, result.proofFile]) {
+    const saved = await readFile(file, 'utf8');
+    for (const privateValue of [accessToken, 'private-refresh-value', 'private-device-code', 'private-business-result']) {
+      assert.ok(!saved.includes(privateValue));
+    }
+  }
+});
+test('declining the new proof approval keeps discovery but sends no call or second login', async t => {
+  const context = await workspace(t), source = await descriptor('entra'), fixture = transportFixture();
+  await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+  const config = path.join(context.workspaceRoot, 'session.json'), { capture, ...proof } = proofSelection({});
+  await writeFile(config, pretty({ schemaVersion: 1, discovery: identity, proof }));
+  const options = { workspaceRoot: context.workspaceRoot, project: context.projectDir, config };
+  const plan = await planInteractiveSession(options);
+  const result = await runInteractiveSession({ ...options, approval: plan.approvalDigest, allowNetwork: true,
+    onDeviceCode() {}, approveProof: () => 'yes' }, fixture);
+  assert.equal(result.status, 'discovered-proof-declined');
+  assert.equal(fixture.calls.includes('tools/call'), false);
+  assert.equal(fixture.calls.filter(v => v.endsWith('/token')).length, 1);
+});
+test('session CLI and terminal handoff keep explicit paths, independent approval and JSON-only final output', async t => {
+  const context = await workspace(t), source = await descriptor('entra'), fixture = transportFixture();
+  await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+  const config = path.join(context.workspaceRoot, 'session.json'), { capture, ...proof } = proofSelection({});
+  await writeFile(config, pretty({ schemaVersion: 1, discovery: identity, proof }));
+  const handoff = await terminalHandoff({ workspaceRoot: context.workspaceRoot, project: context.projectDir, config, phase: 'session' });
+  assert.match(handoff.powershell, /'mcp-session'/);
+  assert.equal(handoff.executionAuthorized, false);
+  const args = ['mcp-session', '--workspace-root', context.workspaceRoot, '--project', context.projectDir,
+    '--config', config, '--approve', handoff.plan.approvalDigest, '--allow-network', '--interactive', '--json'];
+  let stdout = '', stderr = '';
+  t.mock.method(process.stdout, 'write', value => { stdout += value; return true; });
+  t.mock.method(process.stderr, 'write', value => { stderr += value; return true; });
+  assert.equal(await main(args, { onMcpDeviceCode() {}, sessionDependencies: fixture,
+    sessionProofApproval: plan => plan.approvalDigest }), 0);
+  assert.equal(JSON.parse(stdout).status, 'protocol-success');
+  assert.ok(!`${stdout}${stderr}`.includes(accessToken));
+  const count = fixture.calls.length;
+  stdout = '';
+  assert.equal(await main(args.filter(value => value !== '--interactive'), {
+    onMcpDeviceCode() {}, sessionDependencies: fixture, sessionProofApproval: plan => plan.approvalDigest,
+  }), 1);
+  assert.equal(fixture.calls.length, count);
+});
+test('in-memory sessions reject changed identity and expiration without refreshing or restarting sign-in', async () => {
+  const source = await descriptor('entra'), plan = planMcpDiscovery(source, identity);
+  for (const mode of ['identity', 'expired', 'closed']) {
+    let time = Date.now();
+    const fixture = transportFixture(), session = createEntraDiscoverySession({ ...fixture, now: () => time });
+    await session.run(plan, { onDeviceCode() {} });
+    const before = fixture.calls.length;
+    if (mode === 'expired') time += 900000;
+    if (mode === 'closed') session.close();
+    const changed = mode === 'identity' ? { ...plan, auth: { ...plan.auth, expectedUserId: otherId } } : plan;
+    await assert.rejects(session.run(changed, { onDeviceCode() {}, toolCall: { name: tool.name, arguments: { id: 1 } } }));
+    assert.equal(fixture.calls.length, before);
+    session.close();
+  }
+});
+test('interactive cancellation and unknown call outcomes never restart authentication or replay proof', async t => {
+  for (const mode of ['cancel-before-proof', 'lost-call-response']) {
+    const context = await workspace(t), source = await descriptor('entra'), controller = new AbortController();
+    const fixture = transportFixture({ mcpChange: message => {
+      if (message.method === 'tools/call') throw Error('private ambiguous response');
+    } });
+    await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+      server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+    const config = path.join(context.workspaceRoot, 'session.json'), { capture, ...proof } = proofSelection({});
+    await writeFile(config, pretty({ schemaVersion: 1, discovery: identity, proof }));
+    const options = { workspaceRoot: context.workspaceRoot, project: context.projectDir, config };
+    const plan = await planInteractiveSession(options);
+    const run = () => runInteractiveSession({ ...options, approval: plan.approvalDigest, allowNetwork: true,
+      signal: controller.signal, onDeviceCode() {}, approveProof: next => {
+        if (mode === 'cancel-before-proof') controller.abort();
+        return next.approvalDigest;
+      } }, fixture);
+    if (mode === 'cancel-before-proof') await assert.rejects(run());
+    else {
+      const result = await run();
+      assert.equal(result.status, 'unknown');
+      const selected = { ...proof, capture: result.captureFile };
+      const next = await planMcpProjectProof(context.projectDir, selected);
+      await assert.rejects(executeMcpProjectForTest(context.projectDir, {
+        selection: selected, approval: next, allowNetwork: true, onDeviceCode() {},
+      }, true, () => assert.fail('Consumed proof must be rejected before transport.')));
+    }
+    assert.equal(fixture.calls.filter(v => v.endsWith('/token')).length, 1);
+    assert.equal(fixture.calls.filter(v => v === 'tools/call').length, mode === 'cancel-before-proof' ? 0 : 1);
+  }
+});
+
+test('bounded result assertion runs on the same first call and cannot be retrofitted or removed to replay', async t => {
+  const context = await workspace(t), source = await descriptor();
+  await core.createMcpServerProject(await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: source.server, endpoint: source.endpoint, inbound: source.inbound }), context);
+  const { capture } = await observed();
+  const selection = { ...proofSelection(capture), resultAssertion: {
+    kind: 'json-array-string-field-v1', field: 'fact', maxItems: 1, maxStringLength: 100,
+  } };
+  const approval = await planMcpProjectProof(context.projectDir, selection);
+  let calls = 0;
+  const fixture = transportFixture({ mcpChange: message => {
+    if (message.method !== 'tools/call') return;
+    calls++;
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: message.id,
+      result: { content: [{ type: 'text', text: '[{"fact":"Private synthetic content"}]' }] } }));
+  } });
+  const run = (descriptor, options, guard, hooks) =>
+    runMcpReadOnlyProofForTest(descriptor, options, { ...fixture, ...hooks, beforeRequest: guard });
+  const result = await executeMcpProjectForTest(context.projectDir, { selection, approval, allowNetwork: true }, true, run);
+  assert.equal(calls, 1);
+  assert.equal(result.result.backendAssertion.status, 'passed');
+  assert.equal(result.result.businessCorrectnessVerified, false);
+  assert.doesNotMatch(await readFile(result.resultFile, 'utf8'), /Private synthetic content/);
+  await assert.rejects(planMcpProjectProof(context.projectDir, selection), { code: 'PROOF_REPLAY_BLOCKED' });
+  const ordinary = proofSelection(capture), changed = await planMcpProjectProof(context.projectDir, ordinary);
+  await assert.rejects(executeMcpProjectForTest(context.projectDir,
+    { selection: ordinary, approval: changed, allowNetwork: true }, true, run), { code: 'PROOF_REPLAY_BLOCKED' });
+  assert.equal(calls, 1);
+});
 
 test('MCP processing diagnostics identify closed method/stage enums for protected and anonymous HTTP failures', async t => {
   const envelope = (message, result) => new Response(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
@@ -707,6 +856,9 @@ test('project operation revalidates saved sources, persists captures and blocks 
   assert.equal(proof.result.status, 'protocol-success');
   await assert.rejects(executeMcpProjectForTest(context.projectDir, { selection, approval: proofApproval, allowNetwork: true }, true, proofRun),
     { code: 'PROOF_REPLAY_BLOCKED' });
+  await assert.rejects(planMcpProjectProof(context.projectDir, { ...selection, resultAssertion: {
+    kind: 'json-array-string-field-v1', field: 'fact', maxItems: 1, maxStringLength: 100,
+  } }), { code: 'PROOF_REPLAY_BLOCKED' });
   assert.ok(!(await readdir(context.projectDir)).includes('.mcp-network.lock'));
   await writeFile(path.join(context.projectDir, 'mcp-server.json'), '{}');
   await assert.rejects(planMcpProjectDiscovery(context.projectDir), /differs/);

@@ -5,16 +5,44 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, copyFile } from 'node
 import { createRequire } from 'node:module';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
 
-test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 180000 }, async t => {
-  const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-fresh-package-'));
+// Allow full-suite contention while retaining each subprocess's shorter deadline.
+test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 600000 }, async t => {
+  const outputRoot = path.join(TOOLKIT_ROOT, '.test-output');
+  await mkdir(outputRoot, { recursive: true });
+  const root = await mkdtemp(path.join(outputRoot, 'copilot-mcp-fresh-package-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const npm = process.env.npm_execpath ?? path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js');
+  const rootLock = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'package-lock.json')));
+  assert.equal(rootLock.lockfileVersion, 3);
+  const dependencies = Object.fromEntries(Object.entries(rootLock.packages).filter(([name, entry]) => name && !entry.dev));
+  const cache = path.join(root, 'npm-cache');
+  const cacache = createRequire(npm)('cacache');
+  const sourceCache = execFileSync(process.execPath,
+    [npm, 'config', 'get', 'cache', '--offline', '--logs-dir', path.join(root, 'npm-logs'), '--logs-max=0'],
+    { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 30000 }).trim();
+  // Read only verified tarball content from the repo install's cache, never its
+  // packuments. A clean CI npm ci populates tarballs but not registry metadata.
+  const seedTarballs = async entries => {
+    for (const entry of Object.values(entries)) {
+      assert.ok(entry.resolved && entry.integrity);
+      if (await cacache.get.hasContent(path.join(cache, '_cacache'), entry.integrity)) continue;
+      const data = await cacache.get.byDigest(path.join(sourceCache, '_cacache'), entry.integrity);
+      await cacache.put(path.join(cache, '_cacache'), `locked-tarball:${entry.resolved}`, data, {
+        integrity: entry.integrity, algorithms: [entry.integrity.split('-')[0]],
+      });
+    }
+  };
+  await seedTarballs(dependencies);
+  const cacheEntries = Object.values(await cacache.ls(path.join(cache, '_cacache')));
+  assert.equal(cacheEntries.length, new Set(Object.values(dependencies).map(entry => entry.resolved)).size);
+  assert.ok(cacheEntries.every(entry => entry.key.startsWith('locked-tarball:') && entry.metadata === undefined));
+  t.diagnostic(`Private cache seeded with ${cacheEntries.length} integrity-verified lockfile tarballs and no packuments.`);
+  const offline = ['--offline', '--cache', cache, '--ignore-scripts', '--no-audit', '--fund=false'];
   const pack = JSON.parse(execFileSync(process.execPath,
-    [npm, 'pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', root],
+    [npm, 'pack', ...offline, '--json', '--pack-destination', root],
     { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 60000 }))[0];
   const paths = pack.files.map(f => f.path);
   assert.ok(paths.includes('skills/copilot-mcp/SKILL.md'));
@@ -24,14 +52,37 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
   assert.ok(!paths.some(p => /(?:^|\/)(?:node_modules|test|recovery|artifacts|generated|\.test-output|\.source-import|\.azure-auth)(?:\/|$)|^\.local-|bin\/cowork-|src\/(?:plugin|cowork-metadata|wizard|skill-frontmatter)\.js/.test(p)));
   const consumer = path.join(root, 'consumer'), workspace = path.join(root, 'workspace');
   await mkdir(consumer); await mkdir(workspace);
-  await writeFile(path.join(consumer, 'package.json'), '{"name":"synthetic-packed-consumer","private":true,"type":"module"}\n');
-  execFileSync(process.execPath, [npm, 'install', '--offline', '--ignore-scripts', '--no-audit', '--fund=false', '--omit=dev',
-    path.join(root, pack.filename)], { cwd: consumer, encoding: 'utf8', timeout: 60000 });
+  const tarball = `file:../${pack.filename}`;
+  const manifest = { name: 'synthetic-packed-consumer', version: '1.0.0', private: true, type: 'module',
+    dependencies: { [rootLock.name]: tarball } };
+  const { devDependencies, ...packedEntry } = rootLock.packages[''];
+  // Preserve the checked-in dependency layout (including nested packages),
+  // versions, URLs and integrity hashes; only the toolkit becomes a tarball.
+  const consumerLock = { name: manifest.name, version: manifest.version, lockfileVersion: 3, requires: true,
+    packages: {
+      '': { name: manifest.name, version: manifest.version, dependencies: manifest.dependencies },
+      ...dependencies,
+      [`node_modules/${rootLock.name}`]: { ...packedEntry, resolved: tarball, integrity: pack.integrity },
+    } };
+  await writeFile(path.join(consumer, 'package.json'), JSON.stringify(manifest));
+  const lockText = JSON.stringify(consumerLock);
+  await writeFile(path.join(consumer, 'package-lock.json'), lockText);
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
+    { cwd: consumer, encoding: 'utf8', timeout: 60000 });
+  assert.equal(await readFile(path.join(consumer, 'package-lock.json'), 'utf8'), lockText);
   const installed = path.join(consumer, 'node_modules', 'copilot-mcp-toolkit');
   const require = createRequire(path.join(installed, 'package.json'));
   const pkg = JSON.parse(await readFile(path.join(installed, 'package.json')));
+  assert.deepEqual(pkg.dependencies, packedEntry.dependencies);
+  for (const [location, entry] of Object.entries(dependencies)) {
+    assert.equal(JSON.parse(await readFile(path.join(consumer, location, 'package.json'))).version, entry.version, location);
+  }
+  for (const name of Object.keys(devDependencies)) {
+    assert.ok(!(await readdir(path.join(consumer, 'node_modules'))).includes(name), name);
+  }
   for (const name of Object.keys(pkg.dependencies)) {
-    assert.ok(require.resolve(name).startsWith(path.join(consumer, 'node_modules') + path.sep), name);
+    const entry = name === '@modelcontextprotocol/sdk' ? `${name}/server/index.js` : name;
+    assert.ok(require.resolve(entry).startsWith(path.join(consumer, 'node_modules') + path.sep), name);
   }
   assert.equal(pkg.bin['copilot-mcp'], 'bin/copilot-mcp.js');
   const skill = await readFile(path.join(installed, 'skills', 'copilot-mcp', 'SKILL.md'), 'utf8');
@@ -69,6 +120,241 @@ syncBuiltinESMExports();
   assert.equal(cap.toolkit.name, 'copilot-mcp-toolkit');
   assert.equal(cap.guidedSetup.cloudExecution, false);
   assert.equal(cap.guidedSetup.existingMcpOAuth, 'reference-only');
+  assert.equal(cap.containerAppsRecipe.cloudExecution, false);
+  assert.equal(cap.containerAppsRecipe.gateway, 'none');
+  assert.deepEqual(cap.hostingRecipes.backendAuthentication, ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query']);
+  assert.equal(cap.operatorJournal.cloudExecution, false);
+  assert.equal(cap.terminalHandoff.persistentTokens, false);
+  assert.equal(cap.interactiveSession.separateProofApproval, true);
+  assert.equal(cap.hostOperations.sharedDockerLogin, false);
+  assert.deepEqual(cap.hostOperations.npmRegistryProbe.kinds, ['ping', 'package-metadata']);
+  assert.equal(invoke(['mcp-host-schema']).result.oneOf.length, 4);
+  assert.equal(invoke(['mcp-operator-schema']).result.oneOf.length, 6);
+  assert.equal(invoke(['mcp-recipe-review-schema']).result.oneOf.length, 7);
+  assert.equal(invoke(['mcp-bootstrap-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
+  const bootstrapInput = path.join(workspace, 'bootstrap.json');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'container-apps-bootstrap.json'), bootstrapInput);
+  const bootstrapArgs = ['--workspace-root', workspace, '--config', bootstrapInput,
+    '--output', path.join(workspace, 'bootstrap-review.json')];
+  const bootstrap = invoke(['mcp-bootstrap-plan', ...bootstrapArgs, '--summary']);
+  assert.ok(bootstrap.stderr.includes(bootstrap.result.approvalToken));
+  assert.equal(bootstrap.result.bundle.result.resourceSetup.status, 'awaiting-actual-discovery-client-id');
+  invoke(['mcp-bootstrap-bundle', ...bootstrapArgs, '--approve', bootstrap.result.approvalToken]);
+  assert.equal(invoke(['mcp-container-apps-schema']).result.properties.recipe.const, 'container-apps-direct-v1');
+  const containerInput = path.join(workspace, 'container-input.json');
+  const containerOutput = path.join(workspace, 'container-server');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'container-apps-direct.json'), containerInput);
+  const containerArgs = ['--workspace-root', workspace, '--config', containerInput, '--output', containerOutput];
+  const containerPlan = invoke(['mcp-container-apps-plan', ...containerArgs, '--summary']);
+  assert.ok(containerPlan.stderr.includes(containerPlan.result.approvalToken));
+  assert.equal(containerPlan.result.review.toolDefinitions[0].annotations.readOnlyHint, true);
+  invoke(['mcp-container-apps-create', ...containerArgs, '--approve', 'wrong'], [1]);
+  const containerWritten = invoke(['mcp-container-apps-create', ...containerArgs, '--approve', containerPlan.result.approvalToken]).result;
+  assert.equal(containerWritten.status, 'generated-not-deployed');
+  assert.ok(!containerWritten.files.includes('mcp-server.json'));
+  const hostConfig = path.join(workspace, 'host-diagnostic.json');
+  await copyFile(path.join(installed, 'examples', 'mcp', 'host-engine-diagnostic.json'), hostConfig);
+  const hostArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', hostConfig,
+    '--output', path.join(workspace, 'host-result.json')];
+  const hostPlan = invoke(['mcp-host-plan', ...hostArgs, '--summary']);
+  assert.ok(hostPlan.stderr.includes(hostPlan.result.approvalDigest));
+  assert.equal(hostPlan.result.networkRequired, false);
+  invoke(['mcp-host-run', ...hostArgs, '--approve', hostPlan.result.approvalDigest], [1]);
+  await copyFile(path.join(installed, 'examples', 'mcp', 'approved-registry-diagnostic.json'), hostConfig);
+  const registryPlan = invoke(['mcp-host-plan', ...hostArgs, '--summary']);
+  assert.equal(registryPlan.result.registryProbe.endpoint, 'https://packages.example.com/npm/%40example%2Fmcp-runtime');
+  assert.ok(registryPlan.stderr.includes(registryPlan.result.registryProbe.endpoint));
+  invoke(['mcp-host-run', ...hostArgs, '--approve', registryPlan.result.approvalDigest], [1]);
+  const eventConfig = path.join(workspace, 'operator-event.json');
+  await writeFile(eventConfig, JSON.stringify({ schemaVersion: 1, action: 'wait', phase: 'Owner resource review',
+    reason: 'owner-unavailable', resumeWhen: 'Owner supplies resource review' }));
+  const operatorArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', eventConfig];
+  const operatorPlan = invoke(['mcp-operator-plan', ...operatorArgs, '--summary']);
+  assert.ok(operatorPlan.stderr.includes(operatorPlan.result.approvalToken));
+  invoke(['mcp-operator-record', ...operatorArgs, '--approve', operatorPlan.result.approvalToken]);
+  assert.equal(invoke(['mcp-operator-status', '--workspace-root', workspace, '--project', containerOutput]).result.waiting.repeatPrompt, false);
+  for (const [name, content] of Object.entries(containerPlan.result.files)) {
+    assert.equal(await readFile(path.join(containerOutput, name), 'utf8'), content);
+  }
+  // The generated runtime has its own reviewed lock. Seed any additional exact
+  // tarballs only after proving the consumer needs nothing beyond the root lock.
+  const runtimeLock = JSON.parse(await readFile(path.join(containerOutput, 'package-lock.json')));
+  await seedTarballs(Object.fromEntries(Object.entries(runtimeLock.packages).filter(([name, entry]) => name && !entry.dev)));
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
+    { cwd: containerOutput, encoding: 'utf8', timeout: 60000 });
+  const runtimeSmoke = path.join(consumer, 'container-runtime-smoke.mjs');
+  await writeFile(runtimeSmoke, `
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { validateRuntimeConfig, toolDefinitions, createProtocolServer } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'runtime.js')).href)};
+const config = validateRuntimeConfig(JSON.parse(await readFile(${JSON.stringify(path.join(containerOutput, 'runtime-config.json'))})));
+assert.equal(toolDefinitions(config)[0].annotations.readOnlyHint, true);
+const server = createProtocolServer(config);
+await server.close();
+`);
+  const smoke = spawnSync(process.execPath, ['--require', preload, runtimeSmoke],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(smoke.status, 0, smoke.stderr);
+  assert.doesNotMatch(smoke.stdout + smoke.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  assert.equal(invoke(['mcp-hosting-schema']).result.oneOf.length, 4);
+  for (const name of ['container-apps-apim', 'app-service-container', 'functions-sdk']) {
+    const config = path.join(workspace, `${name}.json`), output = path.join(workspace, name);
+    await copyFile(path.join(installed, 'examples', 'mcp', `${name}.json`), config);
+    const args = ['--workspace-root', workspace, '--config', config, '--output', output];
+    const plan = invoke(['mcp-hosting-plan', ...args, '--summary']);
+    assert.ok(plan.stderr.includes(plan.result.approvalToken));
+    if (name === 'container-apps-apim') {
+      assert.match(plan.stderr, /independent signed gateway token/);
+      assert.doesNotMatch(plan.stderr, /no APIM/);
+    }
+    if (name === 'functions-sdk') assert.match(plan.stderr, /PUBLIC PREVIEW/);
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken]);
+    assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
+    const source = invoke(['mcp-recipe-source-plan', '--workspace-root', workspace, '--project', output]).result;
+    assert.equal(source.deployed, false);
+    if (name === 'functions-sdk') {
+      const releaseConfig = path.join(workspace, 'functions-release.json');
+      await writeFile(releaseConfig, JSON.stringify({ schemaVersion: 1, accountName: 'operator@example.com',
+        sourceArchiveSha256: source.sourceArchiveSha256 }));
+      const releaseArgs = ['--workspace-root', workspace, '--project', output, '--config', releaseConfig,
+        '--output', path.join(workspace, 'functions-release')];
+      const release = invoke(['mcp-recipe-release-plan', ...releaseArgs, '--summary']).result;
+      const written = invoke(['mcp-recipe-release-bundle', ...releaseArgs, '--approve', release.approvalToken]).result;
+      assert.equal(written.status, 'release-prepared-not-deployed');
+    }
+  }
+  const handoverConfig = path.join(workspace, 'handover.json');
+  await writeFile(handoverConfig, JSON.stringify({ schemaVersion: 1, snapshotAt: new Date().toISOString(),
+    privateExportReviewed: true }));
+  const handoverOutput = path.join(workspace, 'handover');
+  const handoverArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', handoverConfig, '--output', handoverOutput];
+  assert.equal(invoke(['mcp-handover-schema']).result.properties.privateExportReviewed.const, true);
+  const handover = invoke(['mcp-handover-plan', ...handoverArgs, '--summary']);
+  assert.ok(handover.stderr.includes(handover.result.approvalToken));
+  invoke(['mcp-handover-bundle', ...handoverArgs, '--approve', 'wrong'], [1]);
+  assert.equal(invoke(['mcp-handover-bundle', ...handoverArgs, '--approve', handover.result.approvalToken]).result.status,
+    'handover-written-not-executed');
+  assert.match(await readFile(path.join(handoverOutput, 'index.html'), 'utf8'), /Recreate in another environment/);
+  assert.equal(JSON.parse(await readFile(path.join(handoverOutput, 'architecture.excalidraw'))).type, 'excalidraw');
+  const handoverManifest = JSON.parse(await readFile(path.join(handoverOutput, 'handover-manifest.json')));
+  assert.equal(handoverManifest.executionReadiness, false);
+  assert.equal(handoverManifest.proofReplayAuthorized, false);
+  const securedProjects = [];
+  for (const name of ['container-apps-direct', 'container-apps-apim', 'app-service-container', 'functions-sdk']) {
+    const config = path.join(workspace, `${name}-api-key.json`), output = path.join(workspace, `${name}-api-key`);
+    await copyFile(path.join(installed, 'examples', 'mcp', `${name}-api-key.json`), config);
+    const args = ['--workspace-root', workspace, '--config', config, '--output', output];
+    const plan = invoke(['mcp-hosting-plan', ...args, '--summary']);
+    assert.match(plan.stderr, /Backend: API key in (header|query)/);
+    assert.ok(plan.stderr.includes(plan.result.review.backend.apiKey.identityResourceId));
+    invoke(['mcp-hosting-create', ...args, '--approve', 'wrong'], [1]);
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken]);
+    invoke(['mcp-hosting-create', ...args, '--approve', plan.result.approvalToken], [1]);
+    assert.equal(await readFile(path.join(output, 'runtime.js'), 'utf8'), await readFile(path.join(containerOutput, 'runtime.js'), 'utf8'));
+    securedProjects.push(output);
+  }
+  execFileSync(process.execPath, [npm, 'ci', ...offline, '--omit=dev'],
+    { cwd: securedProjects[0], encoding: 'utf8', timeout: 60000 });
+  const keySmoke = path.join(consumer, 'generated-key-runtime.mjs');
+  await writeFile(keySmoke, `
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import path from 'node:path';
+import { createProtocolServer, createRequestHandler } from ${JSON.stringify(pathToFileURL(path.join(securedProjects[0], 'runtime.js')).href)};
+// All four emitted runtimes above are byte-identical; use their independent cached dependency installation.
+for (const project of ${JSON.stringify(securedProjects)}) {
+  const config = JSON.parse(await readFile(path.join(project, 'runtime-config.json')));
+  assert.throws(() => createRequestHandler(config, 'http://localhost:3000/mcp', { env: {} }), /configuration is unavailable/);
+  const key = 'synthetic-packed-only+credential/42';
+  const calls = [], logs = [];
+  let reflect = false;
+  const server = createProtocolServer(config, { env: { MCP_BACKEND_API_KEY: key }, log: e => logs.push(e),
+    request: async (url, options) => { calls.push({ url, options }); return Response.json(reflect ? { value: key } : { value: 42 }); } });
+  const client = new Client({ name: 'packed-offline', version: '1' });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    await server.connect(st); await client.connect(ct);
+    assert.equal((await client.listTools()).tools[0].annotations.readOnlyHint, true);
+    assert.equal(calls.length, 0);
+    const result = await client.callTool({ name: 'get_information', arguments: {} });
+    assert.equal(result.isError, undefined);
+    assert.equal(calls.length, 1);
+    const auth = config.backendAuthentication;
+    if (auth.headerName) assert.deepEqual(calls[0].options.headers, { accept: 'application/json', [auth.headerName]: key });
+    else {
+      assert.equal(new URL(calls[0].url).searchParams.get(auth.queryParameterName), key);
+      assert.deepEqual(calls[0].options.headers, { accept: 'application/json' });
+    }
+    assert.equal(calls[0].options.redirect, 'error');
+    reflect = true;
+    const rejected = await client.callTool({ name: 'get_information', arguments: {} });
+    assert.equal(rejected.isError, true);
+    assert.equal(calls.length, 2);
+    assert.ok(!JSON.stringify({ rejected, logs }).includes(key));
+  } finally { await client.close(); await server.close(); }
+}
+`);
+  const keyResult = spawnSync(process.execPath, ['--require', preload, keySmoke],
+    { cwd: consumer, encoding: 'utf8', timeout: 30000 });
+  assert.equal(keyResult.status, 0, keyResult.stderr);
+  assert.doesNotMatch(keyResult.stdout + keyResult.stderr, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  for (const unresolved of ['', '@Microsoft.KeyVault(SecretUri=https://synthetic-vault.vault.azure.net/secrets/backend-access)']) {
+    const failedStartup = spawnSync(process.execPath, ['--require', preload, path.join(securedProjects[0], 'server.js')],
+      { cwd: consumer, encoding: 'utf8', timeout: 30000, env: { ...process.env, PORT: '3000',
+        PUBLIC_MCP_URL: 'http://localhost:3000/mcp', MCP_BACKEND_API_KEY: unresolved } });
+    assert.equal(failedStartup.status, 1);
+    assert.match(failedStartup.stderr, /startup-failed/);
+    assert.doesNotMatch(failedStartup.stdout + failedStartup.stderr, /vault\.azure\.net|TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
+  }
+  const referenceConfig = path.join(workspace, 'recipe-reference.json');
+  await writeFile(referenceConfig, JSON.stringify({ schemaVersion: 1,
+    serverId: '66666666-6666-4666-8666-666666666666', endpoint: 'https://synthetic-mcp.example.com/mcp' }));
+  const referenceArgs = ['--workspace-root', workspace, '--project', containerOutput, '--config', referenceConfig,
+    '--output', path.join(workspace, 'recipe-reference')];
+  const reference = invoke(['mcp-recipe-reference-plan', ...referenceArgs, '--summary']).result;
+  assert.equal(invoke(['mcp-recipe-reference-create', ...referenceArgs, '--approve', reference.approvalToken]).result.endpointStatus,
+    'referenced-not-verified');
+  const validationInput = path.join(workspace, 'validation.json'), validationOutput = path.join(workspace, 'validation-run');
+  const recipeDefinition = JSON.parse(await readFile(path.join(containerOutput, 'recipe-definition.json')));
+  await writeFile(validationInput, JSON.stringify({ schemaVersion: 1, scenario: 'container-apps-existing-v1',
+    sourceProject: containerOutput, referenceProject: path.join(workspace, 'recipe-reference'),
+    consumer: 'none', privateExportReviewed: true,
+    discovery: { discoveryClientId: recipeDefinition.authentication.allowedClientIds[0],
+      expectedUserId: '55555555-5555-4555-8555-555555555555' },
+    proof: { toolName: recipeDefinition.operationIds[0], arguments: {},
+      safetyReview: { readOnly: true, reason: 'Reviewed synthetic fixed GET.' } } }));
+  assert.equal(invoke(['mcp-validation-schema']).result.scenario.properties.scenario.const, 'container-apps-existing-v1');
+  const validationArgs = ['--workspace-root', workspace, '--config', validationInput, '--output', validationOutput];
+  const validationPlan = invoke(['mcp-validation-plan', ...validationArgs, '--summary']);
+  assert.ok(validationPlan.stderr.includes(validationPlan.result.approvalToken));
+  assert.equal(invoke(['mcp-validation-start', ...validationArgs, '--approve', validationPlan.result.approvalToken], [2])
+    .result.status, 'waiting-for-owner');
+  const activeValidation = ['--workspace-root', workspace, '--project', validationOutput];
+  assert.equal(invoke(['mcp-validation-next', ...activeValidation], [2]).result.approvalToken, null);
+  assert.equal(invoke(['mcp-validation-status', ...activeValidation], [2]).result.executionReadiness, false);
+  const validationHandover = invoke(['mcp-validation-next', ...activeValidation, '--phase', 'handover']).result;
+  assert.equal(invoke(['mcp-validation-run', ...activeValidation, '--phase', 'handover',
+    '--approve', validationHandover.approvalToken], [2]).result.handovers.length, 1);
+  const creationInput = path.join(workspace, 'creation-input.json'), creationOutput = path.join(workspace, 'creation-run');
+  await writeFile(creationInput, JSON.stringify({
+    schemaVersion: 2, scenario: 'container-apps-create-v2', definitionFile: containerInput,
+    discovery: { discoveryClientId: recipeDefinition.authentication.allowedClientIds[0],
+      expectedUserId: '55555555-5555-4555-8555-555555555555' },
+    proof: { toolName: recipeDefinition.operationIds[0], arguments: {},
+      safetyReview: { readOnly: true, reason: 'Reviewed synthetic fixed GET.' } },
+    probeMode: 'separate', consumer: 'none', relatedProjects: [], historyReviewed: true, privateExportReviewed: true,
+  }));
+  const creationArgs = ['--workspace-root', workspace, '--config', creationInput, '--output', creationOutput];
+  const creationPlan = invoke(['mcp-validation-plan', ...creationArgs]).result;
+  invoke(['mcp-validation-start', ...creationArgs, '--approve', creationPlan.approvalToken]);
+  const activeCreation = ['--workspace-root', workspace, '--project', creationOutput];
+  const generation = invoke(['mcp-validation-next', ...activeCreation]).result;
+  assert.equal(generation.phase, 'generate');
+  invoke(['mcp-validation-run', ...activeCreation, '--approve', generation.approvalToken]);
+  assert.equal(invoke(['mcp-validation-next', ...activeCreation], [2]).result.gate, 'prerequisites');
+  assert.equal(invoke(['mcp-validation-status', ...activeCreation]).result.coverage.cloudDeployment, 'not-automated');
   const guidedProject = path.join(workspace, 'guided-reference');
   const rehearsal = path.join(consumer, 'guided-rehearsal.mjs');
   await writeFile(rehearsal, `
@@ -118,6 +404,8 @@ if (await main(args) !== 2) throw Error('Expected a blocked local Resume report,
   assert.ok(cap.commands.includes('mcp-auth-execution-plan'));
   assert.equal(cap.authRegistrationExecution.liveQualified, false);
   assert.equal(cap.authRegistrationExecution.automaticRetry, false);
+  assert.equal(cap.authRegistrationExecution.windowsExecution, true);
+  assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].projectIsolatedCredentials, false);
   assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'register', 'close']);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.schemaVersion.const, 1);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.allowAnyAppValidationPlaceholder.type, 'boolean');
@@ -215,6 +503,31 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.ok(executionPlan.stderr.includes(executionPlan.result.approvalToken));
   invoke(['mcp-auth-execute', ...executionArgs, '--approve', executionPlan.result.approvalToken, '--allow-provider'], [1]);
   assert.ok(!(await readdir(fccWorkspace)).includes('auth-session'));
+  await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
+    providerRoot, allowAnyAppValidationPlaceholder: true, authenticationMode: 'windows-user-managed', sharedProfileReviewed: true }));
+  const windowsSession = path.join(fccWorkspace, 'windows-auth-session');
+  const windowsArgs = [...fccBase, '--project', windowsSession, '--config', executionConfig];
+  const windowsPlan = invoke(['mcp-auth-execution-plan', ...windowsArgs, '--phase', 'initialize', '--summary']);
+  assert.equal(windowsPlan.result.authenticationMode, 'windows-user-managed');
+  assert.ok(windowsPlan.stderr.includes('NOT project-isolated'));
+  if (process.platform === 'win32') {
+    assert.equal(windowsPlan.result.status, 'planned');
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'initialize',
+      '--approve', windowsPlan.result.approvalToken, '--allow-provider']);
+    assert.equal(invoke(['mcp-auth-execution-status', ...fccBase, '--project', windowsSession]).result.authenticationMode, 'windows-user-managed');
+    const loginPlan = invoke(['mcp-auth-execution-plan', ...windowsArgs, '--phase', 'login', '--summary']);
+    assert.ok(loginPlan.stderr.includes('may replace'));
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'login', '--approve', loginPlan.result.approvalToken,
+      '--allow-provider', '--interactive'], [1]);
+    const closeArgs = [...fccBase, '--project', windowsSession, '--phase', 'close'];
+    const close = invoke(['mcp-auth-execution-plan', ...closeArgs]);
+    invoke(['mcp-auth-execute', ...closeArgs, '--approve', close.result.approvalToken, '--allow-provider']);
+    assert.equal(invoke(['mcp-auth-execution-status', ...fccBase, '--project', windowsSession]).result.status, 'closed');
+  } else {
+    assert.ok(windowsPlan.result.gaps.includes('WINDOWS_REQUIRED'));
+    invoke(['mcp-auth-execute', ...windowsArgs, '--phase', 'initialize',
+      '--approve', windowsPlan.result.approvalToken, '--allow-provider'], [1]);
+  }
   await writeFile(executionConfig, JSON.stringify({ schemaVersion: 1, registrationConfig: 'registration.json',
     providerRoot, allowAnyAppValidationPlaceholder: true }));
   const compatiblePlan = invoke(['mcp-auth-execution-plan', ...executionArgs, '--summary']);

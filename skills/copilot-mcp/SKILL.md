@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate standalone REST-to-MCP APIM bundles, prepare custom federated connector onboarding drafts, and safely resume, inspect or preserve MCP evidence with the local copilot-mcp CLI. Not plugin authoring or arbitrary OAuth/server generation.
+description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps, App Service and Functions SDK recipes; prepare custom federated connector drafts and safely resume or preserve MCP evidence. Not plugin authoring or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -10,8 +10,178 @@ Use the user's installed `copilot-mcp` bin or explicit
 install globally, download a runtime or search private directories. Use the same
 engine for all operations. First read `--help` and `capabilities --json` from that
 installation, then its `docs/cli-contract.md` and `docs/scenarios.md` as needed.
+For candidate validation, read `docs/validation-readiness.md`. Pin the exact
+engine path/build ID and matching shipped skill; do not assume `main`, package
+version or an installed skill copy includes newer branch work. A mismatch needs
+review, not silent installation, skill replacement or stale-approval reuse.
 
 ## New or resume
+
+When the owner wants a minimally interrupted, single-reviewed execution, read
+the **separate bounded execution contract** in `docs/reusable-validation.md` and
+`mcp-execution-schema`. Prepare a fresh `mcp-execution-plan` with the exact v2
+scenario, identities, related histories, host/download choices, resource limits,
+expiry and one proof. Have the owner review that complete grant once, record it
+with `mcp-execution-start`, then use `mcp-execution-run` without further phase
+approval questions. Do not implement an agent-side loop that blindly approves
+legacy plans. Never infer this grant from generation, old approvals or live
+history. Resume only the same unexpired, settled run and pinned toolkit build.
+Use a real terminal for required sign-in; the assistant cannot perform MFA.
+Retain pending consumer, negative and rotation gates as such. Submit genuine
+pending owner evidence with `mcp-execution-record`; it cannot erase a failure.
+Scope/security/identity drift, exhausted budgets and unknown dispatches stop
+without retry. An execution expiry is not resource cleanup or a billing cap.
+
+For reusable validation of an **existing direct Container Apps deployment** (v1),
+read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private
+run with reviewed `mcp-validation-plan/start`, then drive
+`mcp-validation-next/run/status` using the same pinned build and run directory.
+Do the local checks and prepare exact phase reviews; pause only for required
+approval, real-terminal sign-in or genuine owner/provider actions. Never
+auto-answer the session's newly generated proof approval. Use the selected
+valid capture/historical receipt rather than restarting discovery/proof.
+Batch applicable owner findings in one checkpoint file, labelled owner-reported,
+not verified. Honor `repeatPrompt:false` and source-operator waits; stop on unknown
+or consumed execution. `--phase refresh` only refreshes a local report; `--phase
+handover` supports separately approved incomplete closeout. No registration,
+deployment, credential resolution or network operation is implied by start.
+
+For fresh creation validation, use the v2 schemas in the same command family.
+Priority: direct Container Apps, Container Apps behind APIM, native APIM from
+REST, and existing MCP/proxies. Read the guide's support matrix before selecting
+header/query Key Vault keys or Entra profiles; Entra caller access never means
+the SDK REST backend supports Entra/OBO. Pin definitionFile and explicitly list
+all related MCP project histories, including replaced references. Do not reuse
+a consumed provider purpose by creating a new run/reference/source. V2 rechecks
+those declared histories during network execution; it cannot find omitted histories.
+Drive one exact next phase at a time using only its requiredFlags. Native/proxy
+APIM account/lifecycle uses existing private executors; SDK build/deployment,
+negative tests, secret resolution/rotation and consumer actions remain separate
+reviewed operations with owner evidence checkpoints. Release/reference requests
+select actual image/account/endpoint inputs, not invented successful values.
+Use v2 --phase handover for a frozen SDK snapshot or --phase archive for private
+MCP evidence; keep the run/report separately. Neither export authorizes replay.
+Third-party OAuth REST, OBO token exchange and username/password profiles are the
+next priority after these runners, not implemented by this workflow. Distinguish
+Basic authentication, password exchange and ROPC; never assume the last is wanted.
+
+When the user requests hosting without APIM, or needs server-owned tool
+annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
+`mcp-hosting-schema --json`. In order: direct Container Apps, Container Apps behind
+APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
+private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
+Generation is local and is not part of the terminal wizard or APIM Resume.
+Select `npmRegistryUrl` explicitly before generation when public npm is blocked;
+the historical default remains public npm. Confirm that the selected feed is
+approved and can serve the locked dependencies. A diagnostic HTTP 200 is not
+package restore/build qualification. Never rewrite sealed lockfiles or inject
+registry credentials; use a new reviewed source project for changed inputs.
+
+For container hosts, collect the reviewed `imageBuild` builder/runtime digests
+and platform before source generation. Without them the toolkit deliberately
+does not emit a Dockerfile; never substitute a mutable tag or edit sealed source
+in place. Generate a new project after selecting the inputs. Use the separate
+`mcp-recipe-review-*` image-qualification contract for digest-bound scan, SBOM
+and offline actual-image smoke evidence, and bind it as `imageReviewFile` in a
+new release review. Imported receipts are operator declarations, not signed
+attestations. Never build, pull, scan or deploy merely to fill a missing field.
+
+For an all-new direct Container Apps scenario, start with `mcp-bootstrap-*`.
+It emits separate prerequisite templates and reuses `mcp-app-*` for directory
+setup. Never make up app/principal IDs; obtain readback before dependent review.
+Use `mcp-recipe-review-*` for image qualification, image-only Container Apps
+updates, additive Entra settings, asynchronous readiness, auth migration impact,
+secret metadata and cost/closeout. Existing-resource migration is not safe
+create-template reuse. A successful ARM result may precede a ready revision;
+observe exact metadata rather than redeploying.
+
+Use `mcp-host-schema/plan/run` for separately approved engine, host/container npm
+diagnostics. Confirm the approved registry first; do not assume public npm is
+allowed. Set `registryProbe.registryUrl` explicitly for another feed, with
+`kind: "ping"` or `kind: "package-metadata"` plus a reviewed `packageName` when
+ping is unsupported. The plan binds the exact URL; do not import registry
+credentials, install a package or change `.npmrc` to test connectivity.
+Use the same command family for private ACR pulls. Read the guide's exact local socket, existing
+image and local/network/cloud flags. Never start Docker, auto-pull a probe image,
+disable TLS/integrity or turn a failed local diagnostic into paid build approval.
+Private pull requires `mcp-host-account-plan/switch` on the sealed source project,
+an exact digest and trusted nondebug local daemon. No shared Docker login or
+saved registry credential. Preserve result/intent and pull reservations; unknown
+dispatch is not retried under a new output name. Unconfirmed cleanup is a blocker.
+
+Use `mcp-terminal-handoff` for exact quoted discovery/proof commands, each with
+its own review, in a real terminal. No browser automation, challenge transcripts
+or token-cache sharing. Cross-process sign-ins remain separate.
+The optional `session` phase / `mcp-session-plan` uses the dedicated session
+config for existing Entra MCP references, an explicit expected user and a
+15-minute in-memory lifetime. After discovery, the user must approve the newly
+displayed exact proof digest; do not preapprove, auto-answer or infer that grant
+from discovery approval. Blank declines. Expiry/cancellation never refreshes,
+restarts login or replays a sent/unknown call automatically.
+For a future unused existing-MCP first proof, a reviewed `resultAssertion`
+json-array-string-field-v1 can check a bounded array/string contract in that
+same call. Never retrofit it by repeating an already consumed call.
+`scaleProfile: "scale-to-zero"` is an explicit new Container Apps source choice,
+not a default or free-tier promise. Closeout is separately reviewed and never
+automatic.
+
+At the end of a hosting journey, including a pause or deferred validation,
+include the deployment handover as the standard closeout step. Read
+`docs/deployment-handover.md` and `mcp-handover-schema --json`. Prepare bounded
+nonsecret inputs with a current UTC snapshotAt, explicit private-export review,
+optional exact source-matched release/reference paths and honest owner reports.
+Use `mcp-handover-plan --summary`, review its exact local export and obtain
+approval before `mcp-handover-bundle` writes a NEW folder. If export is declined,
+leave it pending; do not imply the HTML was created.
+Point the user to index.html and keep its source/template/diagram files together.
+The two tabs and SVG/Excalidraw diagram derive from recipe and retained records,
+not transcript scraping. Pending/deferred work, configured versus installed
+resources and owner-reported versus historical observations stay distinct.
+Never copy authentication caches, raw captures/logs, credentials or old approval
+tokens. Never run the displayed commands, upload the diagram, or turn the
+handover into permission to deploy, install, sign in or replay a consumed call.
+
+Explain the current boundary in plain language: Entra sign-in for callers,
+anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
+host prerequisites from the guide. Ask for actual resource
+choices and IDs, not fabricated placeholders. Require explicit read-only review;
+do not claim annotations independently prove backend behavior. Use the plan's
+exact `approvalToken` after approval to save files. Never substitute the APIM
+schema or lifecycle, fabricate a compatibility descriptor, install dependencies,
+build/push an image, sign in, deploy or call the endpoint as part of generation.
+After generation, use the separate `mcp-recipe-source-plan` and
+`mcp-recipe-release-plan/bundle` only for reviewed local preparation. Deployment
+remains an operator action with separate private identity/prerequisite/what-if
+review, not `mcp-resume`. Recipe 2 requires both a signed gateway token and the
+original delegated caller; never bypass the gateway with a plain header.
+App Service needs the pull identity's client ID as well as its resource ID.
+Functions is an explicit preview opt-in, Linux FC1, stateless custom handler with
+managed-identity blob storage and a source ZIP, not a container.
+
+For API-key REST backends on any of these four recipes, read the shared guide's
+API-key section and the selected `examples/mcp/*-api-key.json` format. Collect
+only the explicit tenant, vault resource ID, secret URI and **separate**
+pre-existing user-assigned secret-reader identity ID, plus one dedicated header
+or query name. Never ask for a key value or copy it into tools, files or logs.
+Confirm shared backend entitlement before `sharedAccessReviewed: true`; for
+query keys also require safe backend/intermediary/platform URL logging review
+before `queryExposureReviewed: true`. Prefer a header where the provider permits.
+Match any selected OpenAPI API-key security declaration exactly; reject mixed
+auth rather than stripping it. Never reuse the pull/storage identity or grant
+roles to make this work. Missing/unresolved injected keys fail startup; do not
+suggest anonymous fallback, removing caller checks or retrying a dispatched call.
+Generation/release use native Key Vault references, not a live secret read.
+Local launch needs separate approved, process-only secret resolution/injection;
+read the guide rather than pasting key values into shell commands or settings.
+Rotation/refresh, deployment and actual backend compatibility remain separate
+live checks. Keep installed skill copies unchanged unless explicitly requested.
+
+After separate deployment/readback, an explicitly supplied endpoint can use
+`mcp-recipe-reference-plan/create` to create a new unverified existing-MCP project.
+Use that reference for existing discovery/proof/FCC commands, not the source
+project. Require fresh observed metadata and separate approvals. Never treat
+generated annotations, source manifests, image digests or endpoint assertions
+as consumer qualification, and never use a new reference to replay consumed calls.
 
 Start with the user's intent: a new setup or resuming an existing private project.
 For New, ask source type (REST API or existing MCP) and then source authentication.
@@ -83,8 +253,13 @@ after explicit confirmation. Do not hide or weaken exact-plan binding.
 
 ### Keep the next step visible
 
-After a successful step, use the local `mcp-resume` report to identify what comes
-next. State what finished, what has NOT happened, and ask about the next supported
+After a successful APIM or endpoint-reference step, use the local `mcp-resume`
+report to identify what comes next. For SDK hosting source, use
+`mcp-recipe-source-plan` and `mcp-operator-status`; never pass source/release folders
+to APIM Resume. Keep the explicit source, release, endpoint-reference and auth
+session paths distinct. At a pause, preserve the owner wait and consumed history;
+do not create a replacement reference or repeat a provider call to resume.
+State what finished, what has NOT happened, and ask about the next supported
 step instead of ending with only "separate approval required". Do not wait for
 the user to guess a phrase such as "let's deploy".
 
@@ -174,6 +349,12 @@ them or stall independent local preparation. Record known placeholder policies
 with `review.legalPolicies: "placeholder"`; this blocks submission even with all
 URLs present. `reviewed` is only an owner declaration, not independent legal
 verification. Do not fetch policy pages from offline commands or tests.
+If the owner explicitly defers policies for a PoC, record
+`review.pocPolicyDeferral: true` without marking policies reviewed/final.
+Keep submission/rollout gates visible but do not repeat them as blockers for a
+separately authorized scope diagnosis. Copy **Portal OAuth scope (fully
+qualified)**, not the short runtime permission name, into the existing portal
+registration; an AADSTS650053 wrong-resource error alone needs no server rebuild.
 
 Before asking for a retry, check whether the original owned sign-in is still
 active using nonsecret status. Do not launch a duplicate attempt or clear its
@@ -185,6 +366,19 @@ Report the completed phase precisely instead of repeatedly announcing the same
 blocker or claiming the whole journey is complete. Local handoff completion,
 human FCC submission, admin Ready status and attributed consumer execution are
 separate outcomes.
+
+For recipe operator work, use the separate `mcp-operator-*` journal when an owner
+has approved local recording. Reserve the exact reviewed operation, record
+dispatch BEFORE running the separately approved external command, and reconcile
+missing/ambiguous output through metadata instead of resubmitting. No journal
+entry is itself an executor or service attestation.
+Use `wait` once if the owner is unavailable. Honor `repeatPrompt: false`: stop
+until substantive owner input, not a generic continuation reminder. Record a
+matching `resume` with the new input digest; never mark incomplete work done to
+escape a host loop. Owner reports belong to specific `owner-result` milestones.
+The host integration must implement waiting; the compiler cannot enforce host
+scheduling. When the request changes, finish that separate deliverable without
+repeating an unrelated blocked registration question.
 
 Use the reference-aware registration checklist: preserve an existing ID exactly
 and do not create another registration. Preserve old descriptor-bound receipts
@@ -212,11 +406,19 @@ This is local preparation, not login or registration.
 For separately requested registration execution, read the auth runbook first.
 Use `mcp-auth-execution-plan` and `mcp-auth-execute` for independent
 initialize/login/register/close approvals, never the preparation token.
-Execution requires a trusted Linux host, owner-only tmpfs, an explicitly selected
-ATK 1.1.17 installation and real app ID unless the compatibility option below is
-explicitly selected. Windows/macOS are refused; never invoke
-ATK against shared credentials, install a provider or start Docker as a shortcut.
-Do not retain login URLs. ATK may launch the Windows default browser under WSL;
+Offer native Windows for secretless Entra SSO using explicit
+`authenticationMode: "windows-user-managed"` and `sharedProfileReviewed: true`.
+Explain that ATK uses its normal profile, Credential Manager and possibly the
+broker, may replace its prior sign-in, and retains provider-owned caches/logs.
+This is not project-isolated authentication. Do not copy caches, automate account
+selection, clear shared credentials, or run concurrent ATK authentication commands.
+Linux/WSL remains optional for isolated SSO; omission of the mode retains the
+historical Linux-only default, not an automatic Windows fallback.
+Custom OAuth execution still requires Linux owner-only tmpfs. Both modes require
+an explicitly selected ATK 1.1.17 installation and real app ID unless the
+compatibility option below is explicitly selected. macOS is unsupported; never
+install a provider or start Docker as a shortcut.
+Do not retain login URLs. In Linux mode ATK may launch the Windows default browser under WSL;
 the toolkit does not isolate browser cookies/history or select the browser account.
 The browser must reach the Linux loopback callback. A Windows browser may use separately verified WSL localhost forwarding;
 do not assume that forwarding or browser authentication works from WSL presence.
@@ -235,13 +437,16 @@ the reviewed provider mapping sends an empty M365 app binding. Do not create a
 dummy app, supply that UUID as a real app ID, or first register `SpecificApp`
 and ask the owner to broaden it later. The option is rejected for `SpecificApp`,
 `AnyTenant`, OAuth or supplied app IDs. Review its disclosure in each phase plan;
-all Linux isolation, identity and exact approval gates remain. Do not change
+all selected-mode review, identity and exact approval gates remain. Do not change
 the historical preparation format or infer live qualification from this option.
 
 Use local `mcp-auth-execution-status` after failures; never replay registration
 or remove consumed reservations. Unconfirmed termination retains the operation
 lock and owned process PID; do not clean up the runtime until reconciled.
-Normal close removes only the owned runtime, retaining journals. Import a
+Normal close removes only the owned runtime, retaining journals. Windows close
+does not log out or remove the normal-profile credentials, cache or logs.
+Unconfirmed Windows termination also retains the per-user toolkit operation lock;
+never remove that lock to retry before reconciling the owned process tree. Import a
 successful `created-unverified` result through preparation's
 `source.registrationResultFile`, never as readiness or publication authority.
 

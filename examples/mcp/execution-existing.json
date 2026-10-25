@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "scenarioFile": "execution-scenario-existing.json",
+  "expiresAt": "2099-01-01T00:00:00.000Z",
+  "limits": {
+    "maximumSteps": 20,
+    "maximumAzureCommands": 0,
+    "maximumProviderCalls": 1,
+    "maximumRunMs": 600000
+  },
+  "minimumProofDelayMs": 0,
+  "ownerEvidence": []
+}

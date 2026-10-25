@@ -35,15 +35,19 @@
   ],
   "scripts": {
     "start": "node bin/copilot-mcp.js",
-    "check": "node --check bin/copilot-mcp.js",
+    "check": "node scripts/check-syntax.mjs",
+    "check:assets": "node scripts/update-assets.mjs --check",
+    "validate": "npm run check:assets && npm run check && npm run test:types && npm test",
     "test": "node --test test/*.test.js",
     "test:types": "tsc --noEmit --strict --module nodenext --target es2022 test/types.mts"
   },
   "dependencies": {
     "@azure/msal-node": "7.0.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "fflate": "0.8.3"
+    "fflate": "0.8.3",
+    "jose": "6.2.12"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

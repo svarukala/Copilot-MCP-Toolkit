@@ -90,6 +90,20 @@ test('FCC missing capture produces an explicitly blocked draft with no fabricate
   await writeFccBundle({ ...f.options, approval: plan.approvalToken });
 });
 
+test('PoC policy deferral keeps submission blocked but scopes unrelated authorization troubleshooting separately', async t => {
+  const f = await fixture(t, { auth: 'entra' });
+  f.config.review.legalPolicies = 'placeholder'; f.config.review.pocPolicyDeferral = true;
+  await f.save();
+  const { bundle } = await planFccBundle(f.options);
+  assert.equal(bundle.readiness.status, 'blocked');
+  assert.equal(bundle.phaseReadiness.submission, 'blocked');
+  assert.equal(bundle.phaseReadiness.policyDisposition, 'owner-deferred-not-finalized');
+  assert.equal(bundle.phaseReadiness.authorizationTroubleshooting, 'separate-review-required-not-blocked-by-policy-deferral');
+  assert.equal(bundle.evidence.legalPolicies.status, 'placeholder');
+  f.config.review.legalPolicies = 'reviewed'; await f.save();
+  await assert.rejects(planFccBundle(f.options), { code: 'MCP_FCC_INPUT' });
+});
+
 test('public native APIM exports No Auth without SSO registration or invented read-only annotations', async t => {
   const tools = [{ name: 'getEurUsdReferenceRate', description: 'Retrieve a synthetic public rate',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false } }];
@@ -501,9 +515,9 @@ test('FCC rejects unsafe paths, wrong output type, absent workspace and symlinks
   await assert.rejects(planFccBundle({ ...f.options, workspaceRoot: undefined }), { code: 'MCP_FCC_WORKSPACE' });
   await assert.rejects(planFccBundle({ ...f.options, output: path.join(f.root, 'bundle.zip') }), { code: 'MCP_FCC_OUTPUT' });
   await assert.rejects(planFccBundle({ ...f.options, output: path.join(f.root, '..', 'escape.json') }), /inside|directory/);
-  f.config.source.descriptorFile = '..\\escape.json'; await f.save();
+  f.config.source.descriptorFile = path.join('..', 'escape.json'); await f.save();
   await assert.rejects(planFccBundle(f.options));
-  f.config.source.descriptorFile = 'linked\\descriptor.json'; await f.save();
+  f.config.source.descriptorFile = path.join('linked', 'descriptor.json'); await f.save();
   await symlink(f.root, path.join(f.root, 'linked'), process.platform === 'win32' ? 'junction' : 'dir');
   await assert.rejects(planFccBundle(f.options), /Symlinks|junctions/);
 });

@@ -3,7 +3,14 @@
 **Turn supported REST API operations into tools that AI assistants can use.**
 Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
 Management (APIM), and check them in separately approved steps. You can also
-connect to an existing Model Context Protocol (MCP) server.
+connect to an existing Model Context Protocol (MCP) server, or generate an
+[MCP servers on Container Apps, App Service or Functions](docs/hosting-recipes.md),
+with APIM optional as a gateway.
+
+Finish a hosting journey with a private [deployment handover](docs/deployment-handover.md):
+two-tab offline HTML showing recorded outcomes and repeat-environment steps,
+an embedded architecture diagram with editable Excalidraw source, and the
+source/templates kept alongside it. Pending work and owner reports stay explicit.
 
 MCP is a standard way for AI assistants to discover and call tools. For a financial
 services demo, those tools might retrieve public exchange rates or access an
@@ -12,8 +19,9 @@ or investment advice.
 
 Use the guided terminal setup or work conversationally with **GitHub Copilot
 CLI**. This is an experimental developer toolkit, not a turnkey production
-product. It creates APIM deployment files, not a standalone Node.js or Python
-MCP server. **Saving files does not deploy an endpoint or make it available in
+product. The guided setup creates APIM deployment files. The separate Container
+Apps recipe generates a Node.js MCP server and deployment review files, with a
+narrower initial feature set. **Saving files does not deploy an endpoint or make it available in
 Microsoft 365 Copilot.**
 
 [Quick start](#quick-start) |
@@ -53,6 +61,11 @@ pull requests. Contributions are subject to review; acceptance or a response
 within any particular timeframe is not guaranteed.
 
 ## Quick start
+
+**Validating a feature-branch build?** A normal clone selects `main`, not
+unmerged work. Follow the [candidate and acceptance checklist](docs/validation-readiness.md)
+to pin the intended commit/package, matching skill and offline validation result
+before running live scenarios.
 
 ### 1. Check what you need
 
@@ -199,15 +212,50 @@ selected values for your environment.
 | Scenario | Current boundary |
 | --- | --- |
 | REST API through APIM | Selected operations with supported anonymous, Key Vault API-key or limited Entra authentication patterns. Not every API can be converted. |
+| Container Apps, without APIM | SDK server, Entra sign-in, reviewed fixed GETs, Docker/ARM files and reviewed release preparation. [Recipe 1](docs/container-apps-recipe.md). |
+| Container Apps behind APIM | Same SDK server; APIM proxies requests rather than generating tools. Signed gateway identity prevents direct-host bypass. [Recipe 2](docs/apim-gateway-recipe.md). |
+| App Service | Same container on an existing Linux Basic-or-higher plan, with managed-identity image pull. [Recipe 3](docs/app-service-recipe.md). |
+| Azure Functions | SDK custom handler on Linux Flex Consumption, with managed-identity storage. **Public preview.** [Recipe 4](docs/functions-recipe.md). |
 | Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
 | Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
 | Username/password MCP | Backlog only; not implemented. |
 | Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
 | Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |
 
+For a new direct Container Apps setup, the [operator workflow](docs/hosting-recipes.md)
+now includes prerequisite templates, immutable operation records, preserving-update
+reviews, real-terminal handoffs and separate cost/cleanup planning. Container
+Dockerfiles require reviewed builder/runtime image digests; no mutable base image
+is selected automatically. Those operator commands prepare and record work, not deploy it.
+Separate [host operations](docs/hosting-recipes.md#environment-diagnostics-and-private-image-pulls)
+can diagnose Docker/npm connectivity or pull an exact private image without
+shared Docker login. An opt-in terminal session can reuse one in-memory sign-in
+across discovery and a separately approved proof; it never skips that approval.
+
+For fewer interruptions, the separate opt-in
+[bounded execution runner](docs/reusable-validation.md#bounded-execution-separate-contract-version-1)
+accepts one reviewed, expiring grant for a fresh creation journey, then checks and
+runs its authorized phases without repeated approval questions. It covers the
+five existing validation families, including bounded Container Apps host
+automation. Genuine sign-in and unsupported/manual acceptance gates remain
+explicit; failed or uncertain work is never retried. Legacy validation and
+terminal-session commands retain their separate approvals.
+
+The four SDK recipe commands generate source, deployment review files
+and local release bundles; **generation itself never deploys to Azure.** App
+Service and Functions still require separately performed deployment. Real
+hosting behavior and Copilot Read-only labels still need live validation.
+All four accept anonymous or [Key Vault API-key REST backends](docs/hosting-recipes.md#api-key-backends)
+with a dedicated header or reviewed query parameter and a separate secret-reading
+identity. Callers still require Entra; tools remain fixed, argument-free GETs.
+Use the [shared workflow](docs/hosting-recipes.md) to connect a separately
+deployed endpoint to the existing discovery and FCC steps.
+
 API keys belong in Azure Key Vault, referenced by configuration, never stored
-as values in toolkit JSON. Some advanced authentication-registration execution
-requires Linux; that is not a prerequisite for the local quick start.
+as values in toolkit JSON. [Native Windows SSO registration](docs/auth-registration.md#native-windows-sso-user-managed-profile)
+uses an explicitly reviewed normal ATK profile; Linux/WSL is optional for SSO
+and remains the isolated execution option. Custom OAuth execution still uses
+the Linux adapter. Neither Docker nor Linux is required for the local quick start.
 Testing support is narrower than generation support. Read the
 [scenario matrix](docs/scenarios.md) before choosing a production use case.
 
@@ -216,6 +264,8 @@ Testing support is narrower than generation support. Read the
 | Goal | Guide |
 | --- | --- |
 | Follow the guided setup or use Copilot CLI | [Copilot CLI guide](docs/copilot-cli.md) |
+| Choose an SDK server host or APIM gateway | [Four hosting recipes](docs/hosting-recipes.md) |
+| Resume existing direct ACA validation or fresh direct ACA / ACA+APIM / native REST APIM / existing MCP and proxy journeys | [Reusable validation](docs/reusable-validation.md) |
 | Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
 | Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
 | Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |

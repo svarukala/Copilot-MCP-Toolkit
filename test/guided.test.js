@@ -13,6 +13,8 @@ test('guided review welcomes the user once before its safety notice and menu', a
       assert.equal(output.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
       assert.match(output, /REST APIs -> MCP tools -> Copilot/);
       assert.match(output, /Local guided setup only\. Never enter credentials/);
+      assert.match(output, /This wizard covers native APIM and existing-MCP references/);
+      assert.match(output, /mcp-hosting-plan\/create/);
       const banner = output.slice(0, output.indexOf('Local guided setup only.'));
       assert.ok(banner.includes(' |  \\/  |/ ___|  _ \\'));
       assert.match(banner, /^[\x20-\x7e\n]+$/);
@@ -50,8 +52,9 @@ test('CLI welcome never appears in noninteractive, help, version or JSON output'
 test('guided review produces only local plan arguments and never forwards an approval', async () => {
   for (const [action, command] of [['generate', 'mcp-server-plan'], ['resources', 'mcp-resources-choose'], ['resume', 'mcp-resume']]) {
     const questions = [];
+    let output = '';
     const prompt = {
-      output: { write() {} },
+      output: { write(value) { output += value; } },
       choose: async (label, choices) => {
         const value = label === 'How would you like to start?' && action !== 'resume' ? 'advanced' : action;
         assert.ok(choices.some(choice => choice.value === value));
@@ -65,6 +68,10 @@ test('guided review produces only local plan arguments and never forwards an app
     assert.ok(!args.includes('--allow-cloud'));
     assert.ok(!args.includes('--allow-network'));
     assert.equal(questions.length, 2);
+    if (action === 'resume') {
+      assert.match(output, /not a sealed hosting source\/release folder/);
+      assert.match(output, /mcp-recipe-source-plan/);
+    }
   }
   const prompt = { output: { write() {} }, choose: async () => 'exit', ask: () => assert.fail('Exit must not ask for a path') };
   assert.equal(await guidedArguments(prompt), undefined);

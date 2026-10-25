@@ -18,8 +18,10 @@ the handoff recommendations are not approval for live execution or publication.
   are separate reviewed operations. Never infer approval from an earlier phase.
 - Keep stdout JSON parseable. Progress and exact approval summaries use stderr.
   Transient device challenges are terminal-only, never durable evidence.
-- Require explicit tenant/subscription/account and private project authentication.
+- Require explicit tenant/subscription/account and private Azure authentication.
   Never change a shared Azure CLI account or copy an authentication cache.
+  Native Windows SSO is an explicit reviewed user-managed ATK mode, not
+  project-isolated credentials; preserve shared caches and disclose login effects.
 - API keys are Key Vault references, not argument/config/example secret values.
 - Preserve inherited policies, unrelated resources, immutable evidence and locks.
   Failed/inconclusive/unknown dispatched calls remain consumed. No silent retry.

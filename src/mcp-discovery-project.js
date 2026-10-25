@@ -6,7 +6,7 @@ import { readMcpServerProject, planMcpServerCapture } from './mcp-lifecycle.js';
 import { boundedSnapshot, metadataDigest, requireMetadata, savedJson } from './anonymous-metadata.js';
 import { planMcpDiscovery, planMcpReadOnlyProof, discoverMcpToolsWithGuard, runMcpReadOnlyProofWithGuard,
   planMcpProjectMappedProof, runMcpProjectMappedProof, planMcpQualifiedProof, runMcpQualifiedProof,
-  planMcpAcceptedProof, runMcpAcceptedProof } from './mcp-discovery.js';
+  planMcpAcceptedProof, runMcpAcceptedProof, runMcpSessionOperation } from './mcp-discovery.js';
 import { planNativeGetMapping, verifyNativeGetMapping, nativeProofFailure } from './mcp-native-proof.js';
 import { readMcpProofHistory, assertMcpProofHistory } from './mcp-proof-history.js';
 import { validateMcpObservedCapture } from './mcp-discovery.js';
@@ -68,6 +68,8 @@ async function plan(projectDir, options, proof = false, excludeAttempt) {
     readiness: project.readiness, operation };
   if (proof) {
     value.proofHistory = await readMcpProofHistory(project.projectDir, legacyPlan(value), excludeAttempt);
+    if (operation.resultAssertion) requireMetadata(value.proofHistory.attempts.every(item =>
+      ['not-proof', 'not-dispatched'].includes(item.status)), 'PROOF_REPLAY_BLOCKED');
     value.executionVersion = 2;
     if (accepted) {
       value.executionVersion = 4;
@@ -138,7 +140,7 @@ async function readRecord(filename, maximum) {
   requireMetadata(bytes.length <= maximum, 'LIMIT');
   return boundedSnapshot(JSON.parse(bytes), maximum);
 }
-async function executeUnlocked(project, options = {}, proof = false, testRun, runAzure) {
+async function executeUnlocked(project, options = {}, proof = false, testRun, runAzure, validationGuard) {
   const projectDir = project.projectDir;
   const qualification = proof === 'qualification';
   requireMetadata(options.allowNetwork === true, 'NETWORK_APPROVAL_REQUIRED');
@@ -154,6 +156,7 @@ async function executeUnlocked(project, options = {}, proof = false, testRun, ru
   requireMetadata(options.allowCloud === undefined || Boolean(mapping), 'INVALID_CONFIG');
   requireMetadata(!options.signal?.aborted, 'ABORTED');
   const guard = async () => {
+    await validationGuard?.();
     requireMetadata(!options.signal?.aborted, 'ABORTED');
     requireMetadata(equal(await plan(projectDir, selection, proof, output && path.basename(output)), reviewed), 'METADATA_MISMATCH');
     if (intent) requireMetadata(equal(await readRecord(path.join(output, 'intent.json'), 1048576), intent), 'METADATA_MISMATCH');
@@ -244,12 +247,30 @@ async function executeUnlocked(project, options = {}, proof = false, testRun, ru
     throw error;
   } finally { await lock.close(); await unlink(lockFile); }
 }
-async function execute(projectDir, options, proof, testRun, runAzure) {
+async function execute(projectDir, options, proof, testRun, runAzure, validationGuard) {
   const project = await readMcpServerProject(projectDir);
-  const run = () => executeUnlocked(project, options, proof, testRun, runAzure);
+  const run = () => executeUnlocked(project, options, proof, testRun, runAzure, validationGuard);
   return project.review.input.schemaVersion === 3 ? withControlLock(project.projectDir, run) : run();
 }
 export const discoverMcpProjectTools = (projectDir, options) => execute(projectDir, options);
 export const runMcpProjectProof = (projectDir, options, { runAzure } = {}) => execute(projectDir, options, true, undefined, runAzure);
 export const runMcpProjectQualification = (projectDir, options) => execute(projectDir, options, 'qualification');
-export const executeMcpProjectForTest = (projectDir, options, proof, run, runAzure) => execute(projectDir, options, proof, run, runAzure);
+export const executeMcpProjectForTest = (projectDir, options, proof, run, runAzure, validationGuard) =>
+  execute(projectDir, options, proof, run, runAzure, validationGuard);
+export const runMcpProjectValidationOperation = (projectDir, options, proof, validationGuard, runAzure) =>
+  execute(projectDir, options, proof, undefined, runAzure, validationGuard);
+export const runMcpProjectSessionOperation = (projectDir, options, session, proof = false, validationGuard) =>
+  execute(projectDir, options, proof, (source, execution, guard, hooks) => {
+    requireMetadata(source.kind === 'existing-mcp' && source.inbound.type === 'entra' && !hooks.mapping,
+      'AUTH_CONFIG_INVALID');
+    return runMcpSessionOperation(source, execution, proof, session, guard, hooks);
+  }, undefined, validationGuard);
+
+// Internal bounded-runner adapter. The ordinary executor still owns approvals, ARM checks and dispatch history.
+export const runMcpProjectExecutionOperation = (projectDir, options, proof, { session, runAzure, validationGuard, dependencies } = {}) =>
+  execute(projectDir, options, proof, (source, execution, guard, hooks) => {
+    const guarded = { ...dependencies, ...hooks, beforeRequest: guard, ...(session ? { entraSession: session } : {}) };
+    return hooks.mapping
+      ? runMcpProjectMappedProof(source, execution, hooks.mapping, guarded)
+      : runMcpSessionOperation(source, execution, proof, session, guard, guarded);
+  }, runAzure, validationGuard);

@@ -7,6 +7,7 @@ import { discoverEntraEndpoint, discoverEntraEndpointForTest, safeEntraDiagnosti
 import { validateToolDescription } from './mcp-tools.js';
 import { secretIssues } from './validation.js';
 import { graphOrganizationResponse } from './mcp-graph-organization.js';
+import { checkedResultAssertion, assessResultAssertion } from './mcp-result-assertion.js';
 import { assessTavilyResult, requireTavilyArguments, qualificationKind, tavilyFirstCallProfile,
   firstCallProfileBinding } from './mcp-tavily-qualification.js';
 import { anonymousLimits, boundedSnapshot, metadataDigest, normalizeAnonymousEndpoint, requireMetadata, savedJson } from './anonymous-metadata.js';
@@ -111,7 +112,8 @@ async function endpoint(plan, options, dependencies, toolCall) {
     const endpointOptions = { ...options, toolCall, beforeRequest: dependencies?.beforeRequest,
       beforeToolCall: dependencies?.beforeToolCall, beforeToolDispatch: dependencies?.beforeToolDispatch,
       assessToolResult: dependencies?.assessToolResult };
-    return dependencies ? discoverEntraEndpointForTest(plan, endpointOptions, dependencies)
+    return dependencies?.entraSession ? dependencies.entraSession.run(plan, endpointOptions)
+      : dependencies ? discoverEntraEndpointForTest(plan, endpointOptions, dependencies)
       : discoverEntraEndpoint(plan, endpointOptions);
   }
   const transport = dependencies?.mcpTransport ?? publicHttpsTransport();
@@ -143,7 +145,7 @@ function safeFailure(error, signal) {
   const diagnostics = safeEntraDiagnostics(error.diagnostics) ?? safeMcpDiagnostics(error.rpcDiagnostics);
   const code = signal?.aborted ? 'ABORTED'
     : ['AUTH_CONFIG_INVALID', 'AUTHENTICATION_FAILED', 'AUTHENTICATION_REJECTED', 'AUTHENTICATION_TIMEOUT',
-      'TOKEN_EXPIRED', 'LIMIT', 'SENSITIVE_INPUT', 'NETWORK_BLOCKED', 'METADATA_INVALID',
+      'TOKEN_EXPIRED', 'AUTH_SESSION_EXPIRED', 'LIMIT', 'SENSITIVE_INPUT', 'NETWORK_BLOCKED', 'METADATA_INVALID',
       'METADATA_STALE', 'DISCOVERY_TIMEOUT'].includes(error.code) ? error.code
       : error.message === 'Probe timeout.' ? 'DISCOVERY_TIMEOUT' : 'DISCOVERY_FAILED';
   return Object.assign(new Error(code), { name: 'AnonymousMetadataError', code,
@@ -202,9 +204,12 @@ function planProof(value, options, nativeGetMapping) {
   const mappedKey = nativeGetMapping?.kind === 'native-apim-mapped-key-get';
   const delegated = nativeGetMapping?.kind === 'native-apim-controlled-delegated-get';
   const graph = nativeGetMapping?.kind === 'native-apim-graph-organization-get';
-  keys(input, ['capture', 'toolName', 'arguments', 'safetyReview', ...(mappedKey || delegated || graph ? ['responseAssertion'] : []),
+  keys(input, ['capture', 'toolName', 'arguments', 'safetyReview', ...(!nativeGetMapping ? ['resultAssertion'] : []),
+    ...(mappedKey || delegated || graph ? ['responseAssertion'] : []),
     ...(delegated ? ['delegatedFixture'] : [])]);
   const capture = validateMcpObservedCapture(input.capture);
+  const resultAssertion = input.resultAssertion === undefined ? undefined : checkedResultAssertion(input.resultAssertion);
+  requireMetadata(!resultAssertion || source.kind === 'existing-mcp', 'PROOF_SCHEMA_UNSUPPORTED');
   requireMetadata(equal(source, capture.source), 'METADATA_MISMATCH');
   const tool = capture.tools.tools.find(tool => tool.name === input.toolName);
   if (nativeGetMapping) {
@@ -249,6 +254,7 @@ function planProof(value, options, nativeGetMapping) {
     source, capture, tool, arguments: input.arguments,
     safetyReview: { ...input.safetyReview, verified: false },
     discoveryPlan: capture.discoveryPlan,
+    ...(resultAssertion ? { resultAssertion } : {}),
     ...(nativeGetMapping ? { nativeGetMapping } : {}),
     limitations: ['Read-only intent is a human assertion, not a verified side-effect guarantee. Tool hints do not authorize execution.',
       ...(nativeGetMapping ? [
@@ -260,6 +266,7 @@ function planProof(value, options, nativeGetMapping) {
       ] : []),
       'One tools/call only, after full schema re-list comparison. No automatic retry or redirect.',
       'Protocol success is not business correctness or Cowork runtime acceptance. No raw response data is retained.',
+      ...(resultAssertion ? ['Evaluate the approved bounded JSON-array/string-field profile in this same first call. A structural pass is not factual accuracy, entitlement, credential identity or consumer acceptance.'] : []),
       ...(graph ? ['Only the reviewed tenant organization GET with fixed $select=id through this exact MI policy is qualified. Expected organization ID and minimal OData metadata are checked in memory.',
         'Graph supports delegated access too. Its response does not attest backend token claims, absence of scp or exclusive use of this application role; evidence combines fresh policy/identity/assignment readback with the expected response. No app-only claim attestation or effective-permission isolation is inferred.'] : []),
       ...(delegated ? ['Controlled fixture only: same-resource original delegated bearer, exact tenant/audience/client/scp/expected-user validation policy and response marker. No OBO, app-only tokens or qualification of unrelated business backends.',
@@ -275,6 +282,7 @@ export const planMcpReadOnlyProof = (value, options) => planProof(value, options
 // Internal project seam, deliberately absent from the root public contract and JSON options.
 export const planMcpProjectMappedProof = (value, options, mapping) => planProof(value, options, mapping);
 export function planMcpQualifiedProof(value, options, qualification) {
+  requireMetadata(options.resultAssertion === undefined, 'PROOF_SCHEMA_UNSUPPORTED');
   const { approvalDigest, ...plan } = planProof(value, options);
   const body = { ...plan, qualification, additionalToolCalls: 1,
     limitations: [...plan.limitations,
@@ -284,6 +292,7 @@ export function planMcpQualifiedProof(value, options, qualification) {
 }
 
 export function planMcpAcceptedProof(value, options) {
+  requireMetadata(options.resultAssertion === undefined, 'PROOF_SCHEMA_UNSUPPORTED');
   const { acceptanceProfile, ...selection } = options;
   requireMetadata(acceptanceProfile === qualificationKind, 'ACCEPTANCE_PROFILE_UNSUPPORTED');
   requireTavilyArguments(selection, 'ACCEPTANCE_ARGUMENTS_INVALID');
@@ -313,11 +322,13 @@ function assessBackendResponse(reply, assertion) {
 
 async function proof(value, options = {}, dependencies, nativeGetMapping, qualification, accepted = false) {
   checkedOptions(options, ['capture', 'toolName', 'arguments', 'safetyReview',
+    ...(!nativeGetMapping && !accepted && !qualification ? ['resultAssertion'] : []),
     ...(accepted ? ['acceptanceProfile'] : []),
     ...(['native-apim-mapped-key-get', 'native-apim-graph-organization-get'].includes(nativeGetMapping?.kind) ? ['responseAssertion'] : []),
     ...(nativeGetMapping?.kind === 'native-apim-controlled-delegated-get' ? ['responseAssertion', 'delegatedFixture'] : [])]);
   const selection = { capture: options.capture, toolName: options.toolName,
     arguments: options.arguments, safetyReview: options.safetyReview,
+    ...(options.resultAssertion === undefined ? {} : { resultAssertion: options.resultAssertion }),
     ...(options.delegatedFixture === undefined ? {} : { delegatedFixture: options.delegatedFixture }),
     ...(options.responseAssertion === undefined ? {} : { responseAssertion: options.responseAssertion }),
     ...(accepted ? { acceptanceProfile: options.acceptanceProfile } : {}) };
@@ -326,14 +337,15 @@ async function proof(value, options = {}, dependencies, nativeGetMapping, qualif
   requireMetadata(!nativeGetMapping || typeof dependencies?.beforeToolCall === 'function', 'READ_ONLY_REVIEW_REQUIRED');
   requireMetadata(options.approval && equal(options.approval, plan), 'APPROVAL_REQUIRED');
   let status, errorCode;
-  const assertion = accepted ? firstCallProfileBinding() : qualification ?? nativeGetMapping?.responseAssertion;
+  const assertion = accepted ? firstCallProfileBinding() : qualification ?? nativeGetMapping?.responseAssertion ?? plan.resultAssertion;
   let backendAssertion = assertion ? { kind: assertion.kind, status: 'not-evaluated' } : undefined;
   try {
     const guarded = { ...dependencies, beforeRequest: async () => {
       validateMcpObservedCapture(plan.capture);
       await dependencies?.beforeRequest?.();
-    }, ...(assertion ? { assessToolResult: reply => qualification || accepted
-      ? assessTavilyResult(reply, plan.arguments.query) : assessBackendResponse(reply, assertion) } : {}) };
+    }, ...(assertion ? { assessToolResult: reply => plan.resultAssertion
+      ? assessResultAssertion(reply, plan.resultAssertion) : qualification || accepted
+        ? assessTavilyResult(reply, plan.arguments.query) : assessBackendResponse(reply, assertion) } : {}) };
     const result = await endpoint(plan.discoveryPlan, options, guarded,
       { name: plan.tool.name, arguments: plan.arguments, toolsDigest: plan.capture.toolsDigest });
     status = result.toolCall.status;
@@ -348,6 +360,7 @@ async function proof(value, options = {}, dependencies, nativeGetMapping, qualif
     approvalDigest: plan.approvalDigest, sourceDigest: plan.source.descriptorDigest,
     captureDigest: plan.capture.receiptDigest, toolName: plan.tool.name,
     argumentsDigest: metadataDigest(plan.arguments), status,
+    ...(plan.resultAssertion ? { resultAssertion: plan.resultAssertion } : {}),
     ...(accepted ? { acceptanceProfile: firstCallProfileBinding() } : {}),
     ...(backendAssertion === undefined ? {} : { backendAssertion }),
     ...(errorCode === undefined ? {} : { errorCode }),
@@ -359,3 +372,6 @@ export const runMcpReadOnlyProofWithGuard = (value, options, beforeRequest, hook
 export const runMcpProjectMappedProof = (value, options, mapping, dependencies) => proof(value, options, dependencies, mapping);
 export const runMcpQualifiedProof = (value, options, qualification, dependencies) => proof(value, options, dependencies, undefined, qualification);
 export const runMcpAcceptedProof = (value, options, dependencies) => proof(value, options, dependencies, undefined, undefined, true);
+
+export const runMcpSessionOperation = (value, options, isProof, entraSession, beforeRequest, hooks) =>
+  (isProof ? proof : discover)(value, options, { ...hooks, entraSession, beforeRequest });

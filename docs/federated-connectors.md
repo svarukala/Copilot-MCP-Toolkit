@@ -20,6 +20,21 @@ still-unqualified direct FCC creation API.
 
 ## FCC-only route: no agent project
 
+For explicit PoC policy deferral, set `review.pocPolicyDeferral: true` while
+keeping `legalPolicies: "placeholder"` or `"not-reviewed"` truthful. The bundle
+retains submission blockers and exposes independent `phaseReadiness`, so a
+separately authorized scope diagnosis need not loop on the legal reminder.
+Deferral is not finalized policy, entitlement or rollout authorization.
+
+Copy **Portal OAuth scope (fully qualified)** into the portal Scope field, not
+**API permission name (runtime scp)**. For example, a synthetic registered URI
+`api://22222222-2222-4222-8222-222222222222` and permission `access_as_user`
+produce `api://22222222-2222-4222-8222-222222222222/access_as_user`.
+Check the URI against the resource app first; a supplied reference is not a
+directory readback. Do not change the runtime scope or token audience GUID.
+The shared-auth handoff uses the same formatter and explains the wrong-resource
+`AADSTS650053` error without suggesting Graph permission changes.
+
 A custom FCC does not require a WIQD project, declarative agent, plugin package,
 or agent provisioning. An existing Entra-secured MCP endpoint already has a
 resource app; obtain its actual nonsecret client ID, tenant, scope, Application
@@ -224,6 +239,13 @@ qualified toolkit Entra-backend proxy journey. It requires separate protocol,
 authorization and deployment review. Preserve the user restriction and old
 proofs; verify any approved change through a new discovery and consumer metadata
 refresh. No such change, tool execution or fresh endpoint request occurred here.
+
+2026-10-18 follow-up: [Container Apps recipe 1](container-apps-recipe.md) now
+generates a bounded SDK-based server with reviewed read-only annotations and
+direct Entra-protected hosting files. This is local source/runtime coverage,
+not a deployed correction or consumer-label qualification. Container Apps behind
+an APIM gateway is explicitly recipe 2 in the [hosting backlog](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes).
+The new recipe does not yet feed this module's descriptor/capture workflow.
 
 Proof and consumer outcomes are not imported or inferred. This module never
 reads or modifies the project's locks or proof journal. Consumed/unknown calls

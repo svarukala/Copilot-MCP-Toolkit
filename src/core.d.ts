@@ -360,11 +360,18 @@ export function discoverMcpTools(descriptor: McpEndpointDescriptor,
 /** Local structural/source/freshness validation. Unkeyed receipt hashes are not observation authority. */
 export function validateMcpObservedCapture(value: unknown, options?: { maxAgeHours?: number }): McpObservedCapture;
 
+export interface McpResultAssertion {
+  kind: 'json-array-string-field-v1';
+  field: string;
+  maxItems: number;
+  maxStringLength: number;
+}
 export interface McpReadOnlyProofSelection {
   capture: McpObservedCapture;
   toolName: string;
   arguments: Record<string, unknown>;
   safetyReview: { readOnly: true; reason: string };
+  resultAssertion?: McpResultAssertion;
 }
 
 export interface McpReadOnlyProofPlan {
@@ -376,6 +383,7 @@ export interface McpReadOnlyProofPlan {
   arguments: Record<string, unknown>;
   safetyReview: { readOnly: true; reason: string; verified: false };
   discoveryPlan: McpDiscoveryPlan;
+  resultAssertion?: McpResultAssertion;
   limitations: string[];
   approvalDigest: string;
 }
@@ -389,6 +397,9 @@ export interface McpReadOnlyProofResult {
   toolName: string;
   argumentsDigest: string;
   status: 'protocol-success' | 'tool-error' | 'unknown';
+  resultAssertion?: McpResultAssertion;
+  backendAssertion?: { kind: 'json-array-string-field-v1'; status: 'passed' | 'failed' | 'not-evaluated';
+    assertionDigest?: string; rawResultRetained?: false };
   errorCode?: McpToolkitErrorCode;
   completedAt: string;
   businessCorrectnessVerified: false;

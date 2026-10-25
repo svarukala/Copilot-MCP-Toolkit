@@ -60,6 +60,7 @@ export async function guidedArguments(p, options = {}) {
   }
   p.output.write(WELCOME);
   p.output.write('Local guided setup only. Never enter credentials. Local generation requires confirmation; sign-in, deployment and tool calls require separate approvals.\n');
+  p.output.write('This wizard covers native APIM and existing-MCP references. For Container Apps, App Service or Functions source projects, use mcp-hosting-plan/create and docs/hosting-recipes.md; this wizard does not deploy or resume those source projects.\n');
   let action = await p.choose('How would you like to start?', [
     { value: 'new', label: 'Start a new MCP setup' },
     { value: 'resume', label: 'Resume an existing setup (review only)' },
@@ -83,6 +84,7 @@ export async function guidedArguments(p, options = {}) {
   const workspace = options['workspace-root'] ?? await p.ask('Existing absolute workspace directory (not installed code)');
   const args = ['--workspace-root', workspace];
   if (action === 'resume') {
+    p.output.write('Select an APIM bundle or endpoint-reference project containing mcp-server.json, not a sealed hosting source/release folder. Review hosting source with mcp-recipe-source-plan; use its endpoint reference for discovery/proof Resume.\n');
     const project = options.project ?? await p.ask('Project directory');
     return ['mcp-resume', ...args, '--project', project, '--json', '--summary'];
   }

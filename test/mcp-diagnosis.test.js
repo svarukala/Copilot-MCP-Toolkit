@@ -35,17 +35,18 @@ async function fixture(t) {
     server: { id: '55555555-5555-4555-8555-555555555555', name: 'Diagnostic fixture' },
     endpoint: 'https://fixture.coworktoolkit.dev/mcp', inbound: { type: 'anonymous' } });
   await createMcpServerProject(review, { workspaceRoot: root, projectDir: dir });
+  const evidenceTime = Date.now();
   const addFailure = async ({ phase = 'discovery', code = 'AUTHENTICATION_FAILED', time = 1,
     detail = { authStage: 'authority', failureKind: 'timeout' }, unknown = false, operation = 'same' } = {}) => {
     const folder = path.join(dir, '.mcp-observations', randomUUID());
     await mkdir(folder, { recursive: true });
     const intent = { schemaVersion: 1, action: `standalone-mcp-project-${phase}`, status: 'started',
-      startedAt: new Date(Date.now() - 10000 - time).toISOString(), approvalDigest: digest('approved-synthetic'),
+      startedAt: new Date(evidenceTime - 10000 - time).toISOString(), approvalDigest: digest('approved-synthetic'),
       reviewDigest: review.reviewDigest, operationDigest: digest(operation),
       ...(phase === 'proof' ? { executionVersion: 2, previousHistoryDigest: digest('synthetic-history') } : {}) };
     const failure = { schemaVersion: phase === 'proof' ? 3 : 2,
       status: phase === 'proof' ? unknown ? 'unknown-no-replay' : 'not-dispatched' : 'failed-no-capture',
-      errorCode: code, finishedAt: new Date(Date.now() - time).toISOString(), intentDigest: digest(intent),
+      errorCode: code, finishedAt: new Date(evidenceTime - time).toISOString(), intentDigest: digest(intent),
       ...(phase === 'proof' ? { dispatchContract: 'write-ahead-tools-call-v1' } : {}),
       ...(detail ? { diagnostics: detail } : {}) };
     failure.failureDigest = digest(failure);
@@ -79,8 +80,9 @@ test('diagnosis is local, leaves default status/plans unchanged and ignores excl
 
 test('validated equivalent failures aggregate by operation/phase/stage, with recorded elapsed and unknown budgets', async t => {
   const f = await fixture(t);
-  await f.addFailure();
-  await f.addFailure({ time: 2 });
+  const first = await f.addFailure();
+  const second = await f.addFailure({ time: 2 });
+  assert.notEqual(first.failure.failureDigest, second.failure.failureDigest);
   await f.addFailure({ phase: 'proof', time: 3 });
   await f.addFailure({ time: 4, detail: { authStage: 'token', failureKind: 'timeout' } });
   await f.addFailure({ time: 5, operation: 'different' });

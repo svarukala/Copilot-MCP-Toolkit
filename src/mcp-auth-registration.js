@@ -9,6 +9,7 @@ import { getLibraryInfo } from './machine-contract.js';
 import { secretIssues } from './validation.js';
 import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
+import { portalSsoScope, ssoScopeInstructions } from './mcp-sso-scope.js';
 
 const maximumBytes = 1048576;
 const object = (properties, required = Object.keys(properties)) => ({
@@ -128,7 +129,7 @@ export function authRegistrationAction(request, descriptor, { secretVariable = f
       ...(sso ? { applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' } : {}) },
   };
 }
-function createBundle(request, descriptor, producer) {
+function createBundle(request, descriptor, producer, handoffVersion = 2) {
   checkedRequest(request, descriptor);
   requireAuth(validProducer(producer), 'BUNDLE_INVALID', 'Unsupported authentication preparation producer identity.');
   const r = request.registration, sso = r.type === 'entra-sso';
@@ -153,7 +154,9 @@ function createBundle(request, descriptor, producer) {
     field('M365 app ID', r.appId), field('Redirect URI', redirectUri),
     field(sso ? 'SSO registration ID' : 'OAuth client registration ID', r.reference?.registrationId),
     ...(sso ? [
-      field('Delegated scope', descriptor.inbound.scope),
+      field(handoffVersion === 2 ? 'API permission name (runtime scp)' : 'Delegated scope', descriptor.inbound.scope),
+      ...(handoffVersion === 2 ? [portalSsoScope(r.reference?.applicationIdUri ?? descriptor.inbound.applicationIdUri,
+        descriptor.inbound.scope)] : []),
       field('Endpoint Application ID URI', descriptor.inbound.applicationIdUri),
       field('Registration Application ID URI', r.reference?.applicationIdUri),
       field('Microsoft Enterprise token-store client ID', RESTRICTED_DISCOVERY_CLIENT_ID),
@@ -167,6 +170,11 @@ function createBundle(request, descriptor, producer) {
   ];
   const content = clean({
     schemaVersion: 1, kind: 'mcp-auth-registration-preparation', producer,
+    ...(handoffVersion === 2 ? { handoffVersion, routes: {
+      manualFcc: { status: 'manual-review-required', requiresAgentOrAppPackage: false,
+        instruction: 'Choose existing registration reuse or direct Teams Developer Portal registration. APP_ID_MISSING and provider execution gaps describe ATK, not a universal FCC prerequisite. Review AnyApp breadth explicitly.' },
+      atk: { status: 'separate-execution-review-required', gaps: gaps.map(gap => gap.code) },
+    } } : {}),
     request, endpoint: { url: descriptor.endpoint, descriptorDigest: descriptor.descriptorDigest },
     readiness: { status: 'blocked', gaps },
     registrationReference: { status: r.reference ? 'provided-unverified' : 'missing',
@@ -180,6 +188,7 @@ function createBundle(request, descriptor, producer) {
         'Do not paste a Key Vault reference as a client secret. An authorized owner must enter any actual secret only in an approved provider/portal UI.',
         'Copy the saved registration ID unchanged into registration.reference, and for SSO include its generated Application ID URI. Create a fresh output; do not overwrite historical preparation.',
         'A supplied reference is not proof that settings, consent, scopes, endpoint audiences or client allowances are correct. Review those independently.',
+        ...(sso && handoffVersion === 2 ? ssoScopeInstructions : []),
       ] },
     consumers: {
       fcc: { authentication, submission: 'manual-only', configurationVerified: false },
@@ -203,7 +212,9 @@ export async function readAuthRegistrationBundle(filename, descriptor) {
   const bundle = await readJson(filename);
   requireAuth(bundle?.schemaVersion === 1 && bundle.kind === 'mcp-auth-registration-preparation'
     && validProducer(bundle.producer), 'BUNDLE_INVALID', 'Unsupported authentication preparation or producer identity.');
-  const expected = createBundle(bundle.request, descriptor, bundle.producer);
+  requireAuth(bundle.handoffVersion === undefined || bundle.handoffVersion === 2,
+    'BUNDLE_INVALID', 'Unsupported authentication handoff version.');
+  const expected = createBundle(bundle.request, descriptor, bundle.producer, bundle.handoffVersion ?? 1);
   requireAuth(digest(bundle) === digest(expected), 'BUNDLE_INVALID',
     'Authentication preparation content, source descriptor or integrity differs. Preserve historical files and prepare a new reviewed bundle.');
   return bundle;
