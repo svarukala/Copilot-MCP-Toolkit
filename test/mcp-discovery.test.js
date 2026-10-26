@@ -585,7 +585,11 @@ test('auth denial, wrong runtime user, expired tokens and cancellation never pro
   mock.mock.restore();
   const controller = new AbortController();
   await assert.rejects(discoverMcpToolsForTest(source, { ...identity, approval, allowNetwork: true, signal: controller.signal,
-    onDeviceCode() { controller.abort(); } }, transportFixture()), { code: 'ABORTED' });
+    onDeviceCode() { controller.abort(); } }, transportFixture()), error => {
+    assert.equal(error.code, 'ABORTED');
+    assert.deepEqual(error.diagnostics, { authStage: 'device-code', failureKind: 'sdk' });
+    return true;
+  });
 });
 
 test('metadata pagination, limits, duplicate schemas and unselected secrets are rejected with no capture', async () => {
@@ -835,6 +839,35 @@ test('authenticated call denial or cancellation also preserves unknown instead o
     assert.equal(fixture.calls.filter(method => method === 'tools/call').length, 1);
     assert.equal(fixture.calls.filter(method => method.endsWith('/token')).length, 1);
   }
+});
+
+for (const during of ['device-code', 'metadata']) test(`project cancellation retains safe ${during} stage without secrets or successful capture`, async t => {
+  const context = await workspace(t), controller = new AbortController();
+  const review = await core.prepareMcpServer({ schemaVersion: 1, kind: 'existing-mcp',
+    server: { id: otherId, name: 'Synthetic fixture' }, endpoint: 'https://fixture.coworktoolkit.dev/mcp',
+    inbound: (await descriptor('entra')).inbound });
+  await core.createMcpServerProject(review, context);
+  const approval = await planMcpProjectDiscovery(context.projectDir, identity);
+  const fixture = transportFixture({ mcpChange: () => {
+    controller.abort();
+    throw Error('private cancellation detail');
+  } });
+  const run = (source, options, guard) => discoverMcpToolsForTest(source, options, { ...fixture, beforeRequest: guard });
+  await assert.rejects(executeMcpProjectForTest(context.projectDir, {
+    selection: identity, approval, allowNetwork: true, signal: controller.signal,
+    onDeviceCode() { if (during === 'device-code') controller.abort(); },
+  }, false, run), { code: 'ABORTED' });
+  const observations = path.join(context.projectDir, '.mcp-observations');
+  const attempts = await readdir(observations);
+  assert.equal(attempts.length, 1);
+  const output = path.join(observations, attempts[0]);
+  assert.deepEqual((await readdir(output)).sort(), ['failure.json', 'intent.json']);
+  const text = await readFile(path.join(output, 'failure.json'), 'utf8'), failure = JSON.parse(text);
+  assert.equal(failure.status, 'failed-no-capture');
+  assert.equal(failure.errorCode, 'ABORTED');
+  assert.deepEqual(failure.diagnostics, { authStage: during, failureKind: 'sdk' });
+  assert.doesNotMatch(text, /ABCD-1234|private-device-code|private-user|opaque-private|private cancellation/);
+  assert.equal(fixture.calls.includes('tools/call'), false);
 });
 
 test('project operation revalidates saved sources, persists captures and blocks repeat proof approval', async t => {

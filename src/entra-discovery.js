@@ -283,7 +283,8 @@ async function discoverEndpoint(plan, { signal, onDeviceCode, toolCall, beforeRe
     const failure = new Error(code);
     failure.name = 'AnonymousMetadataError';
     failure.code = code;
-    if (!signal?.aborted) failure.diagnostics = safeEntraDiagnostics(state.diagnostics);
+    failure.diagnostics = safeEntraDiagnostics(signal?.aborted
+      ? { authStage: state.diagnostics.authStage, failureKind: 'sdk' } : state.diagnostics);
     if (error.invocationStatus === 'unknown' || callReturned) failure.invocationStatus = 'unknown';
     throw failure;
   } finally {

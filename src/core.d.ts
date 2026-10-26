@@ -11,6 +11,61 @@ export interface LibraryInfo {
 }
 export function getLibraryInfo(options?: { signal?: AbortSignal }): Promise<LibraryInfo>;
 
+/** Independent direct-ACA deployment of a retained, fresh OCI manifest image.
+ * Does not resume/re-authorize the consumed build/push execution. */
+export interface VerifiedImageDeploymentConfig {
+  schemaVersion: 1;
+  oldHostOutput: string;
+  oldHostApproval: string;
+  sourceManifestDigest: string;
+  containerImage: string;
+  azureIdentityProject: string;
+  accountName: string;
+  expiresAt: string;
+  maximumMs?: number;
+  deploymentOnlyReviewed: true;
+  resourceCeilingsReviewed: true;
+  createOnlyReviewed: true;
+}
+export interface VerifiedImageDeploymentOptions {
+  workspaceRoot: string;
+  project: string;
+  config: string;
+  output: string;
+  signal?: AbortSignal;
+}
+export interface VerifiedImageDeploymentPlan {
+  approvalToken: string;
+  requiresSignIn: false;
+  scope: {
+    kind: 'mcp-verified-image-deployment-plan';
+    config: VerifiedImageDeploymentConfig;
+    sourceManifestDigest: string;
+    producerBuild: string;
+    effects: string[];
+    [key: string]: unknown;
+  };
+}
+export function getVerifiedImageDeploymentSchema(): Promise<Record<string, unknown>>;
+export function planVerifiedImageDeployment(options: VerifiedImageDeploymentOptions): Promise<VerifiedImageDeploymentPlan>;
+export function runVerifiedImageDeployment(options: VerifiedImageDeploymentOptions & {
+  approval: string;
+  /** Local evidence/journal writes only; never authorizes Docker access. */
+  allowLocal: true;
+  allowNetwork: true;
+  allowCloud: true;
+}): Promise<{
+  status: 'passed' | 'unknown-no-replay';
+  evidenceDigest: string;
+  containerImage?: string;
+  endpoint?: string;
+  backendOrigin?: string;
+  imageReviewFile?: string;
+  stage?: string;
+  code?: string;
+  reasonCode?: string;
+}>;
+
 export const mcpServerContractVersion: 1;
 
 export interface McpAzureTarget {

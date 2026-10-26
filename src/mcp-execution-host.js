@@ -16,7 +16,7 @@ import { dockerSocketSchema, registryAuthHeader } from './docker-engine.js';
 import { reviewImage } from './mcp-image-review.js';
 import { assertCompatibleGlobalPolicy, assertSafeDiagnostics, collectionItems, policyValue } from './apim-safety.js';
 import { executionDockerRequest, executionJson, executionProgress, executionTar, executionTarFile,
-  executionImageLimit, executionImageBinding } from './mcp-execution-docker.js';
+  executionImageLimit, executionImageBinding, executionPushResult } from './mcp-execution-docker.js';
 import { publicHttpsTransport } from './anonymous-network.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
@@ -207,13 +207,35 @@ function verifySealed(record) {
   return body;
 }
 const canonicalLocation = value => typeof value === 'string' ? value.replace(/\s/g, '').toLowerCase() : undefined;
-function subset(expected, actual, field) {
+function healthyRunningRevision(properties) {
+  return properties?.active === true && properties.healthState === 'Healthy'
+    && ['Running', 'RunningAtMaxScale'].includes(properties.runningState);
+}
+function subset(expected, actual, field, pointer = '') {
   if (field === 'location') return typeof expected === 'string' && typeof actual === 'string'
     && canonicalLocation(expected) === canonicalLocation(actual);
+  if (pointer === '/identity/userAssignedIdentities') {
+    if (!actual || typeof actual !== 'object' || Array.isArray(actual)) return false;
+    const wanted = Object.entries(expected), observed = Object.entries(actual);
+    const identities = new Map(observed.map(([id, value]) => [id.toLowerCase(), value]));
+    return wanted.length === observed.length && identities.size === observed.length
+      && new Set(wanted.map(([id]) => id.toLowerCase())).size === wanted.length
+      && wanted.every(([id, value]) => identities.has(id.toLowerCase())
+        && subset(value, identities.get(id.toLowerCase())));
+  }
+  if ((pointer === '/properties/managedEnvironmentId'
+    || /^\/properties\/configuration\/(?:registries|secrets)\/\d+\/identity$/.test(pointer))
+    && typeof expected === 'string' && expected.startsWith('/subscriptions/')) {
+    return typeof actual === 'string' && expected.toLowerCase() === actual.toLowerCase();
+  }
+  if (pointer === '/properties/configuration/ingress/transport'
+    && ['auto', 'http', 'http2', 'tcp'].includes(expected)) {
+    return typeof actual === 'string' && expected === actual.toLowerCase();
+  }
   if (Array.isArray(expected)) return Array.isArray(actual) && expected.length === actual.length
-    && expected.every((value, index) => subset(value, actual[index]));
+    && expected.every((value, index) => subset(value, actual[index], undefined, `${pointer}/${index}`));
   if (expected && typeof expected === 'object') return actual && typeof actual === 'object'
-    && Object.entries(expected).every(([key, value]) => subset(value, actual[key], key));
+    && Object.entries(expected).every(([key, value]) => subset(value, actual[key], key, `${pointer}/${key}`));
   return expected === actual;
 }
 
@@ -287,8 +309,15 @@ function bodyFromTemplate(template, values) {
   return replace(body);
 }
 
-export const runHostExecution = (options, dependencies = {}) => scoped(options, async () => {
-  const plan = await retained(options), scope = plan.scope;
+export const runHostExecution = (options, dependencies = {}) => runHostEngine(options, dependencies);
+
+// Internal adapter, deliberately not exported from core: this is a separate
+// reviewed contract, never an execution-grant option to skip build or push.
+export const runVerifiedImageHost = (options, dependencies, continuation) => runHostEngine(options, dependencies, continuation);
+
+const runHostEngine = (options, dependencies = {}, continuation) => scoped(options, async () => {
+  const preparePlan = continuation ? continuation.prepare : retained;
+  const plan = await preparePlan(options), scope = plan.scope;
   requireHost(options.approval === plan.approvalToken && options.allowLocal === true
     && options.allowNetwork === true && options.allowCloud === true, 'HOST_EXECUTION_APPROVAL_REQUIRED');
   requireHost(Date.parse(scope.config.expiresAt) > Date.now()
@@ -312,7 +341,8 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
   const guarded = (name, args, input) => {
     requireHost(!signal.aborted && ++azureReads <= scope.effective.maximumCloudReads, 'HOST_EXECUTION_READ_BUDGET');
     return runAzure(name, args, {
-      ...input, signal, boundedInspection: true, allowInspectionRetry: false,
+      ...input, signal: continuation ? AbortSignal.any([signal, AbortSignal.timeout(scope.effective.maximumCommandMs)]) : signal,
+      boundedInspection: true, allowInspectionRetry: false,
     });
   };
   const azure = async (args, extra = {}) => {
@@ -357,7 +387,11 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
     } catch (error) {
       const reasonCode = ['HOST_EXECUTION_SCAN_INCONCLUSIVE', 'HOST_EXECUTION_SCAN_POLICY',
         'HOST_EXECUTION_CONTAINER_FAILED', 'DOCKER_IMAGE_ARCHIVE_INVALID', 'DOCKER_RESPONSE_INVALID',
-        'DOCKER_HTTP_FAILED', 'DOCKER_ABORTED', 'DOCKER_OUTPUT_LIMIT'].includes(error?.code)
+        'DOCKER_HTTP_FAILED', 'DOCKER_ABORTED', 'DOCKER_OUTPUT_LIMIT', 'DOCKER_DISPATCH_UNKNOWN',
+        'DOCKER_DISPATCH_FAILED', 'DOCKER_RESPONSE_UNKNOWN', 'DOCKER_PUSH_RESULT_INVALID',
+        'HOST_EXECUTION_PUSH_IMAGE_MISMATCH', 'HOST_EXECUTION_REGISTRY_CREDENTIAL_INVALID',
+        'HOST_EXECUTION_READBACK_MISMATCH', 'HOST_EXECUTION_TARGET_EXISTS',
+        'HOST_EXECUTION_PROVISION_FAILED', 'HOST_EXECUTION_POLL_EXHAUSTED'].includes(error?.code)
         ? error.code : 'HOST_EXECUTION_UNCLASSIFIED_FAILURE';
       const result = sealed({ schemaVersion: 1, plan: plan.approvalToken, stage: name, intentDigest: intent.contentDigest,
         status: 'unknown-no-replay', code: 'HOST_EXECUTION_STAGE_STOPPED', reasonCode, finishedAt: new Date().toISOString() });
@@ -420,12 +454,13 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
     if (!await exists(scope.output)) await mkdir(scope.output, { mode: 0o700 });
     return await lock(scope.output, async () => {
       if (!await exists(path.join(scope.output, 'plan.json'))) {
-        requireHost((await prepare(options)).approvalToken === plan.approvalToken, 'HOST_EXECUTION_PLAN_CHANGED');
+        requireHost((await (continuation ? preparePlan : prepare)(options)).approvalToken === plan.approvalToken, 'HOST_EXECUTION_PLAN_CHANGED');
         await writeControl(path.join(scope.output, 'plan.json'), plan, { create: true });
       }
       const reservationDir = await assertProjectPath(path.join(scope.workspaceRoot, '.mcp-execution-host-targets'));
       await mkdir(reservationDir, { recursive: true, mode: 0o700 });
-      for (const id of [scope.targets.app, scope.targets.gatewayApi, ...scope.targets.children].filter(Boolean).sort()) {
+      if (continuation) await continuation.reserve(plan);
+      else for (const id of [scope.targets.app, scope.targets.gatewayApi, ...scope.targets.children].filter(Boolean).sort()) {
         const reservation = path.join(reservationDir, `${digest(id.toLowerCase()).slice(7)}.json`);
         if (await exists(reservation)) {
           const value = await readControl(reservation);
@@ -447,6 +482,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
       identity = identityResult.identity;
       return await lock(scope.effective.identityProject, async () => {
         const preflight = await stage('preflight', async () => {
+          if (!continuation) {
           const engine = executionJson(await docker('/version'));
           requireHost(engine.Os === 'linux' && ['amd64', 'x86_64'].includes(engine.Arch)
             && /^1\.\d+$/.test(engine.ApiVersion) && Number(engine.ApiVersion.split('.')[1]) >= 44
@@ -456,6 +492,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           requireHost(info.Debug === false && info.RegistryConfig?.InsecureRegistryCIDRs?.every(cidr =>
             ['127.0.0.0/8', '::1/128'].includes(cidr))
             && info.RegistryConfig?.IndexConfigs?.[source.input.azure.registry.server]?.Secure !== false);
+          }
           await absentCloud(scope.targets.app, appVersion);
           const environment = await rest(source.input.azure.environmentResourceId, appVersion);
           requireHost(environment.id?.toLowerCase() === source.input.azure.environmentResourceId.toLowerCase()
@@ -486,7 +523,13 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           return { backendOrigin: `https://${source.input.azure.appName}.${environment.properties.defaultDomain}`,
             environmentDigest: digest(environment), registryResourceId: registry.id, ...(gateway ? { gateway } : {}) };
         });
-        const built = await stage('build', async () => {
+        let built, scan, smoke, pushed;
+        if (continuation) {
+          const evidence = await continuation.evidence(plan);
+          ({ built, scan, smoke } = evidence);
+          pushed = { containerImage: scope.config.containerImage };
+        } else {
+        built = await stage('build', async () => {
           const current = await readRecipeProject(scope.project);
           requireHost(current.manifest.contentDigest === scope.sourceManifestDigest);
           const body = executionTar(Object.fromEntries(buildFiles.map(name => [name, current.files[name]])));
@@ -505,7 +548,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           return { imageId: image.Id, buildEvidenceDigest: digest({ contextDigest: bytesDigest(body), imageId: image.Id,
             sourceManifestDigest: scope.sourceManifestDigest, build: source.input.imageBuild }) };
         });
-        const scan = await stage('scan', async () => {
+        scan = await stage('scan', async () => {
           executionProgress(await docker(`${api}/images/create?fromImage=${encodeURIComponent(scope.config.scannerImage)}&platform=linux%2Famd64`,
             { method: 'POST', maxBytes: 8 * 1024 * 1024, timeoutMs: 600000 }));
           const scanner = await inspectImage(scope.config.scannerImage);
@@ -584,7 +627,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           return { ...counts, binding, scannedAt, databaseUpdatedAt: new Date(updated).toISOString(),
             reportDigest: bytesDigest(output.report), sbomDigest: bytesDigest(sbom) };
         });
-        const smoke = await stage('smoke', async () => {
+        smoke = await stage('smoke', async () => {
           const image = await inspectImage(built.imageId);
           requireHost(image.Id === built.imageId && image.Config?.User === '65532:65532');
           const outcome = await container(`copilot-mcp-${owner.slice(0, 32)}-smoke`, restricted('smoke', built.imageId, {
@@ -596,28 +639,31 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
             evidenceDigest: digest({ imageId: built.imageId, outcome, smokeCode }),
             keyResolutionVerified: false, providerCalled: false };
         });
-        const pushed = await stage('push', async () => {
-          requireHost((await inspectImage(taggedImage)).Id === built.imageId);
+        pushed = await stage('push', async () => {
+          requireHost((await inspectImage(taggedImage)).Id === built.imageId, 'HOST_EXECUTION_PUSH_IMAGE_MISMATCH');
           let credential;
           try {
             credential = await azure(['acr', 'login', '--name', source.input.azure.registry.server.split('.')[0],
               '--subscription', identity.target.subscriptionId, '--expose-token'], { sensitiveOutput: true });
             requireHost(credential.loginServer === source.input.azure.registry.server
-              && typeof credential.accessToken === 'string' && /^[A-Za-z0-9._~+/-]{1,65536}={0,2}$/.test(credential.accessToken));
-            const pushed = executionProgress(await docker(`${api}/images/${encodeURIComponent(repository)}/push?tag=${tag}`, {
+              && typeof credential.accessToken === 'string' && /^[A-Za-z0-9._~+/-]{1,65536}={0,2}$/.test(credential.accessToken),
+            'HOST_EXECUTION_REGISTRY_CREDENTIAL_INVALID');
+            const pushed = executionPushResult(await docker(`${api}/images/${encodeURIComponent(repository)}/push?tag=${tag}`, {
               method: 'POST', headers: { 'X-Registry-Auth': registryAuthHeader(credential.loginServer, credential.accessToken) },
               maxBytes: 8 * 1024 * 1024, timeoutMs: 600000,
-            }));
-            requireHost(/^sha256:[a-f0-9]{64}$/.test(pushed?.Digest));
-            const image = `${repository}@${pushed.Digest}`, actual = await inspectImage(image);
-            requireHost(actual.Id === built.imageId && actual.RepoDigests?.includes(image));
-            return { containerImage: image };
+            }), tag);
+            const image = `${repository}@${pushed.digest}`, actual = await inspectImage(image);
+            requireHost(actual.Id === built.imageId && actual.RepoDigests?.includes(image),
+              'HOST_EXECUTION_PUSH_IMAGE_MISMATCH');
+            return { containerImage: image, completion: pushed.completion };
           } finally { credential = undefined; }
         });
+        }
         const qualification = await stage('qualification', async () => {
           const image = pushed.containerImage;
           const input = { schemaVersion: 1, kind: 'image-qualification', image, sourceManifestDigest: scope.sourceManifestDigest,
-            build: source.input.imageBuild, builder: { run: `host-${owner.slice(0, 32)}`, evidenceDigest: built.buildEvidenceDigest },
+            build: source.input.imageBuild, builder: { run: `host-${(continuation
+              ? scope.config.oldHostApproval.split(':').at(-1) : owner).slice(0, 32)}`, evidenceDigest: built.buildEvidenceDigest },
             scan: { image, scanner: 'Trivy pinned execution', databaseUpdatedAt: scan.databaseUpdatedAt, scannedAt: scan.scannedAt,
               critical: scan.critical, high: scan.high, medium: scan.medium, low: scan.low, reportDigest: scan.reportDigest },
             smoke: { image, networkDisabled: true, nonroot: true, status: 'passed', evidenceDigest: smoke.evidenceDigest },
@@ -631,9 +677,25 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
         });
         const createResource = async (stageName, id, version, body, expected) => stage(stageName, async () => {
           requireHost(Date.parse(qualification.expiresAt) > Date.now(), 'HOST_EXECUTION_SCAN_STALE');
-          await absentCloud(id, version);
+          let registryVerification;
+          if (continuation) {
+            await continuation.evidence(plan);
+            const observed = await azure(['acr', 'manifest', 'show-metadata',
+              '--registry', source.input.azure.registry.server.split('.')[0],
+              '--name', pushed.containerImage.slice(source.input.azure.registry.server.length + 1),
+              '--subscription', identity.target.subscriptionId, '--query', '{digest:digest}']);
+            requireHost(observed?.digest === pushed.containerImage.split('@')[1], 'HOST_EXECUTION_PUSH_IMAGE_MISMATCH');
+            registryVerification = { containerImage: pushed.containerImage, digest: observed.digest,
+              verifiedAt: new Date().toISOString(), requests: 1, retries: 0 };
+          }
+          if (!continuation) await absentCloud(id, version);
           const filename = path.join(scope.output, `${stageName}.request.json`);
           await writeControl(filename, body, { create: true });
+          if (continuation) {
+            await continuation.evidence(plan);
+            await absentCloud(id, version);
+          }
+          requireHost(Date.parse(qualification.expiresAt) > Date.now(), 'HOST_EXECUTION_SCAN_STALE');
           await rest(id, version, 'PUT', filename);
           for (let poll = 0; poll < scope.effective.maximumPolls; poll++) {
             const actual = await rest(id, version);
@@ -649,7 +711,8 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
                     === body.properties.value.replace(/\r\n?/g, '\n').trim()
                 : subset(body, actual);
               requireHost(matches && expected(actual), 'HOST_EXECUTION_READBACK_MISMATCH');
-              return { resourceId: id, readbackDigest: digest(actual) };
+              return { resourceId: id, readbackDigest: digest(actual),
+                ...(registryVerification ? { registryVerification } : {}) };
             }
             await sleep(scope.effective.pollIntervalMs, undefined, { signal });
           }
@@ -663,9 +726,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           && actual.properties?.template?.containers?.length === 1
           && actual.properties?.template?.scale?.maxReplicas === 1
           && actual.properties?.template?.containers?.[0]?.resources?.cpu === 0.25
-          && actual.properties?.template?.containers?.[0]?.resources?.memory === '0.5Gi'
-          && digest(Object.keys(actual.identity?.userAssignedIdentities ?? {}).sort())
-            === digest(Object.keys(appBody.identity.userAssignedIdentities).sort()));
+          && actual.properties?.template?.containers?.[0]?.resources?.memory === '0.5Gi');
         const readiness = await stage('app-readiness', async () => {
           for (let poll = 0; poll < scope.effective.maximumPolls; poll++) {
             const app = await rest(scope.targets.app, appVersion);
@@ -683,8 +744,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
                 && subset(appBody.properties.template, revision.properties?.template),
               'HOST_EXECUTION_READBACK_MISMATCH');
               requireHost(revision.properties?.provisioningState !== 'Failed', 'HOST_EXECUTION_PROVISION_FAILED');
-              if (revision.properties?.active === true && revision.properties.healthState === 'Healthy'
-                && revision.properties.runningState === 'Running') return { revisionId: id,
+              if (healthyRunningRevision(revision.properties)) return { revisionId: id,
                 readbackDigest: digest(revision), readiness: 'healthy-running-control-plane-readback',
                 secretResolutionVerified: false };
             }
@@ -708,8 +768,7 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
             const revision = await rest(readiness.revisionId, appVersion);
             requireHost(revision.id?.toLowerCase() === readiness.revisionId.toLowerCase()
               && subset(appBody.properties.template, revision.properties?.template)
-              && revision.properties.active === true && revision.properties.healthState === 'Healthy'
-              && revision.properties.runningState === 'Running', 'HOST_EXECUTION_READBACK_MISMATCH');
+              && healthyRunningRevision(revision.properties), 'HOST_EXECUTION_READBACK_MISMATCH');
           };
           await checkSelectedRevision();
           const health = await healthOnce(preflight.backendOrigin, signal, dependencies.healthTransport);
@@ -747,8 +806,11 @@ export const runHostExecution = (options, dependencies = {}) => scoped(options, 
           endpoint: source.runtime.gateway?.publicUrl ?? `${preflight.backendOrigin}/mcp`,
           imageReviewFile: qualification.imageReviewFile,
           authenticationVerified: false, providerVerified: false, consumerVerified: false,
-          observedMilestones: { build: 'passed', zeroCriticalHighScan: 'passed', nonrootNetworkDisabledSmoke: 'passed',
-            registryPush: 'passed', appDeploymentReadback: 'passed', appRevisionReadiness: 'healthy-running-control-plane-readback',
+          observedMilestones: { build: continuation ? 'historical-passed' : 'passed',
+            zeroCriticalHighScan: continuation ? 'historical-passed-still-fresh-at-dispatch' : 'passed',
+            nonrootNetworkDisabledSmoke: continuation ? 'historical-passed' : 'passed',
+            registryPush: continuation ? 'historical-unknown-image-reverified-in-acr' : 'passed',
+            appDeploymentReadback: 'passed', appRevisionReadiness: 'healthy-running-control-plane-readback',
             appHealth: 'passed',
             secretResolution: source.input.backend.apiKey ? 'runtime-startup-and-health-confirmed' : 'not-applicable',
             gatewayDeploymentReadback: scope.targets.service ? 'passed' : 'not-applicable',
