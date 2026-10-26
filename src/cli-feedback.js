@@ -13,7 +13,7 @@ const plans = ['mcp-account-plan', 'mcp-reconcile-plan', 'mcp-discovery-plan', '
   'mcp-export-plan', 'mcp-restore-plan', 'mcp-server-plan', 'mcp-fcc-plan', 'mcp-auth-registration-plan', 'mcp-auth-execution-plan', 'mcp-auth-wiqd-plan', 'mcp-container-apps-plan',
   'mcp-recipe-release-plan', 'mcp-recipe-reference-plan', 'mcp-hosting-plan', 'mcp-handover-plan',
   'mcp-bootstrap-plan', 'mcp-operator-plan', 'mcp-recipe-review-plan', 'mcp-host-plan', 'mcp-host-account-plan', 'mcp-session-plan',
-  'mcp-validation-plan', 'mcp-validation-next', 'mcp-execution-plan'];
+  'mcp-validation-plan', 'mcp-validation-next', 'mcp-execution-plan', 'mcp-verified-image-plan'];
 const stages = {
   review: ['working', 'Checking local inputs, history and approval'],
   'azure-login': ['external-wait', 'Azure login starting; waiting for a sign-in challenge'],
@@ -121,6 +121,11 @@ const date = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.
 export function cliPlanSummary(plan) {
   const state = context.getStore();
   if (!state?.summary || state.closed || !plan || typeof plan !== 'object') return;
+  if (state.command === 'mcp-verified-image-plan' && plan.scope?.kind === 'mcp-verified-image-deployment-plan') {
+    const scope = plan.scope;
+    writeFeedback(state, `[verified-image deployment review]\nNew output: ${safe(scope.output)}\nParent evidence only: ${safe(scope.config.oldHostApproval)}\nImage: ${safe(scope.config.containerImage)}\nTarget: ${safe(scope.targets.app)}\nPrivate account: ${safe(scope.config.accountName)}\nExpires: ${safe(scope.config.expiresAt)}\n${scope.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview full target, template, runtime configuration, evidence bindings and bounds on stdout. No Docker, upload, proof or old-run replay authority.\n`);
+    return;
+  }
   if (state.command === 'mcp-server-plan' && plan.evidence === 'local-generation-review') {
     if (plan.descriptor.kind === 'native-apim-mcp' && plan.descriptor.inbound.type === 'anonymous') {
       const rate = plan.descriptor.inbound.rateLimit;

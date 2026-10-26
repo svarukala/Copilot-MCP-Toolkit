@@ -48,17 +48,50 @@ export function executionJson(response, expected = 200) {
 }
 
 export function executionProgress(response) {
+  let auxiliary;
+  for (const value of executionMessages(response)) if (value.aux) auxiliary = value.aux;
+  return auxiliary;
+}
+
+function* executionMessages(response) {
   check(response.status === 200, 'DOCKER_DISPATCH_UNKNOWN');
   const text = response.body.toString('utf8');
   check(text.trim().length > 0, 'DOCKER_DISPATCH_UNKNOWN');
-  let auxiliary;
   for (const line of text.trim().split(/\r?\n/)) {
     let value;
     try { value = JSON.parse(line); } catch { throw dockerError('DOCKER_DISPATCH_UNKNOWN'); }
-    check(value && typeof value === 'object' && !value.error && !value.errorDetail, 'DOCKER_DISPATCH_FAILED');
-    if (value.aux) auxiliary = value.aux;
+    check(value && typeof value === 'object' && !Array.isArray(value)
+      && !value.error && !value.errorDetail, 'DOCKER_DISPATCH_FAILED');
+    yield value;
   }
-  return auxiliary;
+}
+
+export function executionPushResult(response, tag) {
+  const code = 'DOCKER_PUSH_RESULT_INVALID';
+  check(typeof tag === 'string' && /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(tag), code);
+  let digest, auxiliary = false, summary = false;
+  const accept = value => {
+    check(typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value)
+      && (digest === undefined || digest === value), code);
+    digest = value;
+  };
+  for (const value of executionMessages(response)) {
+    if (value.aux !== undefined) {
+      check(value.aux && typeof value.aux === 'object' && !Array.isArray(value.aux)
+        && !value.aux.ManifestPushedInsteadOfIndex && !value.aux.ContentMissing
+        && (value.aux.Tag === undefined || value.aux.Tag === tag), code);
+      accept(value.aux.Digest);
+      auxiliary = true;
+    }
+    if (typeof value.status === 'string' && value.status.includes(': digest:')) {
+      const match = /^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}): digest: (sha256:[a-f0-9]{64}) size: ([0-9]+)$/.exec(value.status);
+      check(match && match[1] === tag && Number.isSafeInteger(Number(match[3])) && Number(match[3]) > 0, code);
+      accept(match[2]);
+      summary = true;
+    }
+  }
+  check(digest !== undefined, code);
+  return { digest, completion: auxiliary && summary ? 'aux-and-status' : auxiliary ? 'aux' : 'status' };
 }
 
 export function executionTar(files) {

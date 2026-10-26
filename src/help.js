@@ -1,5 +1,6 @@
 export const commandFamilies = {
-  execution: ['mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
+  execution: ['mcp-verified-image-schema', 'mcp-verified-image-plan', 'mcp-verified-image-run',
+    'mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
     'mcp-execution-run', 'mcp-execution-status', 'mcp-execution-record'],
   validation: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
     'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
@@ -86,6 +87,17 @@ Owner evidence remains distinguishable from actual execution; record only genuin
 pending milestones. Failed/unknown attempts stop, never retry. Cloud costs are
 resource-bounded, not a billing cap; expiry does not delete running resources.
 See docs/reusable-validation.md for SDK host prerequisites and remaining boundaries.
+Two-stage SDK workflow: run without --interactive to stop before runtime sign-in
+(hosting needs an already selected private Azure identity). When ready, resume
+the same cleanly paused, unexpired grant with --interactive; do not resume a failed
+phase. For independent existing-endpoint validation, use mcp-session-plan/session,
+not discovery alone: one memory-only sign-in through the separately reviewed proof.
+See docs/reusable-validation.md#choose-the-entry-point; no rebuild is implied.
+Verified-image deployment: mcp-verified-image-schema/plan/run is a separately
+reviewed direct-ACA-only contract for an eligible consumed push-unknown run's
+fresh OCI image. Never rebuilds/pushes or resumes old authority. Run requires
+exact --approve plus --allow-local --allow-network --allow-cloud.
+See docs/verified-image-deployment.md for evidence and one-shot claim requirements.
 Validation: schema/plan/start/next/run/status for existing direct ACA (v1), or
 fresh direct ACA, ACA behind APIM, native APIM REST, existing MCP and proxies (v2).
 Use --workspace-root and a NEW run --output; continuation --project is the run.

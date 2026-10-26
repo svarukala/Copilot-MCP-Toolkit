@@ -92,3 +92,10 @@ export const discoverMcpTools = (value, options) => mcpNetworkOperation(() => mc
 export const runMcpReadOnlyProof = (value, options) => mcpNetworkOperation(() => mcpDiscovery.runMcpReadOnlyProof(value, options));
 
 export { getLibraryInfo } from './machine-contract.js';
+
+export const getVerifiedImageDeploymentSchema = async () =>
+  structuredClone((await import('./mcp-verified-image-deployment.js')).verifiedImageDeploymentSchema);
+export const planVerifiedImageDeployment = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-verified-image-deployment.js')).planVerifiedImageDeployment(options));
+export const runVerifiedImageDeployment = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-verified-image-deployment.js')).runVerifiedImageDeployment(options));

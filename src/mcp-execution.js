@@ -1,7 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import path from 'node:path';
-import { mkdir, readdir } from 'node:fs/promises';
+import { lstat, mkdir, readdir } from 'node:fs/promises';
 import { setTimeout as pause } from 'node:timers/promises';
 import { assertProjectPath } from './config.js';
 import { readControl, writeControl, withControlLock } from './mcp-control.js';
@@ -66,6 +66,14 @@ function normalizedCreation(plan) {
   return { ...plan.input, ...(plan.coverage.caller === 'entra' && (plan.coverage.hosting || plan.coverage.existing)
     ? { probeMode: 'session' } : {}) };
 }
+async function hostIdentityLocked(host, defaultProject) {
+  const project = host?.azureIdentityProject ?? defaultProject;
+  if (!project) return false;
+  check(path.isAbsolute(project), 'INPUT', 'The private Azure identity project must be an absolute path.');
+  const filename = await assertProjectPath(path.join(project, '.mcp-execution-host.lock'));
+  try { await lstat(filename); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
 async function prepare(options) {
   check(typeof options.config === 'string' && typeof options.output === 'string', 'INPUT',
     'Execution plan/start requires a nonsecret --config and NEW --output.');
@@ -73,6 +81,8 @@ async function prepare(options) {
   const input = checked(await readControl(config), valid);
   future(input.expiresAt);
   if (input.host) future(input.host.expiresAt);
+  check(!await hostIdentityLocked(input.host), 'IDENTITY_LOCKED',
+    'The selected private Azure identity has a host execution lock. Preserve it and resolve its owner before starting another grant.');
   input.scenarioFile = await assertProjectPath(path.resolve(path.dirname(config), input.scenarioFile));
   const candidate = await journey.planValidation({ ...options, config: input.scenarioFile });
   const creation = normalizedCreation(candidate), hosting = candidate.coverage.hosting;
@@ -453,7 +463,15 @@ export const runExecution = (options, dependencies = {}) => scoped(options, asyn
           });
           let host;
           const completed = run.events.some(e => e.kind === 'intent' && e.data.phase === 'sdk-host');
-          if (!completed) host = await sdk(run, execution, adapters);
+          if (!completed) {
+            if (await hostIdentityLocked(run.plan.input.host, path.join(child(run), 'source'))) {
+              return status(run, options.workspaceRoot, { status: 'paused', gate: 'identity-lock',
+                reason: 'The selected private Azure identity has a host execution lock. No host phase was dispatched.',
+                instructions: 'Preserve the lock. Resolve its owner separately before resuming this same unused host authorization.',
+              });
+            }
+            host = await sdk(run, execution, adapters);
+          }
           else {
             host = await readControl(file(run, 'host-result.json'));
             const intent = run.events.find(e => e.kind === 'intent' && e.data.phase === 'sdk-host');

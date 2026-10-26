@@ -64,6 +64,73 @@ async function execute(f) {
   return { plan, result: await runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies) };
 }
 
+test('status-only Docker push summary proceeds through image verification and deployment', async t => {
+  const f = await fixture(t), docker = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = async (...args) => {
+    const value = await docker(...args);
+    if (args[1].includes('/push?')) return response({ status:
+      `${new URLSearchParams(args[1].split('?')[1]).get('tag')}: digest: ${imageDigest} size: 1234` });
+    return value;
+  };
+  const { result } = await execute(f);
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+  assert.equal(f.calls.filter(call => call.route?.includes('/push?')).length, 1);
+  assert.equal(f.calls.filter(call => call.args?.includes('PUT')).length, 1);
+});
+
+test('rejected status-only push remains consumed and cannot dispatch deployment or duplicate push', async t => {
+  const f = await fixture(t), docker = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = async (...args) => {
+    const value = await docker(...args);
+    return args[1].includes('/push?') ? response({ status: `wrong-tag: digest: ${imageDigest} size: 1234` }) : value;
+  };
+  const { plan, result } = await execute(f);
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.stage, 'push');
+  assert.equal(result.reasonCode, 'DOCKER_PUSH_RESULT_INVALID');
+  assert.equal(f.calls.filter(call => call.args?.includes('PUT')).length, 0);
+  const count = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, count);
+});
+
+for (const changed of ['transport', 'url-path-case', 'identity-missing', 'identity-different',
+  'identity-extra', 'identity-case-alias', 'environment', 'registry-identity'])
+  test(`ACA readback still rejects changed ${changed}`, async t => {
+  const f = await fixture(t), run = f.dependencies.runAzure;
+  f.dependencies.runAzure = async (...args) => {
+    const actual = await run(...args);
+    if (args[1].includes('GET') && actual.id === f.app) {
+      if (changed === 'transport') actual.properties.configuration.ingress.transport = 'Tcp';
+      else if (changed.startsWith('identity-')) {
+        const identities = actual.identity.userAssignedIdentities, id = Object.keys(identities)[0];
+        if (changed === 'identity-missing') delete identities[id];
+        if (changed === 'identity-different') {
+          identities[`${id}-different`] = identities[id];
+          delete identities[id];
+        }
+        if (changed === 'identity-extra') identities[`${id}-extra`] = {};
+        if (changed === 'identity-case-alias') identities[id.toUpperCase()] = {};
+      } else if (changed === 'environment') actual.properties.managedEnvironmentId += '-different';
+      else if (changed === 'registry-identity') actual.properties.configuration.registries[0].identity += '-different';
+      else {
+        const env = actual.properties.template.containers[0].env.find(item => item.name === 'PUBLIC_MCP_URL');
+        env.value = env.value.replace('/mcp', '/MCP');
+      }
+    }
+    return actual;
+  };
+  const { result, plan } = await execute(f);
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.stage, 'app');
+  assert.equal(result.reasonCode, 'HOST_EXECUTION_READBACK_MISMATCH');
+  assert.equal(f.calls.filter(call => call.args?.includes('PUT')).length, 1);
+  assert.equal(f.calls.filter(call => call.system === 'health').length, 0);
+  const count = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, count);
+});
+
 for (const [name, from, to] of [
   ['inheritance', '<base />', ''],
   ['authentication', '<validate-jwt', '<removed-jwt'],
@@ -390,6 +457,39 @@ test('wrong app domain or unhealthy running revision never produces a passed dep
     assert.equal(result.endpoint, undefined);
   }
 });
+
+test('ordinary Running remains accepted alongside RunningAtMaxScale', async t => {
+  const f = await fixture(t), original = f.dependencies.runAzure;
+  f.dependencies.runAzure = async (...args) => {
+    const value = await original(...args);
+    if (args[1].includes('GET') && value?.id?.startsWith(`${f.app}/revisions/`))
+      value.properties.runningState = 'Running';
+    return value;
+  };
+  const { result } = await execute(f);
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+});
+
+for (const [field, value] of [['runningState', 'Degraded'], ['runningState', 'Processing'],
+  ['runningState', 'Unknown'], ['active', false], ['healthState', 'Unhealthy']])
+  test(`revision health gate rejects ${field}=${value} after health response`, async t => {
+    const f = await fixture(t), health = f.dependencies.healthTransport;
+    f.dependencies.healthTransport = async (...args) => {
+      const response = await health(...args);
+      for (const resource of f.resources.values()) {
+        if (resource.id?.startsWith(`${f.app}/revisions/`)) resource.properties[field] = value;
+      }
+      return response;
+    };
+    const { result, plan } = await execute(f);
+    assert.equal(result.status, 'unknown-no-replay');
+    assert.equal(result.stage, 'app-health');
+    assert.equal(result.reasonCode, 'HOST_EXECUTION_READBACK_MISMATCH');
+    assert.equal(f.calls.filter(call => call.system === 'health').length, 1);
+    const count = f.calls.length;
+    await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+    assert.equal(f.calls.length, count);
+  });
 
 test('direct health rejects failed, redirected, malformed and oversized responses without retry', async t => {
   for (const kind of ['failure', 'redirect', 'body', 'type', 'declared-size', 'stream-size']) {

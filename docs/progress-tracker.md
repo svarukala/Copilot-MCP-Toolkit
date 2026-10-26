@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-25.
+Last updated: 2026-10-26.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,229 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### Stabilized runner workflow and final regression
+
+The [entry-point guide](reusable-validation.md#choose-the-entry-point), README
+and CLI help now describe unattended hosting followed by owner-present sign-in,
+plus independently reviewed existing-endpoint validation without redeployment.
+Direct and gateway SDK tests verify a noninteractive post-hosting pause with no
+authentication/provider dispatch, idempotent repeated pause, and completion
+without duplicate build, upload or Azure writes.
+
+| Check | Result |
+| --- | --- |
+| Asset inventory / syntax / strict public types | Passed |
+| Full suite, default concurrency | 1091/1092; one direct-ACA header-key creation journey failed |
+| That creation journey in isolation | 1/1 passed |
+| Full suite with `--test-concurrency=4` | 1092/1092 passed; no skips |
+| Production timeout changes | None; initial failure cause remains unconfirmed |
+| Approved cost cleanup | Three superseded pilot apps verified absent; latest validated app and two pre-existing scenario apps retained |
+
+The cleanup preserved shared infrastructure and all local evidence/locks.
+One post-delete read returned an unclassified CLI error; complete collection
+readback reconciled absence without repeating the mutation. No billing invoice
+was queried, and remaining resources can still incur charges.
+
+### Latest live validation outcome
+
+**The existing-app sign-in-and-proof session passed.** Following the user's
+renewed request, authentication and discovery completed in the same process as
+exactly one `get_validation_fixture({})` call, returning `protocol-success` at
+`2026-10-26T13:17:34.665Z`. Receipt bindings, exactly one dispatch/proof, the
+greater-than-65-second discovery-to-dispatch interval and process exit were
+verified. No token was persisted, and no new resource or rebuild was needed.
+
+| Validation surface | Current evidence |
+| --- | --- |
+| Build / scan / smoke / upload / app deployment / readiness / health | Passed in the earlier hosting execution |
+| Expected-user sign-in / fresh discovery / single fixture call | Passed together in the subsequent interactive session |
+| One uninterrupted combined build-through-proof execution | Not established; original execution remains timed out |
+| Business correctness / negative-auth / consumer acceptance | Not established |
+| Cost closeout | App remains deployed and billable; no cleanup performed |
+
+This completes the requested bounded existing-endpoint proof, without rewriting
+failed attempts or treating separate executions as a combined runner pass.
+
+### Earlier authentication attempts on the same app
+
+**Next-day sign-in-and-proof attempt stopped before discovery.** The separately
+requested one-call session on the existing app ended at
+`2026-10-26T13:11:37.962Z` with token-stage `AUTHENTICATION_TIMEOUT`.
+No new capture, dispatch or proof was produced; no rebuild or Azure resource
+creation occurred. The process ended, its failure evidence is retained, and no
+automatic retry was started. The timeout does not establish a specific cause.
+
+**Subsequent sign-in/discovery succeeded against the same deployed app.**
+At the user's request, a fresh discovery-only operation retained an authenticated
+capture at `2026-10-26T01:56:46.926Z` with `get_validation_fixture` in `tools/list`.
+Its process ended; there are no tool dispatch or proof receipts for this endpoint.
+No rebuild or additional app was needed. This is separate discovery evidence,
+not repair of the earlier combined run or a passing full build-through-proof.
+Tokens are not persisted for later unattended execution.
+
+**Latest combined run: all hosting gates passed, but sign-in timed out.**
+After explicit approval, the exact stale shared identity mutex was archived
+without changing old run locks, reservations or consumed evidence. The fresh
+create-only execution passed the entire hosting chain and release/reference
+generation. Authentication stopped at `2026-10-26T01:53:17.913Z` with
+`AUTHENTICATION_TIMEOUT`, token stage. The process ended; no retry was started.
+
+| Gate | Latest same-run result |
+| --- | --- |
+| Identity / preflight / build / scan / smoke / upload / qualification | Passed |
+| App creation/readback / revision readiness / health | Passed |
+| Release / endpoint-reference generation | Passed |
+| Microsoft sign-in | Timed out at token acquisition |
+| Authenticated discovery / single fixture proof | Not reached; no capture, dispatch or proof receipts |
+| One uninterrupted build-through-proof run | Not yet passed |
+| Cost / acceptance | App remains deployed and billable; negative-auth, business and consumer acceptance not established |
+
+The write-ahead session provider budget remains consumed despite no tool
+dispatch. Current host and shared identity mutexes were released normally;
+historical locks remain preserved. Further execution is not an automatic replay.
+
+### Earlier corrected-fixture and interrupted-run evidence
+
+The next explicitly approved attempt stopped after one identity read because the
+cancelled host process left a private-identity lock. No build, new app or provider
+call occurred. The lock owner was confirmed absent; locks and prior attempts
+remain retained. Planning now rejects an existing explicit-identity lock before
+grant creation, and execution pauses without consuming host authorization if a
+lock appears afterward. Lock-owner recovery remains separate and is not automatic.
+
+The subsequent full run under clarified user approval passed app creation and
+readback, then exposed a readiness-state compatibility bug: Azure's healthy
+`RunningAtMaxScale` state was not accepted alongside `Running`. A bounded
+independent read confirmed active/healthy/provisioned state at the one-replica
+ceiling. Polling was cancelled and incomplete evidence retained; no provider
+call occurred in that run. The shared readiness and health checks now accept
+both documented healthy running states, without accepting degraded, unknown,
+inactive or unhealthy revisions. This run is not recorded as an end-to-end pass.
+The correction passed **12/12** focused full-host, deployment-only, ordinary
+running-state and negative health-state regressions, plus inventory, syntax and
+strict public types. No old grant was resealed to execute the changed code.
+Follow-up full offline execution checks passed **5/5**: all four SDK journeys
+(direct/gateway, with/without a backend key) and the single-sign-in paced-proof
+case. These use synthetic services only and do not replace a live full-run result.
+
+**The corrected fixture passed a real MCP call.** A separate interactive-session
+runner completed expected-user sign-in, authenticated discovery and exactly one
+`get_validation_fixture({})` call with `protocol-success`, retaining one dispatch
+and one proof receipt. No token was persisted or provider call retried.
+
+| Gate | Latest observed result |
+| --- | --- |
+| Build / scan / smoke / upload | Passed in the corrected live hosting run |
+| App creation | Independently observed after the readback stop |
+| Entra sign-in / discovery | Passed against the corrected endpoint |
+| Single JSON fixture proof | Passed through the independent interactive-session runner |
+| One uninterrupted create/deploy/prove run | Not yet passed; original run stays blocked |
+| Business correctness / consumer / negative-auth acceptance | Not established |
+
+The separately approved corrected GitHub JSON-blob run passed identity,
+infrastructure preflight, build, scan, smoke, upload and image qualification.
+Its app readback stopped `unknown-no-replay`, with zero provider calls. A separate
+exact ARM read confirmed the app existed and its latest revision was ready.
+The mismatch was Azure's `resourcegroups` spelling inside the assigned-identity
+dictionary key. The comparison now handles known ARM IDs case-insensitively
+without allowing missing, extra, different or case-duplicate identities.
+The correction passed **68/68** host/deployment regressions in a final run with
+repository files held unchanged, plus inventory, syntax and strict public types.
+The consumed run stays blocked. New-endpoint authentication and proof were
+established by the separate live session above, not by this read-only diagnosis.
+Full create/deploy/prove remains unpassed.
+
+### Earlier live fixture outcome
+
+The user-directed existing-endpoint `mcp-session` retained all earlier history
+and reached one real tool invocation. It is a completed validation attempt with
+a failing fixture result, not a passing end-to-end acceptance.
+
+| Gate | Observed result |
+| --- | --- |
+| App deployment / health | Independently confirmed after the earlier runner readback mismatch |
+| Entra sign-in / tool discovery | Passed for the expected user and exact endpoint |
+| Single fixed fixture proof | One dispatch; `tool-error`, no retry |
+| Failure diagnosis | Backend returned HTTP 200 but an unsupported content type; confirmed by bounded app-log inspection |
+| Full create/deploy/prove runner | Not yet passed in one live run |
+| Consumer / negative-auth acceptance | Not established |
+
+Replace the raw repository-file fixture with a genuinely JSON-serving endpoint
+before a newly reviewed deployment/validation attempt. Do not loosen the runtime
+content-type contract, erase consumed history, or infer another call from this
+diagnosis. The same-project proof-history review retained the aborted discovery
+as `not-proof`; no new reference was created to evade it.
+The corrected fixture targets GitHub's documented JSON blob API with a locally
+resolved immutable blob ID. Its additional app and ongoing charges were
+subsequently approved and the hosting run above reached deployment. Its separate
+interactive-session proof then passed once, as recorded above.
+
+### Push completion and existing-image deployment
+
+The runner now recognizes classic Docker auxiliary digests and containerd tagged
+digest completion, without accepting partial/error streams or weakening image
+binding. The original pilot response was not retained; this reproduced parser
+gap is a supported explanation, not proof of the exact historical failure.
+
+The separate [verified-image deployment contract](verified-image-deployment.md)
+is implemented for eligible direct-ACA push-unknown parents. It binds retained
+source and scan evidence, exact image/target/private identity, fresh approval and
+resource limits; it preserves the old run and target reservation and prevents a
+new output from replaying a continuation. No build, push, role/secret operation,
+discovery or provider proof is included.
+
+Focused review found no significant issues; **68/68** targeted checks passed.
+Additional parallel orchestration/packed-consumer verification passed **41/42**.
+The lone anonymous-runner unknown-outcome failure did not recur in an isolated
+fresh synthetic run (**1/1**); its parallel cause remains unconfirmed.
+**No successful end-to-end live reusable runner is established by these checks.**
+The separately reviewed deployment-only attempt subsequently created the app,
+but stopped unknown/no-replay during readback. A separate exact ARM read observed
+`Succeeded` and matching latest/ready revisions. The incompatibility was Azure's
+`Http` enum spelling versus literal `http`, not a different transport; location
+display-name normalization was already supported. The correction normalizes only
+the ingress transport enum, preserves strict URL/path checks and surfaces explicit
+readback mismatch codes. The synthetic Azure fixture now emits the observed enum
+form, with negative controls for different transport and URL path case.
+The correction passed **4/4** focused host/deployment/negative-readback checks;
+follow-up review found no significant issues. No deployment replay or historical
+receipt rewrite occurred. A separate bounded HTTPS health GET passed with 200 and
+the exact expected body. The subsequent separately reviewed existing-endpoint
+runner aborted during session/discovery after approximately its ten-minute
+limit (`ABORTED`, `failed-no-capture`). It recorded no successful discovery/proof;
+its write-ahead one-call budget remains consumed, not a confirmed provider call.
+Sign-in completion is not established by the durable evidence. That attempt is
+preserved without retry. The original runner and the endpoint validation are
+not passing end-to-end runs.
+
+Cancellation diagnostics were also corrected: future aborted Entra operations
+retain only the sanitized authentication/metadata stage rather than dropping it.
+Original failed evidence is unchanged; no sign-in outcome is inferred or
+authentication challenge retained. Discovery and delegated-session regressions
+passed **120/120**, including durable cancellation diagnostics and no-replay.
+
+### Bundled runtime live pilot
+
+PR #4 merged as `3fb492b`; focused review and all four Ubuntu/Windows,
+Node 22/24 CI jobs passed. The subsequent separately approved live attempt
+established the following results without weakening the security policy:
+
+| Gate | Result | Remaining work |
+| --- | --- | --- |
+| Private identity / infrastructure / build | Passed | No new consumer acceptance implied |
+| Image binding / vulnerability scan | Passed: zero critical/high, 25 medium and 10 low findings | Findings remain visible; this is image-specific, not an upstream dependency upgrade |
+| Scanner completeness / bundle exclusions | OS and 13 npm package records retained; Express, body-parser and build-only esbuild absent | Preserve truthful used-component metadata in future images |
+| Network-disabled nonroot smoke | Passed, no provider call | Live caller rejection and consumer behavior remain separate |
+| Registry push | Original receipt remains unknown/no-replay; subsequent approved read-only ACR lookup confirms the exact tag matches the scanned image digest | Investigate the runner's push-result handling without replaying the upload or rewriting the original receipt |
+| Deployment / discovery / proof | Not reached; zero provider calls | Resolve the push evidence gap before any newly reviewed mutation |
+
+The attempt consumed 11 logical Azure commands. No app creation was dispatched.
+Immutable receipts and both consumed runs are preserved privately. The bounded
+read-only registry check completed using two private-identity read commands and
+local CLI help. It confirms the upload reached ACR, not a successful original
+runner receipt, deployment authorization or permission to resume the consumed run.
+The earlier pilot table below remains historical.
 
 ### One-plan bounded execution
 

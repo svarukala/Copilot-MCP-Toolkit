@@ -104,6 +104,14 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
       const filename = args[args.indexOf('--body') + 1].slice(1);
       const body = JSON.parse(await readFile(filename));
       if (id === app) {
+        const displayId = value => value.replace('/resourceGroups/', '/resourcegroups/');
+        body.identity.userAssignedIdentities = Object.fromEntries(
+          Object.entries(body.identity.userAssignedIdentities).map(([key, value]) => [displayId(key), value]));
+        body.properties.managedEnvironmentId = displayId(body.properties.managedEnvironmentId);
+        for (const item of [...body.properties.configuration.registries, ...(body.properties.configuration.secrets ?? [])]) {
+          if (item.identity) item.identity = displayId(item.identity);
+        }
+        body.properties.configuration.ingress.transport = 'Http';
         body.properties.provisioningState = 'Succeeded';
         body.properties.configuration.ingress.fqdn = `${a.appName}.synthetic.eastus.azurecontainerapps.io`;
         const revisionName = `${a.appName}--synthetic`;
@@ -111,7 +119,7 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
         body.properties.latestReadyRevisionName = revisionName;
         const revisionId = `${app}/revisions/${revisionName}`;
         resources.set(revisionId, { id: revisionId, properties: { active: true, healthState: 'Healthy',
-          runningState: 'Running', provisioningState: 'Provisioned', template: structuredClone(body.properties.template) } });
+          runningState: 'RunningAtMaxScale', provisioningState: 'Provisioned', template: structuredClone(body.properties.template) } });
       }
       const result = { ...body, id };
       resources.set(id, result);

@@ -28,6 +28,22 @@ void reference;
 void prepareRestToolDocument;
 void compareRestCapture;
 void McpToolkitError;
+
+async function verifiedImageConsumer(options: import('copilot-mcp-toolkit').VerifiedImageDeploymentOptions) {
+  const api = await import('copilot-mcp-toolkit');
+  const schema: Record<string, unknown> = await api.getVerifiedImageDeploymentSchema();
+  const plan = await api.planVerifiedImageDeployment(options);
+  const kind: 'mcp-verified-image-deployment-plan' = plan.scope.kind;
+  await api.runVerifiedImageDeployment({ ...options, approval: plan.approvalToken,
+    allowLocal: true, allowNetwork: true, allowCloud: true });
+  await api.runVerifiedImageDeployment({ ...options, approval: plan.approvalToken,
+    // @ts-expect-error No public transport or Azure runner injection.
+    allowLocal: true, allowNetwork: true, allowCloud: true }, { runAzure() {} });
+  // @ts-expect-error All deployment effect gates are mandatory.
+  await api.runVerifiedImageDeployment({ ...options, approval: plan.approvalToken, allowCloud: true });
+  return { schema, kind };
+}
+void verifiedImageConsumer;
 type Experiment = McpExperimentalProxyInput['experimentalProfile'];
 const profile: Experiment = 'owned-backend-routing-v1';
 void profile;

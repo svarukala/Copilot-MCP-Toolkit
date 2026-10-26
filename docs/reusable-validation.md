@@ -4,6 +4,106 @@ The same six commands support the existing-deployment v1 contract below and
 [fresh creation journeys in v2](#fresh-creation-runners-version-2). Starting a
 run is a local record operation, not approval for its future phases.
 
+For a retained eligible push-unknown OCI image, the separately approved
+[verified-image deployment-only contract](verified-image-deployment.md) can
+create direct ACA without rebuilding, uploading or resuming the consumed run.
+It does not grant discovery/proof or modify either validation contract.
+
+## Choose the entry point
+
+Use the existing commands in two stages rather than deploying another app when
+a sign-in window is missed. No new runner or skip-stage option is required.
+
+| Goal | Entry point | What it does not do |
+| --- | --- | --- |
+| Build and deploy a new SDK app | Reviewed `mcp-execution-plan/start`, then `mcp-execution-run` **without** `--interactive` | Does not open a runtime sign-in window while the owner is away |
+| Finish a cleanly paused run when ready | Same `mcp-execution-run --interactive --progress` and same run directory | Does not rebuild completed hosting stages or request another phase approval |
+| Validate an already deployed Entra endpoint independently | `mcp-session-plan`, then separately approved `mcp-session` on its existing reference | Does not create resources, rebuild, repair the old run or reuse a persisted MCP token |
+
+### Stage 1: deploy, then stop before runtime sign-in
+
+Prepare and approve the SDK execution as [described below](#prepare-and-approve-once).
+An already selected, explicitly reviewed private Azure identity is needed to
+finish hosting unattended. If Azure login is required, the noninteractive run
+stops before hosting instead; it never substitutes a shared account.
+
+```powershell
+copilot-mcp mcp-execution-run --workspace-root C:\McpRuns --project C:\McpRuns\new-run --progress --json
+copilot-mcp mcp-execution-status --workspace-root C:\McpRuns --project C:\McpRuns\new-run --json
+```
+
+Check the returned milestones: `sign-in-required` alone does not prove that
+deployment completed. With the private Azure identity available and all other
+prerequisites satisfied, hosting and release/reference generation complete,
+then the runner stops **before** dispatching the runtime session. The unused
+provider budget remains available; no device-code countdown has started.
+
+When the owner is present, resume the same cleanly paused, unexpired grant:
+
+```powershell
+copilot-mcp mcp-execution-run --workspace-root C:\McpRuns --project C:\McpRuns\new-run --interactive --progress --json
+```
+
+Keep the toolkit build, configuration and evidence unchanged between stages.
+This is a safe between-phase continuation, not recovery of a failed or unknown
+phase. The granted session keeps one sign-in in memory through discovery,
+the reviewed pacing interval and the single proof.
+
+### Stage 2 alternative: validate the existing endpoint
+
+For a separately authorized validation, use the **same existing reference** and
+retain its observation history. Save this synthetic selection as a private
+`session.json`, replacing identities and tool selection with reviewed values:
+
+```json
+{
+  "schemaVersion": 1,
+  "discovery": {
+    "discoveryClientId": "44444444-4444-4444-8444-444444444444",
+    "expectedUserId": "55555555-5555-4555-8555-555555555555"
+  },
+  "proof": {
+    "toolName": "get_information",
+    "arguments": {},
+    "safetyReview": {
+      "readOnly": true,
+      "reason": "Owner reviewed this fixed GET."
+    }
+  }
+}
+```
+
+```powershell
+copilot-mcp mcp-session-plan --workspace-root C:\McpRuns --project C:\McpRuns\endpoint-reference --config C:\McpRuns\session.json --summary --json
+copilot-mcp mcp-session --workspace-root C:\McpRuns --project C:\McpRuns\endpoint-reference --config C:\McpRuns\session.json --approve EXACT_SESSION_DIGEST --allow-network --interactive --json
+```
+
+Start only when the owner can sign in immediately. Runtime authentication has a
+10-minute timeout; the whole session lasts at most 15 minutes. Device challenges
+stay in the terminal/browser, never in files or chat. Redirect stdout only if
+saving the result; stderr contains the transient challenge and exact proof review.
+
+After discovery, review the newly displayed capture-bound proof plan and retained
+history, then supply its **separate exact proof digest** in that same terminal.
+For the SDK fixture profile described below, wait at least 65 seconds after the
+capture timestamp before approving the call; standalone `mcp-session` does not
+automatically apply the execution runner's pacing. Do not use `mcp-discover`
+as the first half when the goal is a single sign-in through proof: that command
+ends after discovery and retains no usable token.
+
+If authentication times out, preserve the failed attempt and inspect its failure
+and dispatch evidence. A separately reviewed session may be appropriate when
+history proves no call was dispatched; a dispatched, unknown or consumed proof
+must not be retried. A fresh capture/reference does not erase these barriers.
+The original execution's write-ahead budget stays consumed even when its
+authentication failed. A separate successful session never changes the original
+run into a pass or establishes an uninterrupted build-through-proof result.
+
+No command above stops Azure billing. At closeout, review the exact test apps and
+their dependencies with the owner; retain or delete only explicitly agreed
+targets. Do not delete the resource group, shared environment, registry,
+identities or evidence as an implied validation cleanup.
+
 ## Bounded execution, separate contract version 1
 
 `mcp-execution-schema/plan/start/run/status/record` is the opt-in **execution**
@@ -76,6 +176,16 @@ chooses newer dependencies or waives vulnerability findings.
 The existing recipe must admit at least four MCP POSTs per minute and
 `minimumProofDelayMs` must be 65000. The wait covers the aggregate initialization,
 notification, metadata and call window, not just provider calls.
+
+Choose controlled backend fixtures by their HTTP contract, not their file
+extension. The SDK runtime requires a successful, nonredirecting response with
+`application/json` or an `application/*+json` content type and bounded valid JSON.
+A raw repository URL ending in `.json` is not sufficient. GitHub's
+[Get a blob JSON representation](https://docs.github.com/en/rest/git/blobs#get-a-blob)
+is one candidate: pin an immutable blob ID and expect the JSON envelope with
+base64 content, not the original file's top-level fields. Review the actual API
+origin, rate limits and response contract before authorizing a call. A changed
+fixture does not authorize another deployment or reset a consumed proof.
 
 The [SDK envelope example](../examples/mcp/execution-container-apps.json) is also
 synthetic: replace both expiries, the scanner digest, account, identifiers and

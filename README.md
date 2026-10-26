@@ -241,6 +241,11 @@ automation. Genuine sign-in and unsupported/manual acceptance gates remain
 explicit; failed or uncertain work is never retried. Legacy validation and
 terminal-session commands retain their separate approvals.
 
+For the practical two-stage flow, [choose the runner entry point](docs/reusable-validation.md#choose-the-entry-point):
+deploy without opening runtime sign-in, then continue when the owner is ready.
+An independently reviewed existing-endpoint session needs no rebuild or new app;
+it preserves previous failures and keeps one sign-in through discovery and proof.
+
 The four SDK recipe commands generate source, deployment review files
 and local release bundles; **generation itself never deploys to Azure.** App
 Service and Functions still require separately performed deployment. Real

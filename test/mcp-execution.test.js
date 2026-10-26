@@ -264,6 +264,42 @@ for (const [example, scenario] of [['catalog', 'native-apim-create-v2'], ['upstr
   });
 }
 
+test('a locked explicit host identity rejects planning before creating a grant', async t => {
+  const f = await setup(t, 'container-apps-direct', 'container-apps-create-v2');
+  const identity = path.join(f.root, 'identity');
+  await mkdir(identity);
+  f.input.host.azureIdentityProject = identity;
+  const filename = path.join(identity, '.mcp-execution-host.lock'), contents = '{"pid":123456}';
+  await writeFile(filename, contents);
+  await f.rewrite();
+  await assert.rejects(planExecution(f.options), { code: 'MCP_VALIDATION_EXECUTION_IDENTITY_LOCKED' });
+  assert.equal((await readdir(f.root)).includes('execution'), false);
+  assert.equal(await readFile(filename, 'utf8'), contents);
+});
+
+for (const explicit of [false, true]) test(`host identity lock arriving after grant pauses without spending host authorization: explicit=${explicit}`, async t => {
+  const f = await setup(t, 'container-apps-direct', 'container-apps-create-v2');
+  const identity = explicit ? path.join(f.root, 'identity') : path.join(f.output, 'journey', 'source');
+  if (explicit) {
+    await mkdir(identity);
+    f.input.host.azureIdentityProject = identity;
+  }
+  await f.start();
+  const before = await runExecution(f.active, f.deps);
+  assert.equal(before.status, 'sign-in-required');
+  const filename = path.join(identity, '.mcp-execution-host.lock'), contents = '{"pid":123456}';
+  await writeFile(filename, contents);
+  const paused = await runExecution(f.active, f.deps);
+  assert.equal(paused.status, 'paused');
+  assert.equal(paused.gate, 'identity-lock');
+  assert.deepEqual(paused.consumption, before.consumption);
+  assert.equal(await readFile(filename, 'utf8'), contents);
+  await rm(filename);
+  const resumed = await runExecution(f.active, f.deps);
+  assert.equal(resumed.status, 'sign-in-required');
+  assert.deepEqual(resumed.consumption, before.consumption);
+});
+
 for (const gateway of [false, true]) test(`SDK ${gateway ? 'gateway' : 'direct'} grant pauses before sign-in without spending host authorization`, async t => {
   const f = await setup(t, gateway ? 'container-apps-apim' : 'container-apps-direct',
     gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2');
@@ -314,6 +350,19 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     fixture.waitForProof = async ms => { waits.push(ms); };
     const dependencies = { runAzure: synthetic.dependencies.runAzure,
       hostDependencies: synthetic.dependencies, sessionDependencies: fixture };
+    if (!key) {
+      const paused = await runExecution(f.active, dependencies);
+      assert.equal(paused.status, 'sign-in-required');
+      assert.equal(paused.consumption.providerCalls, 0);
+      assert.equal(paused.milestones.find(row => row.name === 'runtime-deployment').outcome, 'passed');
+      assert.equal(fixture.calls.length, 0);
+      const hostCalls = synthetic.calls.length;
+      const stillPaused = await runExecution(f.active, dependencies);
+      assert.equal(stillPaused.status, 'sign-in-required');
+      assert.deepEqual(stillPaused.consumption, paused.consumption);
+      assert.equal(synthetic.calls.length, hostCalls);
+      assert.equal(fixture.calls.length, 0);
+    }
     const result = await runExecution({ ...f.active, onDeviceCode() {} }, dependencies);
     assert.equal(result.status, 'execution-completed', JSON.stringify(result));
     assert.equal(result.protocol, 'passed-historical');
@@ -329,6 +378,8 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     }
     const writes = synthetic.calls.filter(call => call.system === 'azure' && call.args.includes('PUT')).length;
     assert.equal(writes, gateway ? 5 : 1);
+    assert.equal(synthetic.calls.filter(call => call.route?.includes('/build?')).length, 1);
+    assert.equal(synthetic.calls.filter(call => call.route?.includes('/push?')).length, 1);
     await runExecution({ ...f.active, onDeviceCode() {} }, dependencies);
     assert.equal(synthetic.calls.filter(call => call.system === 'azure' && call.args.includes('PUT')).length, writes);
     assert.equal(fixture.calls.filter(call => call === 'tools/call').length, 1);
