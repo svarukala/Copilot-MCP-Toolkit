@@ -82,7 +82,7 @@ then run separate discovery/proof/FCC steps.
 
 Live image pull, Linux plan compatibility, platform routing, authentication and
 consumer Read-only classification are not yet qualified. Existing runtime
-limits remain: fixed parameter-free GETs, anonymous or API-key JSON backend, no retries,
+limits remain: fixed-path GETs with bounded declared query arguments, anonymous or API-key JSON backend, no retries,
 per-process (not distributed) limits, stateless JSON Streamable HTTP.
 Versionless references can take up to 24 hours to refetch; configuration changes
 restart/refetch. The SDK holds its startup value until worker restart. Pinned

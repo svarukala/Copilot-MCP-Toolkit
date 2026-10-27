@@ -7,7 +7,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 
-for (const [approve, publicMode] of [[false, false], [true, false], [false, true], [true, true]]) test(`terminal New ${publicMode ? 'public APIM' : 'reference'} setup ${approve ? 'creates and resumes' : 'cancels'} through the CLI entry point`, { timeout: 30000 }, async t => {
+for (const [approve, publicMode, hosting] of [
+  [false, false], [true, false], [false, true], [true, true], [false, false, true], [true, false, true],
+]) test(`terminal New ${hosting ? 'Container Apps source' : publicMode ? 'public APIM' : 'reference'} setup ${approve ? 'creates and reviews' : 'cancels'} through the CLI entry point`, { timeout: 30000 }, async t => {
   const root = await mkdtemp(path.join(tmpdir(), 'copilot-mcp-terminal-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const preload = path.join(root, 'terminal.cjs'), project = path.join(root, 'new project');
@@ -25,7 +27,15 @@ require('node:module').syncBuiltinESMExports();
 `);
   const tenant = '22222222-2222-4222-8222-222222222222', subscription = '33333333-3333-4333-8333-333333333333';
   const group = `/subscriptions/${subscription}/resourceGroups/synthetic-rg`;
-  const steps = [
+  const recipeFile = path.join(root, 'recipe.json');
+  if (hosting) await writeFile(recipeFile, await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
+  const steps = hosting ? [
+    ['Choice: ', '1'], ['Choice: ', '3'],
+    ['Existing absolute private workspace directory (outside the toolkit checkout): ', root],
+    ['Full path to your edited hosting recipe JSON file: ', recipeFile],
+    ['NEW project directory inside the workspace (absolute path): ', project],
+    ['Choice: ', approve ? '2' : '1'],
+  ] : [
     ['Choice: ', '1'], ['Choice: ', publicMode ? '1' : '2'], ['Choice: ', '1'],
     ['MCP setup name: ', 'Synthetic terminal demo'],
     ...(publicMode ? [
@@ -44,7 +54,7 @@ require('node:module').syncBuiltinESMExports();
     ['Choice: ', approve ? '2' : '1'],
   ];
   const child = spawn(process.execPath, ['--require', preload,
-    fileURLToPath(new URL('../bin/copilot-mcp.js', import.meta.url)), 'init', '--workspace-root', root],
+    fileURLToPath(new URL('../bin/copilot-mcp.js', import.meta.url)), 'init', ...(hosting ? [] : ['--workspace-root', root])],
   { stdio: ['pipe', 'pipe', 'pipe'] });
   t.after(() => { if (child.exitCode === null) child.kill(); });
   let stdout = '', stderr = '', pending = '', answered = 0;
@@ -53,6 +63,11 @@ require('node:module').syncBuiltinESMExports();
     stderr += data;
     pending += data;
     if (answered < steps.length && stripVTControlCharacters(pending).endsWith(steps[answered][0])) {
+      if (hosting && steps[answered][0].startsWith('Existing absolute private workspace directory')) {
+        assert.match(stderr, /No authentication: container-apps-direct\.json/);
+        assert.match(stderr, /API key: container-apps-direct-api-key\.json/);
+        assert.match(stderr, /WORKSPACE FOLDER only, not the JSON file/);
+      }
       child.stdin.write(`${steps[answered][1]}\n`);
       pending = '';
       answered++;
@@ -63,12 +78,23 @@ require('node:module').syncBuiltinESMExports();
     child.once('close', resolve);
   });
   assert.equal(answered, steps.length, stderr);
-  assert.equal(status, 2, stderr);
+  assert.equal(status, hosting && approve ? 0 : 2, stderr);
   assert.doesNotMatch(stderr + stdout, /TEST_FORBIDDEN_NETWORK_OR_PROCESS/);
   assert.equal(stderr.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
   assert.match(stderr, /Start a new MCP setup/);
-  assert.match(stderr, /Resume an existing setup/);
+  assert.match(stderr, /Review an existing setup or test run/);
   if (approve) {
+    if (hosting) {
+      const result = JSON.parse(stdout);
+      assert.equal(result.recipe, 'container-apps-direct-v1');
+      assert.equal(result.built, false);
+      assert.equal(result.deployed, false);
+      assert.match(result.sourceManifestDigest, /^sha256:/);
+      assert.match(stderr, /Save these hosting source files to the folder shown above\?/);
+      assert.match(stderr, /Hosting source files saved/);
+      assert.ok((await readdir(project)).includes('recipe-manifest.json'));
+      return;
+    }
     assert.equal(JSON.parse(stdout).action, 'standalone-mcp-resume');
     assert.equal(JSON.parse(stdout).replayAuthorized, false);
     const definition = JSON.parse(await readFile(path.join(project, 'mcp-definition.json')));
@@ -83,7 +109,7 @@ require('node:module').syncBuiltinESMExports();
     assert.doesNotMatch(stderr, /Create the local bundle approved by/);
   } else {
     assert.equal(stdout, '');
-    assert.deepEqual(await readdir(root), ['terminal.cjs']);
+    assert.deepEqual((await readdir(root)).sort(), hosting ? ['recipe.json', 'terminal.cjs'] : ['terminal.cjs']);
     assert.doesNotMatch(stderr, /Setup files saved/);
   }
 });

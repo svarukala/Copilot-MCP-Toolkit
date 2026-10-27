@@ -16,7 +16,8 @@ import { readMcpServerProject, switchMcpServerAccount, provisionMcpServer, recon
 import { readMcpStatus } from './mcp-status.js';
 import { planMcpResume, resumeFreshness } from './mcp-resume.js';
 import { readOperatorHandover } from './mcp-operator.js';
-import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectValidationOperation } from './mcp-discovery-project.js';
+import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectValidationOperation,
+  validateGeneratedProofArguments } from './mcp-discovery-project.js';
 import { assertMcpProofHistory } from './mcp-proof-history.js';
 import { planInteractiveSession, runInteractiveSession } from './mcp-interactive-session.js';
 import { readHandoverRelease, planHandover, writeHandover } from './mcp-handover.js';
@@ -79,6 +80,8 @@ const phases = ['generate', 'release', 'reference', 'account', 'provision', 'rec
 const date = value => typeof value === 'string' && Number.isFinite(Date.parse(value))
   && new Date(value).toISOString() === value && Date.parse(value) <= Date.now();
 const fileAt = (run, name) => path.join(run.dir, name);
+const proofSelection = (input, dir) => ({ ...input.proof,
+  ...(input.scenario.startsWith('container-apps-') ? { generatedSource: path.join(dir, 'source') } : {}) });
 const childOptions = (run, workspaceRoot, config, output) => ({
   workspaceRoot, project: fileAt(run, 'source'), config, output,
 });
@@ -99,8 +102,9 @@ async function profile(input, definition) {
     endpoint = compiled.runtime.gateway?.publicUrl ?? null;
     backend = definition.backend.auth === 'api-key' ? definition.backend.apiKey.headerName ? 'api-key-header' : 'api-key-query' : 'anonymous';
     requireRun(definition.operationIds.includes(input.proof.toolName)
-      && keys(input.proof.arguments, []) && !input.proof.responseAssertion && !input.proof.delegatedFixture, 'INPUT',
-    'SDK validation selects one generated fixed GET with empty arguments, not a native APIM proof fixture.');
+      && !input.proof.responseAssertion && !input.proof.delegatedFixture, 'INPUT',
+    'SDK validation selects one generated fixed GET with validated query arguments, not a native APIM proof fixture.');
+    validateGeneratedProofArguments(compiled.runtime, input.proof);
   } else {
     requireRun(existing ? definition.kind === 'existing-mcp' : native ? definition.kind === undefined
       : definition.kind === 'apim-mcp-proxy' && [2, 3].includes(definition.schemaVersion), 'INPUT', 'Definition does not match the selected runner.');
@@ -364,7 +368,7 @@ export const startValidation = options => scoped(options, async () => {
   await writeControl(path.join(plan.outputPath, 'definition.json'), plan.definition, { create: true });
   await writeControl(path.join(plan.outputPath, 'discovery.json'), plan.input.discovery, { create: true });
   await writeControl(path.join(plan.outputPath, 'session.json'),
-    { schemaVersion: 1, discovery: plan.input.discovery, proof: plan.input.proof }, { create: true });
+    { schemaVersion: 1, discovery: plan.input.discovery, proof: proofSelection(plan.input, plan.outputPath) }, { create: true });
   const body = { schemaVersion: 2, kind: 'mcp-validation-creation-run', runDirectory: plan.outputPath,
     createdAt: new Date().toISOString(), buildId: plan.buildId, input: plan.input, definitionDigest: digest(plan.definition) };
   const contentDigest = digest(body);
@@ -469,14 +473,15 @@ async function next(options) {
         selected = { workspaceRoot: options.workspaceRoot, project: s.endpointProject, config: fileAt(run, 'session.json') };
         try {
           if (capture) {
-            phase = 'proof'; selection = { ...run.input.proof, capture: capture.file };
+            phase = 'proof'; selection = { ...proofSelection(run.input, run.dir), capture: capture.file };
             childPlan = await planMcpProjectProof(s.endpointProject, selection);
             assertMcpProofHistory(childPlan.proofHistory, childPlan.approvalDigest, childPlan.operation.approvalDigest, childPlan.operation);
             const freshness = resumeFreshness(childPlan);
             if (freshness.status !== 'fits-known-budgets') return stop('blocked', 'The proof capture/configuration cannot cover the known execution budget; no refresh or retry is automatic.');
           } else if (run.input.probeMode === 'session') {
             phase = 'session';
-            requireRun(digest(await readControl(selected.config)) === digest({ schemaVersion: 1, discovery: run.input.discovery, proof: run.input.proof }),
+            requireRun(digest(await readControl(selected.config)) === digest({
+              schemaVersion: 1, discovery: run.input.discovery, proof: proofSelection(run.input, run.dir) }),
               'CHANGED', 'Pinned session input changed.');
             childPlan = await planInteractiveSession(selected);
           } else {
@@ -485,7 +490,8 @@ async function next(options) {
           }
         } catch (error) {
           if (!['READ_ONLY_REVIEW_REQUIRED', 'PROOF_SCHEMA_UNSUPPORTED', 'PROOF_ARGUMENTS_INVALID', 'UNSAFE_PROOF',
-            'AUTH_CONFIG_INVALID', 'PROOF_REPLAY_BLOCKED', 'MCP_CONFIGURATION_STALE', 'PROOF_CAPTURE_INVALID'].includes(error.code)) throw error;
+            'AUTH_CONFIG_INVALID', 'PROOF_REPLAY_BLOCKED', 'MCP_CONFIGURATION_STALE', 'PROOF_CAPTURE_INVALID',
+            'METADATA_MISMATCH'].includes(error.code)) throw error;
           return stop('blocked', 'The existing proof/discovery planner does not admit this profile or retained selection. It is not a passed gate; no auth/call was dispatched.',
             { code: error.code, proofSupport: p.proofSupport });
         }

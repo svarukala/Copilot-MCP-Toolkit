@@ -8,6 +8,8 @@ import { withCliWorkspace, TOOLKIT_ROOT } from '../src/config.js';
 import { planMcpResume } from '../src/mcp-resume.js';
 import { prepareMcpServer } from '../src/mcp-server.js';
 import { promptMcpResourceModes, promptMcpResourceSelection, prepareResourceSelection } from '../src/mcp-resources.js';
+import { hostingSchema, planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
+import { readRecipeProject, recipeSourcePlan } from '../src/mcp-recipe-artifacts.js';
 
 const uuid = n => `${String(n).repeat(8)}-${String(n).repeat(4)}-4${String(n).repeat(3)}-8${String(n).repeat(3)}-${String(n).repeat(12)}`;
 const tenant = uuid(2), subscription = uuid(3);
@@ -350,4 +352,220 @@ test('invalid endpoints and unsupported OpenAPI inputs fail without publishing a
     await assert.rejects(guidedArguments(p, { 'workspace-root': root }));
   }
   assert.deepEqual(await readdir(root), ['invalid.json']);
+});
+
+test('new setup menu includes every supported hosting recipe and explains file-based input', async () => {
+  const expected = hostingSchema.oneOf.map(schema => schema.properties.recipe.const);
+  const p = scripted([c('new'), c((label, choices, output) => {
+    assert.equal(label, 'What would you like to set up?');
+    for (const recipe of expected) {
+      assert.match(choices.find(choice => choice.value === recipe)?.label ?? '', /recipe file/);
+    }
+    assert.match(choices.find(choice => choice.value === 'functions-sdk-v1').label, /preview/);
+    assert.match(output, /prepared recipe JSON file/);
+    assert.match(output, /REST API security means how this setup accesses YOUR REST API/);
+    assert.match(output, /Native APIM \(option 1\): no authentication, API key from Key Vault, or supported Microsoft Entra access/);
+    assert.match(output, /same resource\/audience token through.*no OBO/);
+    assert.match(output, /existing APIM system-managed identity with the exact backend application role/);
+    assert.match(output, /hosting recipes do NOT support Entra-protected or other OAuth-protected REST backends, even behind APIM/);
+    assert.match(output, /separate from caller sign-in/);
+    assert.equal(choices.at(-1).value, 'cancel');
+    return 'cancel';
+  })]);
+  assert.equal(await guidedArguments(p), undefined);
+  p.done();
+});
+
+const hostingExamples = [
+  ['container-apps-direct-v1', 'container-apps-direct.json'],
+  ['container-apps-apim-v1', 'container-apps-apim.json'],
+  ['app-service-container-v1', 'app-service-container.json'],
+  ['functions-sdk-v1', 'functions-sdk.json'],
+  ['container-apps-direct-v1', 'container-apps-direct-api-key.json'],
+  ['functions-sdk-v1', 'functions-sdk-api-key.json'],
+  ['container-apps-direct-v1', 'container-apps-query-dates.json'],
+];
+async function hostingInput(root, example) {
+  const input = await readFile(new URL(`../examples/mcp/${example}`, import.meta.url), 'utf8');
+  const config = path.join(root, 'recipe.json');
+  await writeFile(config, input);
+  return config;
+}
+
+test('each hosting choice names both exact templates before asking for the workspace', async () => {
+  for (const [recipe, example] of hostingExamples.slice(0, 4)) {
+    const templates = [example, example.replace('.json', '-api-key.json')];
+    const p = scripted([c('new'), c(recipe), a(async (label, choices, output) => {
+      assert.equal(label, 'Existing absolute private workspace directory (outside the toolkit checkout)');
+      assert.match(output, /Choose ONE for your REST API's security/);
+      assert.match(output, /No authentication:/);
+      assert.match(output, /API key:/);
+      for (const [index, filename] of templates.entries()) {
+        const fullPath = path.join(TOOLKIT_ROOT, 'examples', 'mcp', filename);
+        assert.ok(output.includes(`Full template path: ${JSON.stringify(fullPath)}`));
+        const input = JSON.parse(await readFile(fullPath, 'utf8'));
+        assert.equal(input.recipe, recipe);
+        assert.equal(input.backend.auth, index === 0 ? 'anonymous' : 'api-key');
+      }
+      assert.match(output, /WORKSPACE FOLDER only, not the JSON file/);
+      assert.match(output, /neither template supports it/);
+      throw Object.assign(new Error('Stopped at workspace question'), { code: 'ABORTED' });
+    })]);
+    await assert.rejects(guidedArguments(p), { code: 'ABORTED' });
+    p.done();
+  }
+});
+
+for (const [recipe, example] of hostingExamples) {
+  test(`guided hosting creates and reviews ${example} without live actions`, async t => {
+    const root = await workspace(t), project = path.join(root, 'source');
+    const config = await hostingInput(root, example);
+    const p = scripted([c('new'), c(recipe), a(config), a(project), c(async (label, choices, output) => {
+      assert.equal(label, 'Save these hosting source files to the folder shown above?');
+      assert.equal(choices[0].value, 'cancel');
+      assert.match(output, /does not install packages, build an image, sign in, deploy to Azure or call a tool/);
+      assert.match(output, /wizard does NOT copy this file, fill in Azure IDs, or look up resources/);
+      const template = hostingExamples.find(([id]) => id === recipe)[1];
+      assert.ok(output.includes(JSON.stringify(path.join(TOOLKIT_ROOT, 'examples', 'mcp', template))));
+      assert.ok(output.includes(JSON.stringify(path.join(root, template))));
+      assert.match(output, /Fixed paths may accept declared query arguments, including validated date ranges/);
+      assert.match(output, /Open YOUR COPY in a text editor and replace the example values manually/);
+      assert.match(output, /authentication\.audience:.*Application \(client\) ID, not its object ID/);
+      assert.match(output, /allowedClientIds:.*not user IDs/);
+      assert.match(output, /Save your edited JSON file.*FULL FILE PATH below without quotes/);
+      assert.match(output, /No file has been copied or saved by this wizard yet/);
+      const shown = JSON.parse(output.split('Full configuration and approval reference:\n').at(-1));
+      const plan = await planHostingRecipe({ workspaceRoot: root, config, output: project });
+      assert.equal(shown.approvalToken, plan.approvalToken);
+      assert.equal(shown.projectDir, project);
+      assert.deepEqual(shown.definition, JSON.parse(await readFile(config, 'utf8')));
+      assert.ok(shown.files.includes('recipe-manifest.json'));
+      return 'create';
+    })]);
+    assert.deepEqual(await guidedArguments(p, { 'workspace-root': root }),
+      ['mcp-recipe-source-plan', '--workspace-root', root, '--project', project, '--json']);
+    p.done();
+    const generated = await withCliWorkspace(root, () => readRecipeProject(project));
+    assert.equal(generated.input.recipe, recipe);
+    assert.equal(generated.review.status, 'generated-source-review-only');
+    assert.deepEqual(generated.input, JSON.parse(await readFile(config, 'utf8')));
+    assert.ok(!Object.hasOwn(generated.files, 'mcp-server.json'));
+    const report = await recipeSourcePlan({ workspaceRoot: root, project });
+    assert.equal(report.deployed, false);
+    assert.equal(report.built, false);
+    assert.match(p.text, /Hosting source files saved/);
+    assert.match(p.text, /HTML handover export are separate operations/);
+  });
+}
+
+test('hosting copy instructions quote paths safely and never copy the example themselves', async t => {
+  const parent = await workspace(t), root = path.join(parent, "User's private workspace");
+  await mkdir(root);
+  const p = scripted([c('new'), c('container-apps-direct-v1'), a(() => {
+    throw Object.assign(new Error('Stopped before supplying a recipe'), { code: 'ABORTED' });
+  })]);
+  await assert.rejects(guidedArguments(p, { 'workspace-root': root }), { code: 'ABORTED' });
+  p.done();
+  const source = path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'container-apps-direct.json');
+  const destination = path.join(root, 'container-apps-direct.json');
+  assert.ok(p.text.includes(`[System.IO.File]::Copy('${source.replaceAll("'", "''")}', '${destination.replaceAll("'", "''")}')`));
+  assert.match(p.text, /copy command refuses to overwrite an existing file/);
+  assert.deepEqual(await readdir(root), []);
+});
+
+test('hosting input requires a full edited file path, not a folder or relative filename', async t => {
+  const root = await workspace(t);
+  await hostingInput(root, 'container-apps-direct.json');
+  for (const value of ['recipe.json', root, `"${path.join(root, 'recipe.json')}"`]) {
+    const p = scripted([c('new'), c('container-apps-direct-v1'), a(value)]);
+    await assert.rejects(guidedArguments(p, { 'workspace-root': root }));
+    p.done();
+  }
+  assert.deepEqual(await readdir(root), ['recipe.json']);
+});
+
+test('hosting guidance does not imply support for Entra or OAuth REST backends', async t => {
+  const root = await workspace(t);
+  for (const [recipe, example] of hostingExamples.slice(0, 4)) {
+    const config = await hostingInput(root, example);
+    const input = JSON.parse(await readFile(config, 'utf8'));
+    for (const auth of ['entra', 'oauth']) {
+      input.backend.auth = auth;
+      await writeFile(config, JSON.stringify(input));
+      const p = scripted([c('new'), c(recipe), a(config)]);
+      await assert.rejects(guidedArguments(p, { 'workspace-root': root }), { code: 'MCP_CONTAINER_APPS_INPUT' });
+      p.done();
+      assert.match(p.text, /REST API access \(backend.auth\): anonymous.*api-key/);
+      assert.match(p.text, /Entra and other OAuth REST backends are NOT supported here/);
+      assert.match(p.text, /MCP caller access \(authentication\): Microsoft Entra sign-in is required/);
+      assert.doesNotMatch(p.text, /Hosting source files saved/);
+    }
+  }
+  assert.deepEqual(await readdir(root), ['recipe.json']);
+});
+
+test('hosting cancellation, abort and changed review never publish a project', async t => {
+  const root = await workspace(t), project = path.join(root, 'source');
+  const config = await hostingInput(root, 'container-apps-direct.json');
+  const cancelled = scripted([c('new'), c('container-apps-direct-v1'), a(config), a(project), c('cancel')]);
+  assert.equal(await guidedArguments(cancelled, { 'workspace-root': root }), undefined);
+  cancelled.done();
+  const controller = new AbortController();
+  const aborted = scripted([c('new'), c('container-apps-direct-v1'), a(config), a(project),
+    c(() => { controller.abort(); return 'create'; })], controller.signal);
+  await assert.rejects(guidedArguments(aborted, { 'workspace-root': root }), { code: 'ABORTED' });
+  aborted.done();
+  const changed = scripted([c('new'), c('container-apps-direct-v1'), a(config), a(project), c(async () => {
+    const input = JSON.parse(await readFile(config, 'utf8'));
+    input.requestsPerMinute += 1;
+    await writeFile(config, JSON.stringify(input));
+    return 'create';
+  })]);
+  await assert.rejects(guidedArguments(changed, { 'workspace-root': root }), { code: 'MCP_CONTAINER_APPS_APPROVAL_REQUIRED' });
+  changed.done();
+  assert.deepEqual(await readdir(root), ['recipe.json']);
+});
+
+test('hosting cancellation during approval revalidation stops before the first write', async t => {
+  const root = await workspace(t), output = path.join(root, 'source');
+  const config = await hostingInput(root, 'container-apps-direct.json');
+  const selected = { workspaceRoot: root, config, output };
+  const plan = await planHostingRecipe(selected);
+  const controller = new AbortController();
+  const pending = writeHostingRecipe({ ...selected, approval: plan.approvalToken, signal: controller.signal });
+  controller.abort();
+  await assert.rejects(pending, { code: 'MCP_CONTAINER_APPS_ABORTED' });
+  assert.deepEqual(await readdir(root), ['recipe.json']);
+});
+
+test('hosting rejects mismatched recipes, credentials and unsafe output paths', async t => {
+  const root = await workspace(t), config = await hostingInput(root, 'container-apps-direct.json');
+  const mismatch = scripted([c('new'), c('functions-sdk-v1'), a(config)]);
+  await assert.rejects(guidedArguments(mismatch, { 'workspace-root': root }), /does not match/);
+  mismatch.done();
+  const existing = path.join(root, 'existing');
+  await mkdir(existing);
+  await writeFile(path.join(existing, 'keep.txt'), 'keep');
+  const linked = path.join(root, 'linked');
+  await symlink(existing, linked, process.platform === 'win32' ? 'junction' : 'dir');
+  for (const output of [existing, linked, path.dirname(root), 'relative-output']) {
+    const p = scripted([c('new'), c('container-apps-direct-v1'), a(config), a(output)]);
+    await assert.rejects(guidedArguments(p, { 'workspace-root': root }));
+    p.done();
+    assert.equal(await readFile(path.join(existing, 'keep.txt'), 'utf8'), 'keep');
+  }
+  const race = scripted([c('new'), c('container-apps-direct-v1'), a(config), a(path.join(root, 'raced')),
+    c(async () => { await mkdir(path.join(root, 'raced')); return 'create'; })]);
+  await assert.rejects(guidedArguments(race, { 'workspace-root': root }), { code: 'MCP_CONTAINER_APPS_OUTPUT_EXISTS' });
+  race.done();
+  const unsafe = JSON.parse(await readFile(config, 'utf8'));
+  unsafe.name = 'api_key=PRIVATE_VALUE';
+  await writeFile(config, JSON.stringify(unsafe));
+  const secrets = scripted([c('new'), c('container-apps-direct-v1'), a(config)]);
+  await assert.rejects(guidedArguments(secrets, { 'workspace-root': root }), { code: 'MCP_CONTAINER_APPS_INPUT' });
+  assert.doesNotMatch(secrets.text, /PRIVATE_VALUE/);
+  secrets.done();
+  const toolkit = scripted([c('new'), c('container-apps-direct-v1')]);
+  await assert.rejects(guidedArguments(toolkit, { 'workspace-root': TOOLKIT_ROOT }), /outside the toolkit/);
+  toolkit.done();
 });

@@ -5,16 +5,19 @@ import { mkdir, mkdtemp, readFile, writeFile, readdir, rm } from 'node:fs/promis
 import { spawnSync } from 'node:child_process';
 import { TOOLKIT_ROOT, withCliWorkspace } from '../src/config.js';
 import { savedJson, metadataDigest, boundedSnapshot } from '../src/anonymous-metadata.js';
-import { planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
+import { planHostingRecipe, writeHostingRecipe, compileHostingRecipe } from '../src/mcp-container-apps.js';
 import { planRecipeReference, writeRecipeReference, planRecipeRelease, writeRecipeRelease } from '../src/mcp-recipe-artifacts.js';
 import { planValidation, startValidation, nextValidation, runValidation, validationStatus } from '../src/mcp-validation.js';
-import { executeMcpProjectForTest } from '../src/mcp-discovery-project.js';
-import { runMcpReadOnlyProofForTest } from '../src/mcp-discovery.js';
+import { executeMcpProjectForTest, planMcpProjectProof } from '../src/mcp-discovery-project.js';
+import { runMcpReadOnlyProofForTest, discoverMcpToolsForTest } from '../src/mcp-discovery.js';
+import { toolDefinitions } from '../src/recipes/container-apps/runtime.js';
+import { planInteractiveSession, runInteractiveSession } from '../src/mcp-interactive-session.js';
+import { planExecutionSession, runExecutionSession, createExecutionProofApproval } from '../src/mcp-execution-session.js';
 import { main } from '../bin/copilot-mcp.js';
 
 const evidenceDigest = `sha256:${'a'.repeat(64)}`;
 const assertion = { kind: 'json-array-string-field-v1', field: 'name', maxItems: 5, maxStringLength: 40 };
-async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey = false, release = false } = {}) {
+async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey = false, release = false, parameterized = false } = {}) {
   t.mock.method(globalThis, 'fetch', () => { throw Error('Unexpected external request'); });
   const parent = path.join(TOOLKIT_ROOT, '.test-output');
   await mkdir(parent, { recursive: true });
@@ -26,6 +29,13 @@ async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey
   };
   const input = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp',
     `container-apps-direct${apiKey ? '-api-key' : ''}.json`)));
+  if (parameterized) {
+    const operation = Object.values(input.document.paths)[0].get;
+    operation.parameters = ['start_date', 'end_date'].map(name => ({
+      name, in: 'query', required: true, schema: { type: 'string', format: 'date' },
+    }));
+    operation['x-mcp-date-range'] = { startParameter: 'start_date', endParameter: 'end_date', maxSpanDays: 7 };
+  }
   const source = path.join(root, 'source'), reference = path.join(root, 'reference'), run = path.join(root, 'run');
   const sourceOptions = { workspaceRoot: root, output: source, config: await json('source.json', input) };
   const sourcePlan = await planHostingRecipe(sourceOptions);
@@ -44,7 +54,7 @@ async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey
   const definition = { schemaVersion: 1, scenario: 'container-apps-existing-v1', sourceProject: 'source',
     referenceProject: 'reference', consumer, privateExportReviewed: true, ...(release ? { releaseDirectory: 'release' } : {}),
     discovery: { discoveryClientId: input.authentication.allowedClientIds[0], expectedUserId: '55555555-5555-4555-8555-555555555555' },
-    proof: { toolName: input.operationIds[0], arguments: {},
+    proof: { toolName: input.operationIds[0], arguments: parameterized ? { start_date: '2024-02-28', end_date: '2024-03-06' } : {},
       safetyReview: { readOnly: true, reason: 'Owner reviewed the fixed GET.' },
       ...(resultAssertion ? { resultAssertion } : {}) } };
   const config = await json('validation.json', definition);
@@ -57,7 +67,7 @@ async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey
     const plan = await nextValidation(selected);
     return runValidation({ ...selected, approval: plan.approvalToken });
   };
-  const transport = ({ response = [{ name: 'Synthetic' }], unknown = false, toolError = false } = {}) => {
+  const transport = ({ response = [{ name: 'Synthetic' }], unknown = false, toolError = false, changeTools = () => {} } = {}) => {
     const calls = [], { tenantId, audience, applicationIdUri, scope } = input.authentication;
     const { discoveryClientId, expectedUserId } = definition.discovery;
     return { calls,
@@ -94,10 +104,12 @@ async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey
         let result;
         if (message.method === 'initialize') result = { protocolVersion: '2025-03-26',
           capabilities: { tools: {} }, serverInfo: { name: 'Synthetic', version: '1' } };
-        else if (message.method === 'tools/list') result = { tools: [{ name: definition.proof.toolName, description: 'Read reviewed data',
-          inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-          annotations: { readOnlyHint: true, destructiveHint: false } }] };
+        else if (message.method === 'tools/list') {
+          result = { tools: toolDefinitions(compileHostingRecipe(input).runtime) };
+          changeTools(result.tools);
+        }
         else if (message.method === 'tools/call') {
+          assert.deepEqual(message.params.arguments, definition.proof.arguments);
           if (unknown) throw Error('private-provider-failure');
           result = { ...(toolError ? { isError: true } : {}), content: [{ type: 'text', text: JSON.stringify(response) }] };
         } else throw Error('Unexpected method');
@@ -116,6 +128,114 @@ async function setup(t, { consumer = 'none', resultAssertion = assertion, apiKey
   };
   return { root, json, source, reference, run, options, active, definition, start, record, transport, execute };
 }
+
+test('generated date-range arguments are validated before any validation or session grant without mutating approval input', async t => {
+  const f = await setup(t, { parameterized: true });
+  const original = structuredClone(f.definition.proof.arguments);
+  const approval = (await planValidation(f.options)).approvalToken;
+  for (const args of [
+    {}, { start_date: '2024-02-30', end_date: '2024-03-06' },
+    { start_date: '2024-03-07', end_date: '2024-03-06' },
+    { start_date: '2024-02-27', end_date: '2024-03-06' },
+    { ...original, url: 'https://other.example.com' }, { ...original, limit: 1 },
+  ]) {
+    f.definition.proof.arguments = args;
+    await f.json('validation.json', f.definition);
+    await assert.rejects(planValidation(f.options), { code: 'PROOF_ARGUMENTS_INVALID' });
+    const config = await f.json('invalid-session.json', { schemaVersion: 1, discovery: f.definition.discovery,
+      proof: { ...f.definition.proof, generatedSource: f.source } });
+    await assert.rejects(planInteractiveSession({ workspaceRoot: f.root, project: f.reference, config }),
+      { code: 'PROOF_ARGUMENTS_INVALID' });
+    assert.deepEqual(f.definition.proof.arguments, args);
+  }
+  f.definition.proof.arguments = { ...original, end_date: '2024-03-05' };
+  await f.json('validation.json', f.definition);
+  await assert.rejects(startValidation({ ...f.options, approval }), { code: 'MCP_VALIDATION_APPROVAL' });
+  assert.equal((await readdir(f.root)).includes('run'), false);
+});
+
+for (const unknown of [false, true]) test(`generated parameterized execution session binds source and arguments; unknown=${unknown} stays consumed`, async t => {
+  const f = await setup(t, { parameterized: true });
+  await f.start(); await f.record();
+  const plan = await nextValidation(f.active);
+  const options = plan.selected, childPlan = await planInteractiveSession(options);
+  const authorization = await planExecutionSession(options, { minimumProofDelayMs: 0 });
+  const fixture = f.transport({ unknown });
+  const result = await runExecutionSession({ ...options, approval: childPlan.approvalDigest,
+    allowNetwork: true, onDeviceCode() {} }, authorization, fixture);
+  assert.equal(result.status, unknown ? 'unknown' : 'protocol-success');
+  assert.equal(fixture.calls.filter(method => method === 'tools/call').length, 1);
+  assert.equal(fixture.calls.filter(method => method.endsWith('/devicecode')).length, 1);
+  await assert.rejects(runExecutionSession({ ...options, approval: childPlan.approvalDigest,
+    allowNetwork: true, onDeviceCode() {} }, authorization, fixture), { code: 'PROOF_REPLAY_BLOCKED' });
+  const capture = JSON.parse(await readFile(result.captureFile));
+  await assert.rejects(planMcpProjectProof(f.reference, { ...childPlan.proofSelection, capture }),
+    { code: 'PROOF_REPLAY_BLOCKED' });
+  assert.equal(fixture.calls.filter(method => method === 'tools/call').length, 1);
+});
+
+test('generated proof rejects a fresh but changed observed schema and a changed source or argument binding', async t => {
+  const f = await setup(t, { parameterized: true });
+  await f.start(); await f.record();
+  const { selected: options, childPlan } = await nextValidation(f.active);
+  const authorization = await planExecutionSession(options, { minimumProofDelayMs: 0 });
+  const discovery = childPlan.discovery.operation;
+  const captureFrom = fixture => discoverMcpToolsForTest(discovery.source, {
+    ...f.definition.discovery, approval: discovery, allowNetwork: true, onDeviceCode() {},
+  }, fixture);
+  const fixture = f.transport();
+  const capture = await captureFrom(fixture);
+  const selected = { ...childPlan.proofSelection, capture };
+  const proof = await planMcpProjectProof(f.reference, selected);
+  assert.equal(proof.generatedTool.sourceProject, f.source);
+  assert.equal(proof.generatedTool.argumentsDigest, metadataDigest(boundedSnapshot(f.definition.proof.arguments)));
+  const altered = f.transport({ changeTools: tools => { tools[0].inputSchema.properties.end_date.maxLength = 20; } });
+  const changedCapture = await captureFrom(altered);
+  await assert.rejects(planMcpProjectProof(f.reference, { ...selected, capture: changedCapture }), { code: 'METADATA_MISMATCH' });
+  const plainExisting = await planMcpProjectProof(f.reference, {
+    ...f.definition.proof, capture: changedCapture,
+  });
+  assert.equal(plainExisting.generatedTool, undefined);
+  await assert.rejects(createExecutionProofApproval({ options, childPlan, authorization })(plainExisting),
+    { code: 'METADATA_MISMATCH' });
+  for (const mutate of [
+    value => { value.operation.arguments.end_date = '2024-03-05'; },
+    value => { value.generatedTool.schemaDigest = evidenceDigest; },
+    value => { value.generatedTool.toolDigest = evidenceDigest; },
+  ]) {
+    const changed = structuredClone(proof); mutate(changed);
+    await assert.rejects(createExecutionProofApproval({ options, childPlan, authorization })(changed),
+      { code: 'METADATA_MISMATCH' });
+  }
+  await writeFile(path.join(f.source, 'runtime-config.json'), '{}');
+  await assert.rejects(planMcpProjectProof(f.reference, selected));
+  assert.equal([...fixture.calls, ...altered.calls].includes('tools/call'), false);
+});
+
+test('generated parameterized validation records only its bound proof and never adopts an arbitrary existing-MCP proof', async t => {
+  for (const external of [false, true]) await t.test(`external=${external}`, async t => {
+    const f = await setup(t, { parameterized: true });
+    await f.start(); await f.record();
+    const fixture = f.transport();
+    if (external) {
+      const config = await f.json('external-session.json', { schemaVersion: 1,
+        discovery: f.definition.discovery, proof: f.definition.proof });
+      const options = { workspaceRoot: f.root, project: f.reference, config };
+      const plan = await planInteractiveSession(options);
+      assert.equal(plan.generatedTool, undefined);
+      const result = await runInteractiveSession({ ...options, approval: plan.approvalDigest, allowNetwork: true,
+        onDeviceCode() {}, approveProof: proof => proof.approvalDigest }, fixture);
+      assert.equal(result.status, 'protocol-success');
+    } else {
+      const result = await f.execute(fixture);
+      assert.equal(result.report.protocol.status, 'passed-historical');
+    }
+    const status = await validationStatus(f.active);
+    assert.equal(status.protocol.status, external ? 'consumed-other-proof' : 'passed-historical');
+    if (external) assert.equal((await nextValidation(f.active)).status, 'blocked');
+    assert.equal(fixture.calls.filter(method => method === 'tools/call').length, 1);
+  });
+});
 
 test('validation local start, exact checkpoints, fresh-process status and paused handover are network-free', async t => {
   const c = await setup(t, { consumer: 'fcc' });

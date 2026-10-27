@@ -9,20 +9,21 @@ The server, not APIM, owns the tool definitions and read-only annotations.
 Changing the hosting service alone does not prove a tool is read-only or that
 Copilot will display it correctly.
 
-## What the first version supports
+## Supported scope
 
 | Area | Supported scope |
 | --- | --- |
 | Caller sign-in | Microsoft Entra v2 **delegated user** access tokens; exact tenant, resource audience, permission scope and client application allowlist |
 | Source data | One explicitly reviewed HTTPS JSON backend, anonymous or using a dedicated header/query API key from Key Vault |
-| Tools | Up to 30 selected OpenAPI 3.0.x fixed GETs, with no arguments, authored query strings, bodies, callbacks, alternate servers or custom mappings |
+| Tools | Up to 30 selected OpenAPI 3.0.x fixed-path GETs with bounded inline scalar query arguments and optional date-range validation; no authored query strings, bodies, callbacks, alternate servers or custom routing |
 | Read-only labels | Every selected operation must be explicitly reviewed as side-effect-free; tools emit `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: true` |
 | Hosting | A new app in an **existing** resource group and Container Apps environment; an existing Azure Container Registry and user-assigned image-pull identity |
 | Deployment | ARM files for human review; no automatic build, registry push, Azure login or deployment |
 
 Public caller access, delegated backend access, managed-identity
-backend calls, username/password, dynamic query arguments and writes are not in
-this first version. Caller tokens and headers are **never forwarded** to the
+backend calls, username/password, dynamic paths and writes are unsupported.
+See [query arguments and date ranges](hosting-recipes.md#query-arguments-and-date-ranges)
+for the bounded query contract. Caller tokens and headers are **never forwarded** to the
 backend. The image-pull identity is not a backend data-access identity.
 API-key mode requires an additional, distinct Key Vault reference identity.
 

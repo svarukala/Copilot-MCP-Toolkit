@@ -16,8 +16,52 @@ import { mcpFailureDiagnostics } from './mcp-failure.js';
 import { qualificationAction, qualificationBinding, isTavilyProject, qualificationKind,
   firstCallProfileBinding } from './mcp-tavily-qualification.js';
 import { cliStage } from './cli-feedback.js';
+import { readRecipeProject } from './mcp-recipe-artifacts.js';
+import { compileHostingRecipe } from './mcp-container-apps.js';
+import { toolDefinitions, validateToolArguments } from './recipes/container-apps/runtime.js';
 
 const equal = (a, b) => JSON.stringify(boundedSnapshot(a)) === JSON.stringify(boundedSnapshot(b));
+export function validateGeneratedProofArguments(runtime, selection) {
+  const tool = runtime.tools.find(item => item.name === selection.toolName);
+  requireMetadata(tool, 'PROOF_ARGUMENTS_INVALID');
+  try {
+    const effective = validateToolArguments(tool, selection.arguments);
+    requireMetadata(equal(effective, selection.arguments), 'PROOF_ARGUMENTS_INVALID');
+  } catch {
+    requireMetadata(false, 'PROOF_ARGUMENTS_INVALID');
+  }
+  return tool;
+}
+
+// An explicit source selection is not inferred from an arbitrary existing MCP capture.
+export async function planGeneratedProofBinding(projectDir, selection) {
+  if (selection.generatedSource === undefined) return undefined;
+  requireMetadata(typeof selection.generatedSource === 'string' && path.isAbsolute(selection.generatedSource), 'INVALID_CONFIG');
+  const source = await readRecipeProject(selection.generatedSource);
+  const compiled = compileHostingRecipe(source.input);
+  requireMetadata(equal(compiled.runtime, source.runtime), 'METADATA_MISMATCH');
+  const runtimeTool = validateGeneratedProofArguments(compiled.runtime, selection);
+  const project = await readMcpServerProject(projectDir);
+  const origin = await readControl(path.join(project.projectDir, 'recipe-origin.json'));
+  const auth = compiled.runtime.authentication;
+  requireMetadata(project.review.descriptor.kind === 'existing-mcp'
+    && origin.schemaVersion === 1 && origin.kind === 'recipe-endpoint-reference'
+    && origin.sourceManifestDigest === source.manifest.contentDigest && origin.recipe === source.input.recipe
+    && origin.endpoint === project.review.descriptor.endpoint
+    && (compiled.runtime.gateway ? origin.endpoint === compiled.runtime.gateway.publicUrl : new URL(origin.endpoint).pathname === '/mcp')
+    && equal(project.review.input.inbound, { type: 'entra', tenantId: auth.tenantId, clientId: auth.audience,
+      applicationIdUri: auth.applicationIdUri, scope: auth.scope, allowedClientIds: auth.allowedClientIds }),
+  'METADATA_MISMATCH');
+  const tool = toolDefinitions(compiled.runtime).find(item => item.name === selection.toolName);
+  if (selection.capture) {
+    const observed = selection.capture.tools.tools.find(item => item.name === selection.toolName);
+    requireMetadata(observed && equal(observed.inputSchema, tool.inputSchema), 'METADATA_MISMATCH');
+  }
+  return boundedSnapshot({ sourceProject: source.projectDir, sourceManifestDigest: source.manifest.contentDigest,
+    originDigest: metadataDigest(boundedSnapshot(origin)), runtimeDigest: metadataDigest(boundedSnapshot(compiled.runtime)),
+    toolDigest: metadataDigest(boundedSnapshot(runtimeTool)), schemaDigest: metadataDigest(boundedSnapshot(tool.inputSchema)),
+    argumentsDigest: metadataDigest(boundedSnapshot(selection.arguments)) });
+}
 export async function resolveMcpProofSelection(projectDir, value) {
   const selection = boundedSnapshot(value);
   try {
@@ -55,6 +99,12 @@ async function plan(projectDir, options, proof = false, excludeAttempt) {
   const qualification = proof === 'qualification';
   const project = await readyProject(projectDir);
   if (proof) options = await resolveMcpProofSelection(project.projectDir, options);
+  const generatedTool = proof ? await planGeneratedProofBinding(project.projectDir, options) : undefined;
+  if (generatedTool) {
+    requireMetadata(proof === true && options.acceptanceProfile === undefined, 'PROOF_SCHEMA_UNSUPPORTED');
+    const { generatedSource, ...selection } = options;
+    options = selection;
+  }
   const accepted = proof && Object.hasOwn(options, 'acceptanceProfile');
   requireMetadata(!accepted || !qualification && isTavilyProject(project) && options.acceptanceProfile === qualificationKind,
     'ACCEPTANCE_PROFILE_UNSUPPORTED');
@@ -65,7 +115,7 @@ async function plan(projectDir, options, proof = false, excludeAttempt) {
     : planMcpDiscovery(project.review.descriptor, options);
   const value = { schemaVersion: 1, action: qualification ? qualificationAction : proof ? 'standalone-mcp-project-proof' : 'standalone-mcp-project-discovery',
     projectDir: project.projectDir, reviewDigest: project.review.reviewDigest,
-    readiness: project.readiness, operation };
+    readiness: project.readiness, operation, ...(generatedTool ? { generatedTool } : {}) };
   if (proof) {
     value.proofHistory = await readMcpProofHistory(project.projectDir, legacyPlan(value), excludeAttempt);
     if (operation.resultAssertion) requireMetadata(value.proofHistory.attempts.every(item =>
@@ -215,7 +265,9 @@ async function executeUnlocked(project, options = {}, proof = false, testRun, ru
       : mapping
       ? (source, execution) => runMcpProjectMappedProof(source, execution, mapping, { beforeRequest: guard, beforeToolCall, beforeToolDispatch })
       : proof ? runMcpReadOnlyProofWithGuard : discoverMcpToolsWithGuard);
-    let result = await run(reviewed.operation.source, { ...(proof ? await resolveMcpProofSelection(projectDir, selection) : selection), approval: reviewed.operation,
+    const executionSelection = proof ? await resolveMcpProofSelection(projectDir, selection) : selection;
+    if (reviewed.generatedTool) delete executionSelection.generatedSource;
+    let result = await run(reviewed.operation.source, { ...executionSelection, approval: reviewed.operation,
       allowNetwork: true, signal: options.signal, onDeviceCode: options.onDeviceCode }, guard, { mapping, beforeToolCall, beforeToolDispatch });
     proofReturned = proof;
     requireMetadata(!proof || dispatchAttempted, 'METADATA_MISMATCH');

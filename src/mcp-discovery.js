@@ -1,4 +1,5 @@
 import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
 import { validateMcpServerDescriptor } from './mcp-server.js';
 import { probeMcp, safeMcpDiagnostics } from './mcp-protocol.js';
 import { publicHttpsTransport } from './anonymous-network.js';
@@ -169,7 +170,7 @@ export const discoverMcpToolsWithGuard = (value, options, beforeRequest) => disc
 // Deliberately bounded subset: unknown/unsupported JSON Schema keywords fail, never silently disappear.
 const schemaKeys = new Set(['type', 'properties', 'required', 'additionalProperties', 'items',
   'enum', 'const', 'minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems',
-  'description', 'title', 'default']);
+  'description', 'title', 'default', 'format']);
 const nullableScalarKeys = new Set(['type', 'enum', 'const', 'minimum', 'maximum',
   'minLength', 'maxLength', 'description', 'title', 'default']);
 function validateProofSchema(schema, depth = 0) {
@@ -186,6 +187,7 @@ function validateProofSchema(schema, depth = 0) {
   }
   requireMetadata(Object.keys(schema).every(key => schemaKeys.has(key))
     && ['object', 'array', 'string', 'number', 'integer', 'boolean', 'null'].includes(schema.type), 'PROOF_SCHEMA_UNSUPPORTED');
+  requireMetadata(schema.format === undefined || schema.type === 'string' && schema.format === 'date', 'PROOF_SCHEMA_UNSUPPORTED');
   if (schema.properties) for (const item of Object.values(schema.properties)) validateProofSchema(item, depth + 1);
   if (schema.items) validateProofSchema(schema.items, depth + 1);
   if (schema.additionalProperties && typeof schema.additionalProperties === 'object') validateProofSchema(schema.additionalProperties, depth + 1);
@@ -244,7 +246,8 @@ function planProof(value, options, nativeGetMapping) {
   rejectCredentialArguments(input.arguments);
   validateProofSchema(tool.inputSchema);
   try {
-    const ajv = new Ajv({ strict: true, allErrors: false, validateFormats: false });
+    const ajv = new Ajv({ strict: true, allErrors: false });
+    addFormats(ajv);
     requireMetadata(ajv.compile(tool.inputSchema)(input.arguments), 'PROOF_ARGUMENTS_INVALID');
   } catch (error) {
     if (error.code === 'PROOF_ARGUMENTS_INVALID') throw error;

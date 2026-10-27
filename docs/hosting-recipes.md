@@ -7,6 +7,95 @@ actions. It does not build, redeploy, resolve credentials or register a connecto
 
 ## Starting with no infrastructure
 
+### Preparing a recipe for the terminal wizard
+
+**Yes: the current hosting wizard expects you to copy and edit JSON manually.**
+It does not copy a template, discover Azure resources, fill in IDs, or create
+prerequisites. A *recipe* is the JSON configuration for your API, authentication
+and hosting resources. The wizard validates your edited recipe, shows the
+proposed local files and asks for confirmation before generating source.
+Immediately after you select a host, **before the workspace question**, it
+names both the no-auth and API-key templates and prints their full source paths.
+Choose the one matching your REST API. The workspace question asks for a folder;
+the edited JSON file is requested separately, after the copy/edit instructions.
+
+1. Create a private workspace outside the toolkit checkout, for example
+   `C:\McpRuns\demo`.
+2. Copy the matching file from `examples\mcp` into that workspace. Do not edit
+   the repository's example. The wizard prints the actual template path, a
+   suggested destination and a PowerShell copy command that fails if the
+   destination already exists. You can also copy it with your file manager.
+3. Open **your copy** in a text editor. Replace the fictional IDs, resource names,
+   API URL and operations using the checklist below. Keep `schemaVersion` and
+   `recipe` unchanged. Do not assume a syntactically valid example is a working
+   Azure configuration.
+4. Save the file. At the recipe prompt, enter its **full file path without
+   surrounding quotes**, such as `C:\McpRuns\demo\container-apps-direct.json`.
+   Do not enter only `C:\McpRuns\demo` or a filename relative to the toolkit.
+5. Choose a different, **new** output folder, for example
+   `C:\McpRuns\demo\source`. Review the configuration, file list and limitations,
+   then confirm local generation. This does not build or deploy the server.
+
+You may keep the wizard waiting while you copy/edit in another window, or press
+Ctrl+C and restart it later. If you do not know a required ID or the prerequisite
+does not exist, stop and arrange the separate infrastructure or app-registration
+setup. Do not invent IDs, copy another user's credentials, or substitute the
+example IDs.
+
+| Recipe settings | What to supply / where to find it |
+| --- | --- |
+| `name` | A friendly name for your MCP server |
+| `azure.tenantId`, `azure.subscriptionId` | Microsoft Entra ID > Overview > Tenant ID; Azure > Subscriptions > Subscription ID |
+| `azure.resourceGroup`, `azure.location`, `azure.appName` | Selected existing group, Azure region code and a **new** app name; do not target an existing app |
+| Container Apps: `azure.environmentResourceId`, `azure.registry` | Existing environment Resource ID, registry login server, image-pull managed identity Resource ID |
+| APIM gateway: `azure.gateway` | Existing APIM service/group and principal ID, separate gateway resource-app audience/URI, new API name/path; keep `Mcp.Gateway` role and separately review its assignment |
+| App Service: `azure.planResourceId`, `azure.registry` | Existing Linux Basic-or-higher plan Resource ID, registry login server, pull identity Resource ID **and client ID**; keep `planKind` |
+| Functions: `azure.planResourceId`, `azure.storage`, `previewAccepted` | Existing Flex plan, storage account/container and storage identity Resource ID/client ID; keep `planKind` and explicitly review preview acceptance |
+| `authentication.tenantId`, `authentication.audience` | Same tenant as deployment; MCP resource app's **Application (client) ID**, not its object ID |
+| `authentication.applicationIdUri`, `scope`, `allowedClientIds` | Resource app > Expose an API for URI/scope; caller apps' **Application (client) IDs**, not user IDs, for the allowlist |
+| `backend.origin`, `document.paths`, `operationIds` | Actual HTTPS API origin and fixed GET paths; choose matching operation IDs/names/descriptions; declare bounded inline query parameters if needed; responses must be JSON |
+| `review.readOnlyOperationIds` | The same selected operation IDs, only after reviewing that they do not change data; GET alone is not proof of safety |
+| `requestsPerMinute` | Reviewed request limit; not an Azure billing cap |
+| Optional `imageBuild` on container recipes | Reviewed digest-pinned builder/runtime images required before building; not applicable to Functions |
+
+For a full **Resource ID**, open that Azure resource's **Properties > Resource
+ID** and copy the `/subscriptions/...` value, not only its name. An identity's
+Resource ID, client ID and principal/object ID are different values; use the
+one the field requests. App registrations and consent must already be reviewed;
+the wizard does not create or discover them.
+
+### REST API security versus MCP caller sign-in
+
+There are two separate connections: **client -> MCP endpoint** and
+**MCP implementation -> your REST API**. Entra caller sign-in does not make
+Entra or arbitrary OAuth authentication to the REST API available.
+
+| REST API security | Native REST-to-MCP in APIM | Generated Container Apps / App Service / Functions |
+| --- | --- | --- |
+| No authentication | Supported | Supported: `backend.auth: "anonymous"` |
+| API key in a header or query parameter | Supported through a Key Vault reference | Supported: `backend.auth: "api-key"` with Key Vault and a dedicated managed identity |
+| Microsoft Entra user/delegated token | Limited same-resource/audience passthrough; no token exchange or on-behalf-of (OBO) flow | Not supported |
+| Microsoft Entra application access | Existing APIM system-assigned identity with the exact backend application-role assignment | Not supported |
+| Third-party OAuth | Not supported for REST backends | Not supported |
+| Username/password or Basic authentication | Not supported by this setup | Not supported |
+
+**All four generated hosting recipes require Entra caller sign-in**, configured
+in `authentication`. Their narrower REST backend options are in `backend`.
+Putting the generated Container Apps server behind APIM does **not** add Entra
+or OAuth backend support.
+
+The default examples use no backend authentication. For an API-key backend,
+start from the matching `*-api-key.json` example instead. Supply only the Key
+Vault secret URL, resource/identity references and header or query parameter
+**name**, never the key value. Review shared entitlement and query-log exposure;
+secret access/role changes are separate operations.
+
+An **existing MCP server** is a different path: third-party OAuth can be saved
+as an unverified reference, but the toolkit does not perform that provider's
+OAuth login, discovery or proof. See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+
+### Separate infrastructure planning
+
 Use `mcp-bootstrap-schema`, then `mcp-bootstrap-plan --workspace-root
 <private-root> --config <choices.json> --output <new-review.json> --json`.
 Write with `mcp-bootstrap-bundle` and the exact plan approval token.
@@ -433,8 +522,85 @@ All four are implemented for **local generation, release preparation and explici
 endpoint-reference creation**. Cloud deployment remains an operator workflow;
 real host behavior and Copilot Read-only labels are not yet qualified.
 All support Entra delegated callers and one anonymous or **Key Vault API-key**
-JSON backend with explicitly reviewed, parameter-free GETs. They do not add
-backend OAuth, username/password, arbitrary arguments or write tools.
+JSON backend with explicitly reviewed, fixed-path GETs and bounded declared query
+arguments. They do not add backend OAuth, username/password, arbitrary routing
+or write tools.
+
+## Query arguments and date ranges
+
+All four hosts use the shared parameter-aware runtime. Existing recipes without
+parameters keep their empty tool input schema. For parameterized GETs, declare
+inline **operation-level** OpenAPI `parameters` with `in: "query"`. The backend
+origin and literal path remain fixed; the runtime URL-encodes validated values.
+No caller-controlled headers, path substitutions, request bodies, nested
+schemas, external references or automatic pagination are supported.
+
+Start from the complete synthetic
+`examples/mcp/container-apps-query-dates.json`; replace its fictional resources
+and backend before planning. Its operation includes:
+
+```json
+{
+  "operationId": "get_events",
+  "parameters": [
+    { "name": "start_date", "in": "query", "required": true,
+      "schema": { "type": "string", "format": "date" } },
+    { "name": "end_date", "in": "query", "required": true,
+      "schema": { "type": "string", "format": "date" } }
+  ],
+  "x-mcp-date-range": {
+    "startParameter": "start_date",
+    "endParameter": "end_date",
+    "maxSpanDays": 7
+  }
+}
+```
+
+Query values are scalar strings, integers or booleans; required and optional
+arguments have explicit schemas. Unsupported constraints are rejected rather
+than ignored.
+
+| Constraint | Bound |
+| --- | --- |
+| Declared query parameters | At most 20 per operation |
+| Names | 1-100 ASCII characters, starting with a letter; letters, digits, underscore, dot and hyphen; case-insensitive duplicates and reserved names rejected |
+| Strings | At most 2048 Unicode code points; optional inclusive `minLength`/`maxLength`; well-formed Unicode without control characters |
+| Integers | JavaScript safe integers, optionally narrowed by inclusive `minimum`/`maximum`; no coercion |
+| Enums | 1-50 unique values satisfying the scalar schema; boolean enums at most 2 |
+| Encoded argument query | At most 8192 characters, including names and separators |
+| Final backend URL | At most 24576 characters, including any separately injected query credential |
+| Defaults | Not supported; omitted optional arguments remain absent |
+
+Only `name`, `in`, `schema`, `required`, `description`, `style`, `explode` and
+`allowReserved` are accepted on a parameter. `style` must be absent or `form`;
+`explode` may be absent or boolean for these scalars; `allowReserved` must be
+absent or false. Schema keywords are `type` and optional `enum`, string
+`minLength`/`maxLength`/`format: "date"`, or integer `minimum`/`maximum`.
+Defaults, arbitrary regex patterns, nullable values, arrays, references and
+composition are rejected, not dropped.
+
+A date is a real calendar date in `YYYY-MM-DD` (years 0001-9999), not a relative
+phrase or timestamp. The optional range rule names two required date arguments
+and enforces `start <= end` and an **elapsed UTC calendar-day difference** no
+greater than `maxSpanDays` (1-366). Equal dates are allowed. A limit of 7 permits
+June 1 through June 8; if a provider specifies seven dates counted inclusively,
+configure 6 instead. Determine the provider's exact convention from its docs.
+The caller resolves "this week" using the intended week/time zone; the server
+does not guess it.
+
+Invalid arguments fail before a backend request. Unknown names and collisions
+with credential/routing fields are rejected. The API key is injected separately,
+never declared as a tool input. Date validation does not prove the provider's
+response fits the runtime's existing size/time limits, and pagination-link
+credential reflection remains a separate compatibility concern.
+
+Parameters and range rules are sealed into generated source and reviewed plans.
+Regenerate into a new directory and obtain a fresh release/execution review;
+do not patch an existing sealed project or reinterpret a historical proof.
+The SDK validation/execution workflows bind the selected arguments to that
+source and its discovered tool schema. No-argument examples still use `{}`.
+Argument-bearing support is offline verified only, not new live-host/provider
+acceptance.
 
 ## API-key backends
 
@@ -494,7 +660,8 @@ placement (header names are case-insensitive; query names are case-sensitive).
 Scopes must be empty. Optional/alternative/mixed profiles, references, OAuth,
 cookie keys and explicit anonymous overrides are rejected. Omitted security is
 allowed with the explicit reviewed backend auth; it never overrides that auth.
-Do not model the key as an operation parameter: tools still take no arguments.
+Do not model the key as an operation parameter: it is injected independently of
+the tool's declared nonsecret query arguments.
 
 ### Identity, deployment and secret resolution
 

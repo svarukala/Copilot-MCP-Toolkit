@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps, App Service and Functions SDK recipes; prepare custom federated connector drafts and safely resume or preserve MCP evidence. Not plugin authoring or arbitrary OAuth/server generation.
+description: Discover API requirements from documentation or OpenAPI, assess toolkit compatibility, and prepare configuration or a handoff prompt; generate reviewed APIM bundles or bounded hosting recipes and safely resume MCP evidence. Not live endpoint probing or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -14,6 +14,22 @@ For candidate validation, read `docs/validation-readiness.md`. Pin the exact
 engine path/build ID and matching shipped skill; do not assume `main`, package
 version or an installed skill copy includes newer branch work. A mismatch needs
 review, not silent installation, skill replacement or stale-approval reuse.
+
+## Discover an API and prepare setup
+
+When the user supplies an API/backend endpoint, documentation URL or OpenAPI
+file and asks what can be supported, how to prompt, or how to create an MCP
+setup, first read [API discovery and setup](references/api-discovery.md).
+Start with the user's desired questions/actions, not an arbitrarily convenient
+endpoint. Use documentation-first discovery, check the pinned engine's current
+capabilities/schemas, and distinguish supported, partial, unsupported and unknown.
+API documentation discovery is not live MCP initialize/tools-list discovery.
+Do not probe the backend, fetch credentials or deploy to complete this intake.
+
+Prepare configuration conversationally instead of handing the user a manual
+copy/edit exercise. Continue in the same conversation unless they request a
+handoff prompt. Missing inputs stay explicit; narrower alternatives need a user
+decision. This is skill guidance, not a new discovery command or runtime feature.
 
 ## New or resume
 
@@ -70,7 +86,8 @@ annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
 `mcp-hosting-schema --json`. In order: direct Container Apps, Container Apps behind
 APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
 private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
-Generation is local and is not part of the terminal wizard or APIM Resume.
+Generation is local; the terminal wizard accepts prepared hosting recipe files,
+but APIM Resume does not handle hosting source.
 Select `npmRegistryUrl` explicitly before generation when public npm is blocked;
 the historical default remains public npm. Confirm that the selected feed is
 approved and can serve the locked dependencies. A diagnostic HTTP 200 is not
@@ -142,7 +159,8 @@ tokens. Never run the displayed commands, upload the diagram, or turn the
 handover into permission to deploy, install, sign in or replay a consumed call.
 
 Explain the current boundary in plain language: Entra sign-in for callers,
-anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
+anonymous or Key Vault API-key JSON backend, selected fixed-path GETs with optional
+declared bounded query arguments, and existing
 host prerequisites from the guide. Ask for actual resource
 choices and IDs, not fabricated placeholders. Require explicit read-only review;
 do not claim annotations independently prove backend behavior. Use the plan's
@@ -170,6 +188,13 @@ Match any selected OpenAPI API-key security declaration exactly; reject mixed
 auth rather than stripping it. Never reuse the pull/storage identity or grant
 roles to make this work. Missing/unresolved injected keys fail startup; do not
 suggest anonymous fallback, removing caller checks or retrying a dispatched call.
+For query arguments, read `docs/hosting-recipes.md#query-arguments-and-date-ranges`.
+Keep the backend origin/path fixed and use only declared inline scalar query
+parameters. Calendar dates use `format: date`; date relationships require the
+explicit `x-mcp-date-range` rule, not just a description. Resolve relative dates
+with the user/caller; the runtime accepts explicit dates only. Never add the
+credential as a tool argument or infer that query support enables headers,
+path substitutions, bodies, automatic pagination or new authentication.
 Generation/release use native Key Vault references, not a live secret read.
 Local launch needs separate approved, process-only secret resolution/injection;
 read the guide rather than pasting key values into shell commands or settings.

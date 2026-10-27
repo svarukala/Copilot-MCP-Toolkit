@@ -5,6 +5,70 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **Parameterized generated GETs implemented/offline verified:** all four
+  hosting recipes now accept bounded inline scalar query parameters while
+  retaining fixed origin/path and existing caller/backend authentication.
+  `format: date` validates calendar dates; `x-mcp-date-range` enforces ordered
+  required dates with a bounded elapsed-day interval. No-argument recipes
+  retain their original tool/schema shape. SDK validation/execution and
+  source-bound discovery/proofs bind exact arguments and schema/range rules;
+  unrelated historical proofs cannot satisfy the new source-bound selection.
+  Runtime/compiler checks, focused runner/discovery regressions and fresh
+  offline package/wizard integration passed. Documentation-only capability
+  changes do not qualify a live deployment. No NASA/Azure calls, publication
+  or installed-skill update occurred. See
+  [query arguments](hosting-recipes.md#query-arguments-and-date-ranges) and
+  `examples/mcp/container-apps-query-dates.json`. Existing sealed projects
+  require new generation/release review to gain this feature; old evidence
+  and consumed approvals are not upgraded or replayed.
+
+- **Documentation-first API intake guidance added:** the existing `copilot-mcp`
+  skill now routes API documentation/OpenAPI assessment to a bundled reference,
+  checks the pinned engine's compatibility, preserves the user's actual goal,
+  and prepares private configuration conversationally with reviewed writes.
+  A handoff prompt is optional, not another mandatory manual step. Unknowns,
+  partial alternatives, caller/backend authentication and exact approvals stay
+  distinct. This is skill guidance, not automatic probing, a new engine command
+  or live-provider validation. Installed skill copies are not updated.
+  See [API discovery](../skills/copilot-mcp/references/api-discovery.md).
+
+- **Guided CLI coverage expanded:** the terminal menu now lists native APIM,
+  existing MCP and all four SDK hosting profiles, with plain-language
+  authentication choices. Hosting generation uses a prepared private recipe
+  file and the existing reviewed local plan/create APIs; it is not field-by-field
+  hosting authoring or live execution. Saved-progress review distinguishes
+  APIM/reference projects, sealed hosting source and execution/validation runs.
+  Configuration review adds hosting, execution and bootstrap plans; help exposes
+  the remaining commands. Hosting instructions explicitly require a manual
+  private copy/edit, print exact paths and an optional non-overwriting copy
+  command, and explain each host's fields and where to find IDs. The security
+  guide distinguishes Entra caller sign-in from REST backend support: hosted
+  recipes accept only anonymous/API-key backends, unlike native APIM's limited
+  Entra modes. Full edited recipe paths are required; no template copy or resource
+  lookup is automatic. No approval, credential or replay boundaries changed.
+  See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+
+- **Uninterrupted live runner acceptance passed.** A fresh, explicitly approved
+  direct-ACA run using the implementation merged in PR #5 completed build,
+  zero-critical/high scan, nonroot smoke, registry upload, deployment, readiness,
+  health, release/reference generation, expected-user sign-in, fresh discovery
+  and exactly one `get_validation_fixture({})` proof in one runner process.
+  The proof returned `protocol-success` at `2026-10-26T15:26:06.865Z`, with
+  73.080 seconds between discovery and dispatch. The runner reported
+  `execution-completed`: seven steps, 41 logical Azure commands and one provider
+  call, without restart, repair or automatic retry. Local receipt-chain and
+  cross-phase bindings were checked; the process exited and current locks were
+  released. Authentication remained memory-only.
+  The separately approved cleanup deleted only this run's temporary app;
+  complete collection readback verified absence at `2026-10-26T15:26:49.388Z`
+  and retention of the three existing apps. Shared infrastructure, registry
+  images and all local evidence remain preserved and can still incur charges.
+  Cleanup has its own receipt; the immutable runner report's cost-closeout
+  milestone remains pending rather than being rewritten. This is bounded
+  protocol acceptance, not business correctness, negative-authorization or
+  FCC/WIQD consumer acceptance; overall execution readiness remains false.
+  Earlier failed/consumed runs below remain unchanged historical evidence.
+
 - **Runner stabilization and cost closeout:** the
   [two-stage workflow](reusable-validation.md#choose-the-entry-point) now clearly
   separates unattended hosting from owner-present runtime sign-in, with the
@@ -23,7 +87,7 @@ It contains public engineering context only, not credentials or execution author
   repeating that DELETE. Shared infrastructure and all local evidence remain
   untouched; remaining apps and shared resources can still incur charges.
 
-- **Existing-app validation completed successfully.** After the user requested
+- **Earlier existing-app validation completed successfully.** After the user requested
   another sign-in attempt, the single-process session completed expected-user
   authentication, fresh discovery and exactly one `get_validation_fixture({})`
   dispatch with `protocol-success` at `2026-10-26T13:17:34.665Z`. Capture,
@@ -53,7 +117,7 @@ It contains public engineering context only, not credentials or execution author
   repair the timed-out combined run below or establish full build-through-proof
   success. Authentication is not persisted for a later unattended proof.
 
-- **Latest combined live run: hosting passed; sign-in timed out.** Following
+- **Earlier combined live run: hosting passed; sign-in timed out.** Following
   explicit recovery approval, only the stale shared identity mutex was archived;
   previous run locks, reservations and consumed receipts were preserved. A fresh
   create-only run passed identity, preflight, build, scan, smoke, push, image

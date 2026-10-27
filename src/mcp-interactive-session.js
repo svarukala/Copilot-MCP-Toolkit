@@ -4,7 +4,7 @@ import { boundedSnapshot, metadataDigest, requireMetadata } from './anonymous-me
 import { readControl } from './mcp-control.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { createEntraDiscoverySession } from './entra-discovery.js';
-import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectSessionOperation } from './mcp-discovery-project.js';
+import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectSessionOperation, planGeneratedProofBinding } from './mcp-discovery-project.js';
 import { assertMcpProofHistory } from './mcp-proof-history.js';
 
 async function prepare(options) {
@@ -12,15 +12,16 @@ async function prepare(options) {
   const input = await readControl(path.resolve(options.config));
   requireMetadata(input && Object.keys(input).sort().join(',') === 'discovery,proof,schemaVersion'
     && input.schemaVersion === 1 && input.proof && !Array.isArray(input.proof)
-    && Object.keys(input.proof).every(key => ['toolName', 'arguments', 'safetyReview', 'resultAssertion'].includes(key))
+    && Object.keys(input.proof).every(key => ['toolName', 'arguments', 'safetyReview', 'resultAssertion', 'generatedSource'].includes(key))
     && typeof input.proof.toolName === 'string' && input.proof.arguments && input.proof.safetyReview,
   'INVALID_CONFIG');
   const discovery = await planMcpProjectDiscovery(project, input.discovery);
   requireMetadata(discovery.operation.source.kind === 'existing-mcp' && discovery.operation.auth?.expectedUserId,
     'AUTH_CONFIG_INVALID');
+  const generatedTool = await planGeneratedProofBinding(project, input.proof);
   const info = await getLibraryInfo();
   const body = { action: 'mcp-session', projectDir: project, discovery, proofSelection: input.proof,
-    producerBuild: info.contentDigest, maximumSessionMs: 900000,
+    producerBuild: info.contentDigest, maximumSessionMs: 900000, ...(generatedTool ? { generatedTool } : {}),
     proofAuthorized: false, tokenPersistence: 'none',
     effects: ['Authenticate for the exact expected user and perform metadata-only discovery.',
       'Show a new exact proof plan using the returned capture; require a separate terminal approval.',
@@ -42,6 +43,12 @@ export const runInteractiveSession = (options, dependencies = {}) => scoped(opti
   const controller = new AbortController();
   const signal = options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
   const session = createEntraDiscoverySession(dependencies);
+  const validationGuard = async () => {
+    if (reviewed.generatedTool) requireMetadata(
+      metadataDigest(await planGeneratedProofBinding(reviewed.projectDir, reviewed.proofSelection))
+        === metadataDigest(reviewed.generatedTool), 'METADATA_MISMATCH');
+    await dependencies.validationGuard?.();
+  };
   const timer = setTimeout(() => controller.abort(), reviewed.maximumSessionMs);
   const clear = () => session.close();
   signal.addEventListener('abort', clear, { once: true });
@@ -51,7 +58,7 @@ export const runInteractiveSession = (options, dependencies = {}) => scoped(opti
         ? { discoveryClientId: reviewed.discovery.operation.auth.discoveryClientId,
           expectedUserId: reviewed.discovery.operation.auth.expectedUserId } : {},
       approval: reviewed.discovery, allowNetwork: true, onDeviceCode: options.onDeviceCode, signal,
-    }, session, false, dependencies.validationGuard);
+    }, session, false, validationGuard);
     const selection = { ...reviewed.proofSelection, capture: discovery.resultFile };
     const proof = await planMcpProjectProof(reviewed.projectDir, selection);
     assertMcpProofHistory(proof.proofHistory, proof.approvalDigest, proof.operation.approvalDigest, proof.operation);
@@ -62,7 +69,7 @@ export const runInteractiveSession = (options, dependencies = {}) => scoped(opti
       captureFile: discovery.resultFile, proofInvoked: false };
     const result = await runMcpProjectSessionOperation(reviewed.projectDir, {
       selection, approval: proof, allowNetwork: true, onDeviceCode: options.onDeviceCode, signal,
-    }, session, true, dependencies.validationGuard);
+    }, session, true, validationGuard);
     return { status: result.result.status, captureFile: discovery.resultFile, proofFile: result.resultFile,
       ...(result.result.backendAssertion ? { backendAssertion: result.result.backendAssertion } : {}),
       tokenPersistence: 'none', coworkRuntimeVerified: false };

@@ -322,7 +322,9 @@ reference, optional release and new run directory must not overlap.
 ```
 
 Select `consumer: "none"` when FCC is outside the requested scope. Optionally
-add `releaseDirectory`. The fixed recipe tools take empty arguments. Omit
+add `releaseDirectory`. Parameter-free recipe tools take empty arguments;
+query-enabled tools take their exact reviewed scalar arguments, validated
+against the source's parameter and date-range rules before planning. Omit
 `resultAssertion` unless the reviewed response actually matches that bounded
 array/string shape; protocol success alone is not business correctness.
 Never add an assertion by replaying a consumed proof.

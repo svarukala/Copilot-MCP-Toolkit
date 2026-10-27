@@ -9,6 +9,60 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Bounded generated query arguments and date ranges
+
+| Surface | Implemented behavior |
+| --- | --- |
+| Compiler/shared runtime | All four generated hosts; up to 20 inline scalar query parameters; fixed origin/path, safe encoding, strict schema and value bounds |
+| Calendar-date rules | Valid `YYYY-MM-DD`, explicit ordered required date pair, configurable maximum elapsed days; no relative-date guessing |
+| MCP inputs | Advertised schema; required/optional values without coercion or defaults; invalid arguments rejected before backend dispatch |
+| Authentication | Existing Entra caller and anonymous/Key Vault backend modes unchanged; caller cannot override credentials or routing |
+| Runners/proofs | Actual selected arguments validated and source/schema/range-bound; direct and gateway paths; unrelated historical proofs remain consumed |
+| Compatibility | Parameter-free schemas unchanged; no edits to sealed projects or historical evidence; no new OAuth, path arguments, bodies or automatic pagination |
+| Guidance | Skill, wizard text, capabilities, hosting guides and synthetic date-range recipe updated |
+| Verification | Runtime/compiler focused checks 55/55; runner integration 86/86; discovery regressions 113/113; final historical-binding validation 21/21; parent package/wizard/skill/query integration 74/74 |
+| Live status | Not live-qualified for parameterized requests; no Azure/provider calls or deployment performed |
+
+The listed test sets overlap and are not a combined suite total. An initial
+runner check overlapped source edits and failed pinned-build checks; rerunning
+against stable source passed. This does not weaken build pinning or refresh old
+approvals. The final validation-only rerun covered the subsequent historical
+binding refinement.
+
+### Documentation-first API discovery skill
+
+| Surface | Implemented guidance |
+| --- | --- |
+| Entry point | Existing `copilot-mcp` skill routes API assessment/setup/prompt requests to its bundled discovery reference |
+| Discovery | Official documentation or authorized local OpenAPI, bounded reads, sources and explicit unknowns; no backend probes |
+| Compatibility | Current engine/schema checks; supported, partial, unsupported and unknown; no silent scope reduction |
+| Preparation | Agent-authored private configuration, missing-input questions, local-write and exact generation reviews |
+| Handoff | Optional grounded prompt, no credentials or transferred approval authority |
+| Scope | Guidance only; no new runtime adapters/commands, installed-skill changes or live acceptance |
+| Offline verification | 5/5 skill structure and synthetic schema checks passed; offline package dry-run includes the reference; asset inventory, syntax and strict public types passed |
+
+Offline structural/package checks and synthetic schema cases cover this guidance;
+they do not establish that an agent follows it reliably in a live conversation.
+
+### Guided CLI coverage and wording
+
+| Surface | Implemented behavior |
+| --- | --- |
+| New setup menu | Native APIM, existing MCP, direct Container Apps, Container Apps behind APIM, App Service and preview Functions |
+| Hosting generation | Prepared private recipe JSON; full configuration/token/destination review and explicit local-write confirmation |
+| Saved-work review | Distinct APIM/reference, sealed source, execution-run and validation-run routes; no automatic continuation |
+| Configuration review | Existing definition/resource choices plus hosting, execution and Container Apps infrastructure plans |
+| Language and discoverability | Plain-language access choices, explicit recipe-file/preview labels, command-help entry and per-menu numbering |
+| Recipe preparation guidance | Both matching template names/full paths shown before the workspace question; explicit manual copy/edit steps, separate no-auth/API-key copy commands, host-specific field checklist and ID lookup guidance; full edited file path required |
+| REST API security guidance | Separates REST backend access from MCP caller sign-in; native APIM Entra restrictions and hosted no-auth/API-key-only support are explicit |
+| Safety | No network, sign-in, build or deployment; existing folders and changed approvals rejected; cancellation preserved |
+| Offline verification | 75/75 targeted guided/terminal/hosting tests passed; asset inventory, syntax and strict public types passed |
+
+Hosting source authoring still requires a prepared recipe file; the wizard does
+not collect all host settings field by field. Unsupported backend authentication
+and operation profiles remain rejected. The terminal workflow does not grant
+live runner authority or generate an HTML handover implicitly.
+
 ### Stabilized runner workflow and final regression
 
 The [entry-point guide](reusable-validation.md#choose-the-entry-point), README
@@ -34,6 +88,33 @@ was queried, and remaining resources can still incur charges.
 
 ### Latest live validation outcome
 
+**The uninterrupted build-through-proof runner passed.** A fresh, explicitly
+approved run on the implementation merged in PR #5 completed the entire
+direct-ACA fixture workflow in one process, without restart, repair or automatic
+retry. It reported `execution-completed`, consuming seven steps, 41 logical Azure
+commands and one provider call. Local journal/receipt digests and cross-phase
+bindings were checked; the runner exited and its current locks were released.
+
+| Validation surface | Same-run evidence |
+| --- | --- |
+| Build / zero-critical-high scan / nonroot smoke / registry upload | Passed |
+| App deployment / readiness / health / release / reference | Passed |
+| Expected-user sign-in / fresh authenticated discovery | Passed in the same runner session |
+| Single `get_validation_fixture({})` call | `protocol-success` at `2026-10-26T15:26:06.865Z`; exactly one dispatch and proof |
+| Discovery-to-dispatch pacing | 73.080 seconds; required minimum 65 seconds |
+| One uninterrupted combined build-through-proof execution | Passed for this bounded direct-ACA fixture profile |
+| Approved temporary-app cleanup | One DELETE; complete collection readback verified absence at `2026-10-26T15:26:49.388Z` |
+| Retained resources | Three existing apps, shared infrastructure, registry images and local evidence preserved |
+| Business correctness / negative-auth / FCC or WIQD consumer acceptance | Not established; overall execution readiness remains false |
+
+Authentication remained memory-only. Cleanup used five separate bounded Azure
+commands and has its own receipt; the immutable runner report still lists
+cost-closeout as pending. Retained resources can still incur charges. This
+successful new run does not rewrite earlier failed attempts or release consumed
+proof budgets.
+
+### Earlier existing-app validation outcome
+
 **The existing-app sign-in-and-proof session passed.** Following the user's
 renewed request, authentication and discovery completed in the same process as
 exactly one `get_validation_fixture({})` call, returning `protocol-success` at
@@ -41,7 +122,7 @@ exactly one `get_validation_fixture({})` call, returning `protocol-success` at
 greater-than-65-second discovery-to-dispatch interval and process exit were
 verified. No token was persisted, and no new resource or rebuild was needed.
 
-| Validation surface | Current evidence |
+| Validation surface | Evidence from that earlier attempt |
 | --- | --- |
 | Build / scan / smoke / upload / app deployment / readiness / health | Passed in the earlier hosting execution |
 | Expected-user sign-in / fresh discovery / single fixture call | Passed together in the subsequent interactive session |
@@ -69,14 +150,14 @@ No rebuild or additional app was needed. This is separate discovery evidence,
 not repair of the earlier combined run or a passing full build-through-proof.
 Tokens are not persisted for later unattended execution.
 
-**Latest combined run: all hosting gates passed, but sign-in timed out.**
+**Earlier combined run: all hosting gates passed, but sign-in timed out.**
 After explicit approval, the exact stale shared identity mutex was archived
 without changing old run locks, reservations or consumed evidence. The fresh
 create-only execution passed the entire hosting chain and release/reference
 generation. Authentication stopped at `2026-10-26T01:53:17.913Z` with
 `AUTHENTICATION_TIMEOUT`, token stage. The process ended; no retry was started.
 
-| Gate | Latest same-run result |
+| Gate | Same-run result for that earlier attempt |
 | --- | --- |
 | Identity / preflight / build / scan / smoke / upload / qualification | Passed |
 | App creation/readback / revision readiness / health | Passed |

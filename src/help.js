@@ -36,9 +36,12 @@ export const HELP = `Copilot MCP Toolkit (Node.js 22+)
 copilot-mcp <command> [options]
 node bin/copilot-mcp.js <command> [options]
 
-No command / init: terminal-only New / Resume / Advanced setup.
-New: source/authentication questions, reviewed local generation after confirmation.
-Resume: local report only. No automatic login, deployment, discovery or tool calls.
+No command / init: terminal menu for new setup, saved progress, configuration review and help.
+New: APIM or existing-server questions; Container Apps, App Service and Functions use a recipe JSON file.
+Saving setup/source files needs confirmation. Functions is a preview profile.
+Saved progress: APIM/reference projects, hosting source, execution runs or validation runs.
+Configuration review can plan hosting, end-to-end tests and Container Apps infrastructure.
+No automatic login, build, deployment, discovery or tool calls from the menu.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
 Container Apps uses its separate mcp-container-apps-schema, not the APIM schema.
 
@@ -150,8 +153,9 @@ It cannot be added to an already consumed proof or removed to authorize replay.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports
---summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed fixed
-GETs only. No APIM, cloud deployment, image build/push or automatic sign-in.
+--summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed
+fixed-path GETs with bounded inline scalar query arguments and optional date-range rules.
+No dynamic paths, bodies or automatic pagination. No APIM, cloud deployment, image build/push or automatic sign-in.
 mcp-hosting-schema/plan/create additionally support Container Apps behind APIM,
 App Service containers and Functions SDK custom handlers (preview, Linux FC1).
 All four accept a dedicated header or query API key via native Key Vault references

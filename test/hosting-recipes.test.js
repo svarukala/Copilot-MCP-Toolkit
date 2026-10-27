@@ -10,6 +10,9 @@ import { createTokenVerifier, createGatewayVerifier, createRequestHandler, resol
 import { planRecipeRelease, recipeSourcePlan, writeRecipeRelease, planRecipeReference } from '../src/mcp-recipe-artifacts.js';
 import { unzipSync } from 'fflate';
 import { TOOLKIT_ROOT } from '../src/config.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { createProtocolServer, toolDefinitions } from '../src/recipes/container-apps/runtime.js';
 
 const direct = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
 function gatewayInput() {
@@ -37,6 +40,49 @@ async function setup(t, input) {
   const config = path.join(root, 'input.json'); await writeFile(config, JSON.stringify(input));
   return { workspaceRoot: root, config, output: path.join(root, 'server') };
 }
+test('all four generated hosts bind identical query/date schemas and execute them through the actual SDK', async t => {
+  const dated = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-query-dates.json', import.meta.url)));
+  const functions = JSON.parse(await readFile(new URL('../examples/mcp/functions-sdk.json', import.meta.url)));
+  const source = await readFile(new URL('../src/recipes/container-apps/runtime.js', import.meta.url), 'utf8');
+  let expected;
+  for (const input of [structuredClone(direct), gatewayInput(), appServiceInput(), functions]) {
+    input.document = structuredClone(dated.document);
+    input.operationIds = dated.operationIds;
+    input.review = dated.review;
+    input.backend = dated.backend;
+    const options = await setup(t, input), plan = await planHostingRecipe(options);
+    const runtime = JSON.parse(plan.files['runtime-config.json']);
+    assert.equal(plan.files['runtime.js'], source);
+    assert.deepEqual(runtime.tools[0].dateRange, { startParameter: 'start_date', endParameter: 'end_date', maxSpanDays: 7 });
+    const definitions = toolDefinitions(runtime);
+    expected ??= definitions;
+    assert.deepEqual(definitions, expected);
+    assert.deepEqual(plan.review.toolDefinitions, expected);
+    assert.equal(definitions[0].inputSchema.properties.start_date.format, 'date');
+    assert.equal(definitions[0].inputSchema.properties.limit.maximum, 20);
+    const calls = [];
+    const server = createProtocolServer(runtime, { request: async (...args) => { calls.push(args); return Response.json({ ok: true }); } });
+    const client = new Client({ name: 'synthetic-host-query', version: '1' });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(st); await client.connect(ct);
+      assert.deepEqual((await client.listTools()).tools, expected);
+      await assert.rejects(client.callTool({ name: 'get_events', arguments: {
+        start_date: '2024-02-29', end_date: '2024-03-08',
+      } }));
+      assert.equal(calls.length, 0);
+      await client.callTool({ name: 'get_events', arguments: {
+        start_date: '2024-02-29', end_date: '2024-03-07', limit: 20, include_archived: false,
+      } });
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0][0], 'https://events.example.com/events?start_date=2024-02-29&end_date=2024-03-07&limit=20&include_archived=false');
+    } finally { await client.close(); await server.close(); }
+    const changed = structuredClone(input);
+    changed.document.paths['/events'].get['x-mcp-date-range'].maxSpanDays = 6;
+    await writeFile(options.config, JSON.stringify(changed));
+    assert.notEqual((await planHostingRecipe(options)).approvalToken, plan.approvalToken);
+  }
+});
 test('mixed-case configured GUIDs preserve caller and gateway identity while scopes and URIs remain exact', async t => {
   const input = gatewayInput();
   const tenant = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

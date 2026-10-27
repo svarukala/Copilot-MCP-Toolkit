@@ -46,6 +46,8 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
     { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 60000 }))[0];
   const paths = pack.files.map(f => f.path);
   assert.ok(paths.includes('skills/copilot-mcp/SKILL.md'));
+  assert.ok(paths.includes('skills/copilot-mcp/references/api-discovery.md'));
+  assert.ok(paths.includes('examples/mcp/container-apps-query-dates.json'));
   assert.ok(paths.includes('src/core.d.ts'));
   assert.ok(paths.includes('LICENSE'));
   assert.ok(paths.includes('THIRD-PARTY-NOTICES.md'));
@@ -123,6 +125,8 @@ syncBuiltinESMExports();
   assert.equal(cap.containerAppsRecipe.cloudExecution, false);
   assert.equal(cap.containerAppsRecipe.gateway, 'none');
   assert.deepEqual(cap.hostingRecipes.backendAuthentication, ['anonymous', 'api-key-key-vault-header', 'api-key-key-vault-query']);
+  assert.deepEqual(cap.hostingRecipes.queryArguments.types, ['string', 'integer', 'boolean']);
+  assert.equal(cap.hostingRecipes.queryArguments.dateRange, 'x-mcp-date-range');
   assert.equal(cap.operatorJournal.cloudExecution, false);
   assert.equal(cap.terminalHandoff.persistentTokens, false);
   assert.equal(cap.interactiveSession.separateProofApproval, true);

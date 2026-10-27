@@ -59,36 +59,60 @@ export async function guidedArguments(p, options = {}) {
     throw new Error('Guided review accepts only --workspace-root, --config and --project; it never accepts execution approvals.');
   }
   p.output.write(WELCOME);
-  p.output.write('Local guided setup only. Never enter credentials. Local generation requires confirmation; sign-in, deployment and tool calls require separate approvals.\n');
-  p.output.write('This wizard covers native APIM and existing-MCP references. For Container Apps, App Service or Functions source projects, use mcp-hosting-plan/create and docs/hosting-recipes.md; this wizard does not deploy or resume those source projects.\n');
+  p.output.write('Local setup and review only. Never enter passwords, tokens or API keys. Saving files needs your confirmation; sign-in, deployment and tool calls need separate approvals.\n');
+  p.output.write('Choose Azure API Management (APIM), an existing MCP server, Container Apps, App Service or Functions. Hosting source projects need a prepared recipe JSON file. No cloud changes run from this menu.\n');
   let action = await p.choose('How would you like to start?', [
     { value: 'new', label: 'Start a new MCP setup' },
-    { value: 'resume', label: 'Resume an existing setup (review only)' },
-    { value: 'advanced', label: 'Advanced: review an existing definition or resource choices' },
+    { value: 'resume', label: 'Review an existing setup or test run (no actions)' },
+    { value: 'advanced', label: 'Review a configuration file (advanced)' },
+    { value: 'help', label: 'Show all CLI commands' },
     { value: 'exit', label: 'Exit without changes' },
   ]);
   if (action === 'exit') return undefined;
+  if (action === 'help') return ['--help'];
   if (action === 'new') {
-    if (options.config || options.project) throw new Error('New setup accepts only --workspace-root. Use Resume for --project or Advanced for --config.');
+    if (options.config || options.project) throw new Error('New setup accepts only --workspace-root. Choose saved-setup review for --project or configuration review for --config.');
     const { createGuidedSetup } = await import('./guided-setup.js');
     return createGuidedSetup(p, options);
   }
   if (action === 'advanced') {
+    if (options.project) throw new Error('Configuration review accepts --config, not --project. Choose existing setup review for a project folder.');
     action = await p.choose('What would you like to review?', [
-      { value: 'generate', label: 'Review an existing MCP definition for a NEW bundle' },
-      { value: 'resources', label: 'Review explicit new/reused Azure resource choices' },
+      { value: 'generate', label: 'APIM or existing-server configuration (including experimental proxy profiles)' },
+      { value: 'hosting', label: 'Container Apps, App Service or Functions recipe' },
+      { value: 'execution', label: 'End-to-end test configuration (plan only; do not start)' },
+      { value: 'bootstrap', label: 'Container Apps infrastructure choices (plan only)' },
+      { value: 'resources', label: 'Choose new or existing Azure resources for APIM' },
       { value: 'exit', label: 'Exit without changes' },
     ]);
     if (action === 'exit') return undefined;
   }
+  let review;
+  if (action === 'resume') {
+    if (options.config) throw new Error('Existing setup review accepts --project, not --config. Choose configuration review for a JSON file.');
+    review = await p.choose('What kind of saved work would you like to review?', [
+      { value: 'mcp-resume', label: 'APIM setup or existing-server connection (mcp-server.json)' },
+      { value: 'mcp-recipe-source-plan', label: 'Hosting source project (recipe-manifest.json)' },
+      { value: 'mcp-execution-status', label: 'End-to-end execution run (execution.json)' },
+      { value: 'mcp-validation-status', label: 'Step-by-step validation run (validation-run.json)' },
+      { value: 'exit', label: 'Cancel without changes' },
+    ]);
+    if (review === 'exit') return undefined;
+  }
   const workspace = options['workspace-root'] ?? await p.ask('Existing absolute workspace directory (not installed code)');
   const args = ['--workspace-root', workspace];
   if (action === 'resume') {
-    p.output.write('Select an APIM bundle or endpoint-reference project containing mcp-server.json, not a sealed hosting source/release folder. Review hosting source with mcp-recipe-source-plan; use its endpoint reference for discovery/proof Resume.\n');
+    p.output.write('Select the folder containing the file named in your choice, not a release archive. This reads saved progress only; it does not continue a run, sign in or repeat a tool call.\n');
     const project = options.project ?? await p.ask('Project directory');
-    return ['mcp-resume', ...args, '--project', project, '--json', '--summary'];
+    return [review, ...args, '--project', project, '--json', ...(review === 'mcp-resume' ? ['--summary'] : [])];
   }
-  const config = options.config ?? await p.ask('Nonsecret MCP definition JSON file');
+  const config = options.config ?? await p.ask('Configuration JSON file (no passwords, tokens or API-key values)');
+  const command = { hosting: 'mcp-hosting-plan', execution: 'mcp-execution-plan', bootstrap: 'mcp-bootstrap-plan' }[action];
+  if (command) {
+    const output = await p.ask(action === 'bootstrap' ? 'New review JSON file path (not written during this review)'
+      : 'New output directory path (not created during this review)');
+    return [command, ...args, '--config', config, '--output', output, '--json', '--summary'];
+  }
   return [action === 'resources' ? 'mcp-resources-choose' : 'mcp-server-plan', ...args, '--config', config,
     ...(action === 'resources' ? [] : ['--json', '--summary'])];
 }

@@ -15,6 +15,7 @@ import { observationTransport } from './support/mcp-observation.js';
 import { createSyntheticExecutionHost, syntheticHostScannerImage } from './support/execution-host.js';
 import { main } from '../bin/copilot-mcp.js';
 import { nextValidation, runValidation } from '../src/mcp-validation-journey.js';
+import { toolDefinitions } from '../src/recipes/container-apps/runtime.js';
 
 const user = '77777777-7777-4777-8777-777777777777';
 const evidence = `sha256:${'a'.repeat(64)}`;
@@ -317,11 +318,22 @@ for (const gateway of [false, true]) test(`SDK ${gateway ? 'gateway' : 'direct'}
 });
 
 for (const gateway of [false, true]) for (const key of [false, true]) {
-  test(`SDK complete bounded journey: gateway=${gateway}, key=${key}`, async t => {
+  test(`SDK complete bounded journey: gateway=${gateway}, key=${key}, query arguments=${key}`, async t => {
     const f = await setup(t, `container-apps-${gateway ? 'apim' : 'direct'}${key ? '-api-key' : ''}`,
       gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2');
     f.input.host.scannerImage = syntheticHostScannerImage;
     f.input.limits.maximumAzureCommands = 200;
+    if (key) {
+      const operation = Object.values(f.definition.document.paths)[0].get;
+      operation.parameters = [
+        ...['start_date', 'end_date'].map(name => ({ name, in: 'query', required: true, schema: { type: 'string', format: 'date' } })),
+        { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 10 } },
+        { name: 'detailed', in: 'query', schema: { type: 'boolean' } },
+        { name: 'category', in: 'query', schema: { type: 'string', enum: ['a & b', 'c'] } },
+      ];
+      operation['x-mcp-date-range'] = { startParameter: 'start_date', endParameter: 'end_date', maxSpanDays: 7 };
+      f.creation.proof.arguments = { start_date: '2024-02-28', end_date: '2024-03-06', limit: 2, detailed: false, category: 'a & b' };
+    }
     if (!gateway && !key) {
       const client = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
       f.definition.authentication.allowedClientIds = [client.toUpperCase()];
@@ -341,11 +353,13 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     const auth = runtime.authentication;
     const descriptor = { endpoint, inbound: { type: 'entra', tenantId: auth.tenantId, clientId: auth.audience,
       applicationIdUri: auth.applicationIdUri, scope: auth.scope, allowedClientIds: auth.allowedClientIds } };
-    const fixture = observationTransport(descriptor, f.creation.discovery, { tools: [{
-      name: f.creation.proof.toolName, description: 'Read a synthetic record',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      annotations: { readOnlyHint: true, destructiveHint: false },
-    }] });
+    const fixture = observationTransport(descriptor, f.creation.discovery, { tools: toolDefinitions(runtime) });
+    const baseTransport = fixture.mcpTransport;
+    fixture.mcpTransport = (url, request) => {
+      const rpc = JSON.parse(request.body);
+      if (rpc.method === 'tools/call') assert.deepEqual(rpc.params.arguments, f.creation.proof.arguments);
+      return baseTransport(url, request);
+    };
     const waits = [];
     fixture.waitForProof = async ms => { waits.push(ms); };
     const dependencies = { runAzure: synthetic.dependencies.runAzure,

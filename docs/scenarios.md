@@ -23,6 +23,12 @@
 | Shared authentication registration execution | Explicit M365 tenant/account plus matching descriptor | Public ATK CLI 1.1.17 | Separate initialize/login/register/close approvals; native Windows user-managed profile for secretless SSO with explicit shared-profile review, or isolated Linux tmpfs for SSO/PKCE/private Key Vault secret. Created-unverified receipts, no replay, no macOS adapter; complete native Windows registration remains live-unqualified |
 
 Anonymous **backend** does not automatically make generated inbound anonymous.
+
+All four generated hosts share bounded inline query-argument support for
+fixed-path GETs: strings, integers, booleans and explicit calendar-date range
+rules. Existing no-argument recipes remain supported. This does not add path
+arguments, bodies, automatic pagination or backend OAuth. See
+[query arguments](hosting-recipes.md#query-arguments-and-date-ranges).
 Entra remains the guided default; public access is a separate explicit choice.
 Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator
