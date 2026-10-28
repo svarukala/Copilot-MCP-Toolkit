@@ -14,6 +14,7 @@ import { planHostingRecipe } from './mcp-container-apps.js';
 import { hostExecutionSchema, describeHostExecution, planHostExecution, runHostExecution } from './mcp-execution-host.js';
 import { planExecutionSession, createExecutionProofApproval } from './mcp-execution-session.js';
 import { createExecutionProtocolAdapter } from './mcp-execution-protocol.js';
+import { dockerFailureDiagnostic } from './mcp-execution-docker.js';
 
 const object = (properties, required = Object.keys(properties)) =>
   ({ type: 'object', additionalProperties: false, properties, required });
@@ -192,9 +193,15 @@ async function readRun(project, { checkBuild = true } = {}) {
         'STATE', 'Initialization cannot repeat inside an existing grant.');
       run.pending = eventDigest;
     } else if (entry.kind === 'result') {
-      check(run.pending && keys(entry.data, ['intentDigest', 'status', 'reportDigest', 'childHead'])
+      const diagnostic = entry.data?.dockerFailure;
+      const safeDiagnostic = dockerFailureDiagnostic(diagnostic);
+      check(run.pending && keys(entry.data, ['intentDigest', 'status', 'reportDigest', 'childHead',
+        ...(diagnostic !== undefined ? ['dockerFailure'] : [])])
         && entry.data.intentDigest === run.pending && ['passed', 'failed', 'unknown'].includes(entry.data.status)
         && (entry.data.reportDigest === null || digestPattern.test(entry.data.reportDigest))
+        && (diagnostic === undefined || safeDiagnostic !== undefined && digest(diagnostic) === digest(safeDiagnostic)
+          && entry.data.status === 'unknown' && entry.data.reportDigest === null && entry.data.childHead === null
+          && run.events.find(item => item.contentDigest === run.pending)?.data.phase === 'sdk-host')
         && (entry.data.status === 'passed' ? digestPattern.test(entry.data.childHead)
           : entry.data.childHead === null || digestPattern.test(entry.data.childHead)),
       'STATE', 'Invalid execution outcome.');
@@ -214,6 +221,23 @@ function consumption(run) {
     providerCalls: run.events.filter(e => e.kind === 'intent').reduce((n, e) => n + e.data.providerCalls, 0),
     azureCommands: run.events.filter(e => e.kind === 'azure-command').length,
   };
+}
+// Historical evidence only: never checks in, migrates or resumes the old grant.
+export async function failedHostExecutionEvidence(directory, hostPlan) {
+  const run = await readRun(directory, { checkBuild: false });
+  const last = run.events.at(-1);
+  const failures = run.events.filter(event => event.kind === 'result' && event.data.status !== 'passed');
+  const intent = run.events.find(event => event.contentDigest === last?.data.intentDigest);
+  check(!run.pending && failures.length === 1 && failures[0] === last
+    && last.data.status === 'unknown' && intent?.data.phase === 'sdk-host'
+    && intent.data.planDigest === digest(hostPlan)
+    && consumption(run).providerCalls === 0
+    && hostPlan.scope.output === file(run, 'host')
+    && hostPlan.scope.project === path.join(child(run), 'source')
+    && hostPlan.scope.sourceManifestDigest === run.plan.hostSourceManifestDigest
+    && digest(hostPlan.scope.config) === digest(run.plan.input.host),
+  'STATE', 'Recovery requires an unchanged execution journal stopped only at the failed host phase.');
+  return { grantDigest: run.contentDigest, journalDigest: run.head };
 }
 function barrier(run) {
   return run.pending ? 'interrupted-intent'
@@ -298,7 +322,9 @@ async function perform(run, phase, plan, operation, signal) {
     await append(run, 'result', { intentDigest: intent.contentDigest, status, reportDigest: digest(result), childHead: after.head });
     return result;
   } catch (error) {
-    await append(run, 'result', { intentDigest: intent.contentDigest, status: 'unknown', reportDigest: null, childHead: null });
+    const diagnostic = phase === 'sdk-host' ? dockerFailureDiagnostic(error?.dockerFailure) : undefined;
+    await append(run, 'result', { intentDigest: intent.contentDigest, status: 'unknown', reportDigest: null, childHead: null,
+      ...(diagnostic ? { dockerFailure: diagnostic } : {}) });
     check(false, 'UNKNOWN', 'A granted phase stopped without a verified success. Preserve child receipts and locks; no automatic retry. Raw errors are not retained.');
   }
 }
@@ -337,6 +363,7 @@ async function status(run, workspaceRoot, extra = {}) {
   }
   const failed = run.events.find(event => event.kind === 'result' && event.data.status !== 'passed');
   const stoppedIntent = run.events.find(event => event.contentDigest === (run.pending ?? failed?.data.intentDigest));
+  const diagnostic = stoppedIntent?.data.phase === 'sdk-host' ? dockerFailureDiagnostic(failed?.data.dockerFailure) : undefined;
   const used = consumption(run);
   return {
     schemaVersion: 1, runDirectory: run.dir, scenario: run.plan.creation.scenario,
@@ -344,6 +371,7 @@ async function status(run, workspaceRoot, extra = {}) {
       : report.protocol === 'passed-historical' ? 'execution-completed' : 'in-progress',
     barrier: stopped, grantDigest: run.contentDigest, journalDigest: run.head,
     stoppedPhase: stoppedIntent?.data.phase ?? null,
+    ...(diagnostic ? { dockerFailure: diagnostic } : {}),
     evidenceDirectory: stoppedIntent?.data.phase === 'sdk-host' ? file(run, 'host') : child(run),
     ...(childInspection ? { childInspection } : {}),
     expiresAt: run.plan.input.expiresAt, expired: Date.now() >= Date.parse(run.plan.input.expiresAt),
@@ -407,8 +435,11 @@ async function sdk(run, options, dependencies) {
       ...selected, approval: plan.approvalToken, allowCloud: true, allowNetwork: true, allowLocal: true,
       onDeviceCode: options.onDeviceCode, signal: options.signal,
     }, { ...dependencies.hostDependencies, runAzure: dependencies.runAzure });
-    check(observed.status === 'passed' && digestPattern.test(observed.evidenceDigest ?? ''),
-      'HOST', 'Host adapter did not establish a verified result; preserve its receipts.');
+    if (observed.status !== 'passed' || !digestPattern.test(observed.evidenceDigest ?? '')) {
+      const error = new Error('Host adapter did not establish a verified result; preserve its receipts.');
+      Object.assign(error, { code: 'MCP_VALIDATION_EXECUTION_HOST', dockerFailure: dockerFailureDiagnostic(observed.dockerFailure) });
+      throw error;
+    }
     await json(run, 'host-result.json', observed);
     return observed;
   }, options.signal);

@@ -48,6 +48,9 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
   assert.ok(paths.includes('skills/copilot-mcp/SKILL.md'));
   assert.ok(paths.includes('skills/copilot-mcp/references/api-discovery.md'));
   assert.ok(paths.includes('examples/mcp/container-apps-query-dates.json'));
+  assert.ok(paths.includes('src/mcp-build-recovery.js'));
+  assert.ok(paths.includes('src/mcp-recovered-image.js'));
+  assert.ok(paths.includes('docs/build-recovery.md'));
   assert.ok(paths.includes('src/core.d.ts'));
   assert.ok(paths.includes('LICENSE'));
   assert.ok(paths.includes('THIRD-PARTY-NOTICES.md'));
@@ -131,6 +134,14 @@ syncBuiltinESMExports();
   assert.equal(cap.terminalHandoff.persistentTokens, false);
   assert.equal(cap.interactiveSession.separateProofApproval, true);
   assert.equal(cap.hostOperations.sharedDockerLogin, false);
+  assert.equal(cap.buildRecovery.targetScopedOneShotClaim, true);
+  assert.equal(cap.buildRecovery.downstreamContinuation, true);
+  assert.equal(cap.buildRecovery.downstreamContract, 'mcp-recovered-image');
+  assert.equal(cap.buildRecovery.scanRejectionRemediation,
+    'sealed-recovered-image-scan-failure-with-different-runtime-pin-and-separate-approvals');
+  assert.equal(cap.recoveredImage.separateApproval, true);
+  assert.equal(cap.recoveredImage.rebuild, false);
+  assert.equal(invoke(['mcp-recovered-image-schema']).result.additionalProperties, false);
   assert.deepEqual(cap.hostOperations.npmRegistryProbe.kinds, ['ping', 'package-metadata']);
   assert.equal(invoke(['mcp-host-schema']).result.oneOf.length, 4);
   assert.equal(invoke(['mcp-operator-schema']).result.oneOf.length, 6);

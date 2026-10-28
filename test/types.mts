@@ -26,6 +26,36 @@ async function consumer(input: McpServerSourceInput, selection: McpReadOnlyProof
 void consumer;
 void reference;
 void prepareRestToolDocument;
+
+async function buildRecoveryConsumer(options: import('copilot-mcp-toolkit').BuildRecoveryOptions) {
+  const api = await import('copilot-mcp-toolkit');
+  const plan = await api.planBuildRecovery(options);
+  const kind: 'mcp-build-recovery-plan' = plan.scope.kind;
+  const scanRejection: string | undefined = plan.scope.config.scanRejectedContinuationOutput;
+  const result = await api.runBuildRecovery({ ...options, approval: plan.approvalToken,
+    allowLocal: true, allowNetwork: true });
+  const calls: 0 = result.providerCalls;
+  // @ts-expect-error transport injection is internal test infrastructure
+  await api.runBuildRecovery({ ...options, approval: plan.approvalToken, allowLocal: true, allowNetwork: true }, {});
+  // @ts-expect-error recovery grants no cloud authority
+  await api.runBuildRecovery({ ...options, approval: plan.approvalToken, allowLocal: true, allowNetwork: true, allowCloud: true });
+  return { kind, calls, scanRejection, schema: await api.getBuildRecoverySchema() };
+}
+void buildRecoveryConsumer;
+async function recoveredImageConsumer(options: import('copilot-mcp-toolkit').RecoveredImageOptions) {
+  const api = await import('copilot-mcp-toolkit');
+  const plan = await api.planRecoveredImage(options);
+  const kind: 'mcp-recovered-image-plan' = plan.scope.kind;
+  const result = await api.runRecoveredImage({ ...options, approval: plan.approvalToken,
+    allowLocal: true, allowNetwork: true, allowCloud: true });
+  const status: 'passed' | 'unknown-no-replay' = result.status;
+  // @ts-expect-error All deployment effect gates are required.
+  await api.runRecoveredImage({ ...options, approval: plan.approvalToken, allowLocal: true, allowNetwork: true });
+  // @ts-expect-error Runner/transport injection is not public.
+  await api.runRecoveredImage({ ...options, approval: plan.approvalToken, allowLocal: true, allowNetwork: true, allowCloud: true }, {});
+  return { kind, status, schema: await api.getRecoveredImageSchema() };
+}
+void recoveredImageConsumer;
 void compareRestCapture;
 void McpToolkitError;
 

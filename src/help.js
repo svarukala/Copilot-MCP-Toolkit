@@ -1,10 +1,12 @@
 export const commandFamilies = {
   execution: ['mcp-verified-image-schema', 'mcp-verified-image-plan', 'mcp-verified-image-run',
+    'mcp-recovered-image-schema', 'mcp-recovered-image-plan', 'mcp-recovered-image-run',
     'mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
     'mcp-execution-run', 'mcp-execution-status', 'mcp-execution-record'],
   validation: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
     'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
-  hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
+  hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch',
+    'mcp-build-recovery-schema', 'mcp-build-recovery-plan', 'mcp-build-recovery-run'],
   interactiveSession: ['mcp-session-plan', 'mcp-session'],
   terminal: ['mcp-terminal-handoff'],
   bootstrap: ['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'],
@@ -101,6 +103,15 @@ reviewed direct-ACA-only contract for an eligible consumed push-unknown run's
 fresh OCI image. Never rebuilds/pushes or resumes old authority. Run requires
 exact --approve plus --allow-local --allow-network --allow-cloud.
 See docs/verified-image-deployment.md for evidence and one-shot claim requirements.
+Build-only recovery: mcp-build-recovery-schema/plan/run authorizes one linked local
+build after an eligible failed ACA host build, never resuming its old grant.
+The owner must confirm the prior build stopped. Run requires exact --approve
+--allow-local --allow-network; --allow-cloud is rejected. Stops at an unqualified
+local image. Explicit revised-source successors permit only changed npm registry
+or pinned build images, preserving all prior sources, failures and reservations.
+Recovered-image continuation: mcp-recovered-image-schema/plan/run separately
+reviews scan/smoke/unique-tag/push/create-only deployment, without a rebuild.
+All local/network/cloud gates are required. See docs/build-recovery.md.
 Validation: schema/plan/start/next/run/status for existing direct ACA (v1), or
 fresh direct ACA, ACA behind APIM, native APIM REST, existing MCP and proxies (v2).
 Use --workspace-root and a NEW run --output; continuation --project is the run.

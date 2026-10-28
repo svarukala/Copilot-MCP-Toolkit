@@ -16,6 +16,7 @@ import { createSyntheticExecutionHost, syntheticHostScannerImage } from './suppo
 import { main } from '../bin/copilot-mcp.js';
 import { nextValidation, runValidation } from '../src/mcp-validation-journey.js';
 import { toolDefinitions } from '../src/recipes/container-apps/runtime.js';
+import { planBuildRecovery } from '../src/mcp-build-recovery.js';
 
 const user = '77777777-7777-4777-8777-777777777777';
 const evidence = `sha256:${'a'.repeat(64)}`;
@@ -399,6 +400,77 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     assert.equal(fixture.calls.filter(call => call === 'tools/call').length, 1);
   });
 }
+
+test('Docker diagnostics survive execution journaling and status without allowing a failed build to resume', async t => {
+  const f = await setup(t, 'container-apps-direct', 'container-apps-create-v2');
+  await f.start();
+  assert.equal((await runExecution(f.active, f.deps)).status, 'sign-in-required');
+  const synthetic = await createSyntheticExecutionHost({ workspaceRoot: f.root,
+    project: path.join(f.output, 'journey', 'source'), host: f.input.host });
+  const docker = synthetic.dependencies.dockerRequest;
+  synthetic.dependencies.dockerRequest = async (...args) => {
+    const value = await docker(...args);
+    return args[1].includes('/build?') ? { status: 200,
+      body: Buffer.from(JSON.stringify({ error: 'manifest unknown synthetic-secret-never-retain' })) } : value;
+  };
+  const dependencies = { runAzure: synthetic.dependencies.runAzure, hostDependencies: synthetic.dependencies };
+  await assert.rejects(runExecution(f.active, dependencies), { code: 'MCP_VALIDATION_EXECUTION_UNKNOWN' });
+  const result = await executionStatus(f.active);
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.barrier, 'failed-or-unknown-outcome');
+  assert.equal(result.stoppedPhase, 'sdk-host');
+  assert.deepEqual(result.dockerFailure, { schemaVersion: 1, category: 'image-unavailable', httpStatus: 200, recordIndex: 1 });
+  assert.equal(result.consumption.providerCalls, 0);
+  assert.ok(!JSON.stringify(result).includes('synthetic-secret-never-retain'));
+  const current = await executionStatus(f.active);
+  assert.deepEqual(current.dockerFailure, result.dockerFailure);
+  for (const name of await readdir(path.join(f.output, 'events'))) {
+    const event = await readFile(path.join(f.output, 'events', name), 'utf8');
+    assert.ok(!event.includes('synthetic-secret-never-retain'));
+  }
+  const count = synthetic.calls.length;
+  assert.deepEqual((await runExecution(f.active, dependencies)).dockerFailure, result.dockerFailure);
+  assert.equal(synthetic.calls.length, count);
+  assert.equal(synthetic.calls.filter(call => call.route?.includes('/build?')).length, 1);
+  assert.equal(synthetic.calls.filter(call => call.route?.includes('/push?') || call.args?.includes('PUT')).length, 0);
+  const last = (await readdir(path.join(f.output, 'events'))).sort().at(-1);
+  const eventPath = path.join(f.output, 'events', last);
+  const original = await readFile(eventPath, 'utf8');
+  for (const alter of [
+    event => { event.data.dockerFailure.message = 'synthetic-secret-never-retain'; },
+    event => { event.data.dockerFailure.exitCode = 256; },
+    event => { event.data.dockerFailure.category = 'unrecognized-category'; },
+    event => { event.data.status = 'passed'; },
+  ]) {
+    const { contentDigest, ...event } = JSON.parse(original);
+    alter(event);
+    await writeFile(eventPath, savedJson({ ...event, contentDigest: digest(event) }));
+    await assert.rejects(executionStatus(f.active), { code: 'MCP_VALIDATION_EXECUTION_STATE' });
+  }
+  const { contentDigest, ...historical } = JSON.parse(original);
+  delete historical.data.dockerFailure;
+  await writeFile(eventPath, savedJson({ ...historical, contentDigest: digest(historical) }));
+  const oldShape = await executionStatus(f.active);
+  assert.equal(oldShape.barrier, 'failed-or-unknown-outcome');
+  assert.equal(oldShape.dockerFailure, undefined);
+  await writeFile(eventPath, original);
+  const parent = JSON.parse(await readFile(path.join(f.output, 'host', 'plan.json'), 'utf8'));
+  const recoveryConfig = path.join(f.root, 'build-recovery.json');
+  await writeFile(recoveryConfig, savedJson({ schemaVersion: 1, oldHostOutput: parent.scope.output,
+    oldHostApproval: parent.approvalToken, sourceManifestDigest: parent.scope.sourceManifestDigest,
+    accountName: parent.scope.config.accountName, expiresAt: new Date(Date.now() + 3600000).toISOString(),
+    localEngineTrusted: true, previousBuildStoppedReviewed: true, buildOnlyReviewed: true,
+    downloadsReviewed: true, resourceCeilingsReviewed: true }));
+  const recoveryOptions = { workspaceRoot: f.root, project: parent.scope.project,
+    config: recoveryConfig, output: path.join(f.root, 'build-recovery') };
+  const recovery = await planBuildRecovery(recoveryOptions);
+  assert.equal(recovery.scope.evidence.outer.journalDigest, JSON.parse(original).contentDigest);
+  const { contentDigest: oldDigest, ...invalid } = JSON.parse(original);
+  invalid.data.status = 'failed';
+  await writeFile(eventPath, savedJson({ ...invalid, contentDigest: digest(invalid) }));
+  await assert.rejects(planBuildRecovery(recoveryOptions), { code: 'MCP_VALIDATION_EXECUTION_STATE' });
+  await writeFile(eventPath, original);
+});
 
 test('the Azure command budget is write-ahead and an exhausted account phase cannot restart', async t => {
   const f = await setup(t, 'catalog', 'native-apim-create-v2');

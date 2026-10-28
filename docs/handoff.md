@@ -1,9 +1,84 @@
 # Session handoff
 
-Last updated: 2026-10-26. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-27. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Scan-rejected runtime remediation implemented:** build recovery accepts
+  `scanRejectedContinuationOutput` with the full source-revision selection for
+  a successful recovery whose exact recovered-image continuation ended at scan
+  policy/inconclusive. A different runtime digest is mandatory; application code,
+  dependency metadata/integrities and targets remain fixed. Old build/scan
+  evidence, claims, images and volumes remain intact. One child build and a
+  separately approved per-build continuation rerun unchanged qualification gates.
+  Registry lookup, generation, build and deployment are separate reviews; no new
+  runtime pin is selected or live-qualified by this engineering change.
+  See [runtime remediation](build-recovery.md#runtime-remediation-after-a-recovered-image-fails-scanning).
+
+- **Revised-source build recovery and recovered-image continuation implemented:**
+  `supersededRecoveryOutput` binds a sealed failed recovery build to a separately
+  generated source with only reviewed npm-registry/pinned-build-image changes.
+  Runtime, dependency metadata/integrities, authentication, targets and original
+  reservations remain fixed. Bounded lineage, deterministic single-child claims,
+  all-prior-owner reconciliation and before-build revalidation preserve history.
+  Successful recovered builds can use separate `mcp-recovered-image-schema/plan/run`
+  authority for existing scan/smoke/tag/push/create-only host stages. It verifies
+  the recovered image, uses the same private identity, takes an independent
+  target claim and never rebuilds or resumes the old execution. These are
+  engineering capabilities, not live qualification or permission to operate.
+  See [build recovery](build-recovery.md).
+
+- **Container registry diagnostic identity correction:** the existing probe
+  now recognizes an exact approved Node tag-plus-digest in Docker `RepoDigests`,
+  as well as canonical digest-only aliases. Linux/amd64, exact repository/digest,
+  isolated probe/cleanup and consumed-result boundaries remain enforced.
+  This does not select a build feed, qualify installation or authorize a build.
+
+- **Explicit pre-build connection retry:** `connectionRecoveryOutput` supports
+  a separately requested current-build attempt after a linked recovery failed
+  only its first Docker version GET. It recursively verifies at most 16
+  predecessors and uses a deterministic single-child claim, preserving all old
+  failures. No dispatched build, incomplete result, later failure or engine
+  security rejection is eligible. Docker availability is restored by the owner,
+  never implicitly by the runner. This remains build-only.
+
+- **Pre-build engine-rejection successor:** `rejectedRecoveryOutput` permits one
+  separately approved linked attempt only after the first recovery's sealed
+  engine-security rejection with exactly two reads and no build intent. Parent
+  and rejected recovery claims/results remain immutable; an additional target
+  claim prevents repeat successors. No build-stage failure or interrupted
+  recovery becomes eligible. This is build-only, not a deployment continuation.
+  See [build recovery](build-recovery.md).
+
+- **Recovery engine-check correction:** the initial recovery guard rejected
+  every insecure registry index, including unrelated entries, unlike the
+  target-scoped existing checks. It now checks only the trusted image schema's
+  Docker Hub/gcr.io registries, retains the debug/loopback-CIDR restrictions,
+  and blocks malformed security metadata. New receipts retain only fixed
+  `engineSecurity` check statuses. Historical generic rejections cannot be
+  attributed to this bug without additional evidence; consumed recovery claims
+  remain consumed. No live engine inspection, setting change or retry occurred.
+
+- **Build-only recovery:** `mcp-build-recovery-schema/plan/run` adds an independent
+  one-shot local build for eligible failed ACA host builds. It validates parent
+  receipts/reservations and any outer execution journal, preserves historical
+  source metadata, and requires current-generator-matched executable inputs.
+  Owner-confirmed prior-build termination/exclusive engine access is required:
+  label inspection alone is not proof of quiescence. The original run is never
+  resumed. Success is an unqualified local image with no downstream deployment
+  continuation within the build command. The separately approved recovered-image
+  contract above now supplies that path. No live recovery is implied.
+  See [build recovery](build-recovery.md).
+
+- **Safe Docker failure diagnostics:** progress-stream failures now retain
+  bounded categories and optional numeric build-position/exit-code context,
+  without raw commands, URLs or credentials. Host receipts and new outer
+  execution journals/status expose the same safe projection. Existing stop
+  codes and failed/unknown no-replay barriers are unchanged. The implementation
+  cannot recover an old discarded Docker error or establish its root cause.
+  No live build, engine change or retry is implied. See the diagnostic guidance
+  in [reusable validation](reusable-validation.md).
 
 - **Parameterized generated GETs implemented/offline verified:** all four
   hosting recipes now accept bounded inline scalar query parameters while

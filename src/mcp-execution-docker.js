@@ -4,6 +4,46 @@ import { dockerSocketSchema, dockerError } from './docker-engine.js';
 
 const maximum = 512 * 1024 * 1024;
 const check = (ok, code = 'DOCKER_RESPONSE_INVALID') => { if (!ok) throw dockerError(code); };
+const failureCategories = new Set(['certificate-validation', 'name-resolution', 'registry-authorization',
+  'registry-rate-limit', 'image-unavailable', 'resource-exhausted', 'network-timeout',
+  'builder-unsupported', 'build-command-failed', 'unclassified', 'http-error', 'invalid-progress', 'missing-progress']);
+const instructions = new Set(['FROM', 'RUN', 'COPY', 'ADD', 'WORKDIR', 'ENV', 'USER', 'EXPOSE',
+  'CMD', 'LABEL', 'ENTRYPOINT', 'ARG', 'VOLUME', 'SHELL', 'STOPSIGNAL', 'HEALTHCHECK', 'ONBUILD']);
+const boundedInteger = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
+
+// Retain only closed categories/numeric context. Never copy a Docker message,
+// URL, command, image name, layer ID or arbitrary error property into evidence.
+export function dockerFailureDiagnostic(value) {
+  if (!value || value.schemaVersion !== 1 || !failureCategories.has(value.category)) return undefined;
+  return { schemaVersion: 1, category: value.category,
+    ...(boundedInteger(value.httpStatus, 100, 599) ? { httpStatus: value.httpStatus } : {}),
+    ...(boundedInteger(value.recordIndex, 1, 1000000) ? { recordIndex: value.recordIndex } : {}),
+    ...(boundedInteger(value.step, 1, 10000) && boundedInteger(value.totalSteps, value.step, 10000)
+      && instructions.has(value.instruction)
+      ? { step: value.step, totalSteps: value.totalSteps, instruction: value.instruction } : {}),
+    ...(boundedInteger(value.exitCode, 1, 255) ? { exitCode: value.exitCode } : {}),
+  };
+}
+
+function reportedCategory(message) {
+  if (typeof message !== 'string') return undefined;
+  const text = message.slice(0, 16384);
+  if (/\b(?:SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT_LOCALLY|CERT_HAS_EXPIRED)\b|x509:|certificate signed by unknown authority/i.test(text)) return 'certificate-validation';
+  if (/\b(?:ENOTFOUND|EAI_AGAIN)\b|no such host/i.test(text)) return 'name-resolution';
+  if (/\b(?:ENOSPC|ENOMEM)\b|no space left on device|cannot allocate memory/i.test(text)) return 'resource-exhausted';
+  if (/\b(?:ETIMEDOUT|ESOCKETTIMEDOUT)\b|TLS handshake timeout|i\/o timeout/i.test(text)) return 'network-timeout';
+  if (/\b(?:toomanyrequests|E429)\b|too many requests/i.test(text)) return 'registry-rate-limit';
+  if (/\b(?:E401|E403)\b|unauthorized: authentication required|pull access denied|requested access to the resource is denied/i.test(text)) return 'registry-authorization';
+  if (/manifest unknown|no matching manifest|manifest for .{1,512} not found/i.test(text)) return 'image-unavailable';
+  if (/(?:legacy builder|buildkit|builder version).{0,100}(?:not supported|unsupported|disabled|not available)/i.test(text)) return 'builder-unsupported';
+  return undefined;
+}
+
+function progressFailure(code, response, category, context = {}) {
+  return Object.assign(dockerError(code), {
+    dockerFailure: dockerFailureDiagnostic({ ...context, schemaVersion: 1, category, httpStatus: response.status }),
+  });
+}
 
 // Internal binary companion to the JSON engine transport. Never invokes a CLI,
 // reads Docker contexts, mounts its socket in a container, or imports credentials.
@@ -54,14 +94,42 @@ export function executionProgress(response) {
 }
 
 function* executionMessages(response) {
-  check(response.status === 200, 'DOCKER_DISPATCH_UNKNOWN');
+  if (response.status !== 200) {
+    let category;
+    try { category = reportedCategory(JSON.parse(response.body.toString('utf8')).message); }
+    catch { /* Unparseable HTTP bodies are not diagnostic evidence. */ }
+    throw progressFailure('DOCKER_DISPATCH_UNKNOWN', response, category ?? 'http-error');
+  }
   const text = response.body.toString('utf8');
-  check(text.trim().length > 0, 'DOCKER_DISPATCH_UNKNOWN');
+  if (!text.trim()) throw progressFailure('DOCKER_DISPATCH_UNKNOWN', response, 'missing-progress');
+  let recordIndex = 0, buildStep = {}, hint;
   for (const line of text.trim().split(/\r?\n/)) {
+    recordIndex++;
+    const context = () => ({ recordIndex, ...buildStep });
     let value;
-    try { value = JSON.parse(line); } catch { throw dockerError('DOCKER_DISPATCH_UNKNOWN'); }
-    check(value && typeof value === 'object' && !Array.isArray(value)
-      && !value.error && !value.errorDetail, 'DOCKER_DISPATCH_FAILED');
+    try { value = JSON.parse(line); }
+    catch { throw progressFailure('DOCKER_DISPATCH_UNKNOWN', response, 'invalid-progress', context()); }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw progressFailure('DOCKER_DISPATCH_FAILED', response, 'invalid-progress', context());
+    }
+    if (value.error || value.errorDetail) {
+      const message = [value.errorDetail?.message, value.error]
+        .filter(item => typeof item === 'string').map(item => item.slice(0, 16384)).join('\n');
+      const exit = /returned a non-zero code: ([1-9][0-9]{0,2})(?:\s|$)/.exec(message);
+      throw progressFailure('DOCKER_DISPATCH_FAILED', response,
+        reportedCategory(message) ?? hint ?? (exit ? 'build-command-failed' : 'unclassified'),
+        { ...context(), ...(exit ? { exitCode: Number(exit[1]) } : {}) });
+    }
+    if (typeof value.stream === 'string') {
+      const stream = value.stream.slice(0, 16384);
+      const step = /^Step ([1-9][0-9]{0,3})\/([1-9][0-9]{0,3}) : ([A-Z]+)(?:\s|$)/.exec(stream);
+      if (step) {
+        buildStep = { step: Number(step[1]), totalSteps: Number(step[2]), instruction: step[3] };
+        hint = undefined;
+      }
+      // npm emits its actionable code before Docker's generic RUN exit error.
+      if (/^npm (?:ERR!|error) code /m.test(stream)) hint = reportedCategory(stream) ?? hint;
+    }
     yield value;
   }
 }

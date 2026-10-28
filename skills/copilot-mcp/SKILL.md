@@ -47,6 +47,70 @@ Retain pending consumer, negative and rotation gates as such. Submit genuine
 pending owner evidence with `mcp-execution-record`; it cannot erase a failure.
 Scope/security/identity drift, exhausted budgets and unknown dispatches stop
 without retry. An execution expiry is not resource cleanup or a billing cap.
+If a Docker stage stops, inspect the retained `reasonCode` and optional
+`dockerFailure` in the host receipt/current execution status. Explain its closed
+category and available step/exit code without claiming a verified root cause.
+Missing diagnostics in old receipts cannot be reconstructed. Do not collect raw
+logs into durable evidence, weaken TLS, change shared Docker settings or create
+a replacement output to replay a consumed build. See `docs/reusable-validation.md`
+for safe diagnostics and the separate recovery-review boundary.
+For an eligible failed ACA build, read `docs/build-recovery.md` and use only
+`mcp-build-recovery-schema/plan/run` for a separately approved build-only attempt.
+Ask the owner to establish that the prior build stopped and that they control
+the engine exclusively; never infer this from an empty labelled-container list
+or automatically fill `previousBuildStoppedReviewed`. Keep the old source/run
+sealed. Planning is read-only; execution takes a permanent linked recovery claim
+and exact fresh approval with local/network flags, never cloud authority.
+Success is an unqualified local image, not permission to push/deploy it.
+`mcp-recovered-image-schema/plan/run` is the separate reviewed scan/smoke/push/
+create-only deployment contract. Failed recovery is consumed too; do not loop new outputs.
+For `BUILD_RECOVERY_ENGINE_UNTRUSTED`, inspect optional `engineSecurity.checks`:
+`failed` identifies a rejected setting category; `unknown` means missing or
+malformed metadata. Older receipts lack this detail and cannot establish the
+failed setting. The earlier guard also rejected unrelated insecure registry
+entries; do not assert this caused a specific historical failure without evidence.
+Any fresh read-only engine inspection needs separate review and does not permit
+replay, claim removal, Docker setting changes or another recovery output.
+The narrow exception is `rejectedRecoveryOutput` described in
+`docs/build-recovery.md`: one separately approved linked successor only for a
+sealed engine-security rejection after exactly two reads and no build intent.
+It preserves the original claim and takes an additional permanent claim.
+Inspect eligibility before proposing it; do not use it for an interrupted
+attempt, a dispatched build, later reconciliation failures or another successor.
+For a linked attempt that failed only its first Docker version GET with
+`DOCKER_RESPONSE_UNKNOWN`, `connectionRecoveryOutput` supports a separately
+requested and approved retry, with the full bounded predecessor chain preserved.
+Never use it for build failures, missing terminal receipts or later requests.
+Do not run it automatically when Docker comes back; require the user's explicit
+retry request and review the current plan. See the connection-retry section in
+`docs/build-recovery.md`.
+
+For corrected build inputs after a sealed recovery build failure, use the
+`supersededRecoveryOutput` contract in that document. Generate a new sealed
+source separately; only the explicitly reviewed npm registry and/or pinned build
+images may change. Preserve versions/integrities, runtime, identities, targets,
+all prior sources and receipts. This adds one deterministic child claim, never
+releases reservations or replays an unchanged build. Reconfirm prior-build
+termination and exclusive engine control; generation is not execution approval.
+After a successful recovery, prepare a separate `mcp-recovered-image` plan from
+that successful source, with the original private identity. Require new exact
+local/network/cloud approval for scanning, smoke, tagging, push and create-only
+deployment. Neither a connectivity probe nor a successful local build grants it.
+
+If that continuation stops at scan with `HOST_EXECUTION_SCAN_POLICY` or
+`HOST_EXECUTION_SCAN_INCONCLUSIVE`, inspect the retained evidence without
+replaying it. Use `scanRejectedContinuationOutput` alongside all source-revision
+fields only for the exact successful build and a complete sealed scan rejection.
+The replacement source must use a different runtime digest, with unchanged
+application code, dependency metadata/integrities and deployment targets.
+Public registry inspection, source generation, replacement build and later
+qualification/deployment require their own reviews. A newer pin is not evidence
+of a fix; never suppress unknown findings or weaken the zero-critical/high gate.
+Preserve all old claims, reports, images and scanner volumes. Confirm prior
+builds/scans stopped and exclusive engine control. A successful replacement has
+its own one-shot continuation claim; all scan/smoke gates run again. This is not
+recovery for transport failures, missing receipts or later deployment failures.
+See the runtime-remediation section of `docs/build-recovery.md`.
 
 For reusable validation of an **existing direct Container Apps deployment** (v1),
 read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private

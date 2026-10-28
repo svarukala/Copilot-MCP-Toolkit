@@ -232,6 +232,54 @@ test('container diagnostics use an existing pinned image and remove only the own
   assert.equal(report.result.cleanup, 'owned-container-removed-or-absent');
   assert.equal(creates, 1); assert.equal(removes, 1);
 });
+test('container diagnostic identity accepts exact tagged digests but rejects different images and platforms', async t => {
+  const image = `node:22-bookworm-slim@${hash}`;
+  const cases = [
+    { reference: image, allowed: true },
+    { reference: `docker.io/library/${image}`, allowed: true },
+    { reference: `node@${hash}`, allowed: true },
+    { reference: `docker.io/library/node@${hash}`, allowed: true },
+    { reference: `node:22-bookworm-slim@sha256:${'c'.repeat(64)}`, allowed: false },
+    { reference: `untrusted/node@${hash}`, allowed: false },
+    { reference: `node:20-bookworm-slim@${hash}`, allowed: false },
+    { reference: 'node:22-bookworm-slim', allowed: false },
+    { reference: image, architecture: 'arm64', allowed: false },
+    { reference: image, os: 'windows', allowed: false },
+    { reference: image, malformed: true, allowed: false },
+  ];
+  for (const [index, entry] of cases.entries()) await t.test(`image identity case ${index + 1}`, async t => {
+    const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine, image });
+    const plan = await planHostOperation(f.options);
+    const id = 'b'.repeat(64);
+    let creates = 0, removes = 0;
+    const dockerRequest = async (socket, route, opts) => {
+      if (route.includes('/images/')) return jsonResponse({
+        Os: entry.os ?? 'linux', Architecture: entry.architecture ?? 'amd64',
+        RepoDigests: entry.malformed ? entry.reference : [entry.reference],
+      });
+      if (route.includes('/containers/create')) {
+        creates++; assert.equal(opts.body.Image, image);
+        return jsonResponse({ Id: id }, 201);
+      }
+      if (route.endsWith('/start')) return { status: 204, text: '' };
+      if (route.includes('/wait?')) return jsonResponse({ StatusCode: 0 });
+      if (route.includes('/containers/') && route.endsWith('/json')) return jsonResponse({
+        Id: id, Config: { Labels: { 'copilot-mcp-probe': plan.approvalDigest } },
+      });
+      if (opts.method === 'DELETE') {
+        removes++; assert.ok(route.includes(id)); return { status: 204, text: '' };
+      }
+      return f.dockerRequest(socket, route, opts);
+    };
+    const report = await runHostOperation({ ...f.options, approval: plan.approvalDigest,
+      allowLocal: true, allowNetwork: true }, { dockerRequest });
+    assert.equal(report.result.status, entry.allowed ? 'passed' : 'failed');
+    assert.equal(creates, entry.allowed ? 1 : 0);
+    assert.equal(removes, creates);
+    if (!entry.allowed) assert.equal(report.result.code, 'DOCKER_IMAGE_MISMATCH');
+    await assert.rejects(planHostOperation(f.options), { code: 'HOST_OPERATION_CONSUMED' });
+  });
+});
 test('private pull binds private identity, exact digest and daemon without persisting the credential', async t => {
   const f = await fixture(t, { schemaVersion: 1, kind: 'private-image-pull', ...engine });
   const plan = await planHostOperation(f.options);

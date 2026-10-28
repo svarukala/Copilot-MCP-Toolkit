@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-26.
+Last updated: 2026-10-27.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,150 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### Scan-rejected runtime remediation
+
+Implemented `scanRejectedContinuationOutput` for complete sealed scan-policy or
+scan-inconclusive failures of the exact successful recovered build. A separately
+generated source must select a different runtime digest while preserving
+application/dependency/identity/target contracts. The new review binds all
+receipt, claim and diagnostic-file digests; checks prior scanner containers;
+and preserves old images, volumes, claims and reservations. A successful
+replacement gets a separate per-build continuation claim with unchanged
+scan/smoke/push/create-only gates. No implicit rescan or policy exception.
+
+Offline regression coverage includes direct ACA and ACA/APIM continuation,
+unknown/critical/high rejection, unchanged-digest refusal, incomplete/stale scan
+evidence, source-local private identity locks, concurrent child claims, remaining
+scanner containers and repeated remediation ancestry. All 120 combined offline
+recovery, shared-host, verified-image and fresh packed-consumer tests passed;
+syntax, strict types, asset inventory and whitespace checks passed.
+Final follow-up passed four selected checks including both deployment profiles
+and a resealed scan chain whose start predates the successful build, plus the
+same static checks. Earlier and follow-up counts overlap.
+No new runtime pin, live build or live qualification is implied.
+
+Subsequent separately approved live remediation attempt: the generated replacement
+source reached the dependency-install build step and stopped with
+`DOCKER_DISPATCH_FAILED` / `build-command-failed` (step 5, exit 1).
+Engine security and prior-owner reconciliation passed; all 38 original protected
+files and the full recovery/scan lineage were verified unchanged. Dependency
+input bytes matched the earlier successful CFS build, so this receipt does not
+establish the underlying npm cause or a runtime-image defect. The new build claim
+is consumed. No scan, smoke, push, Azure operation, deployment or provider call
+followed. A separate bounded installation diagnostic was proposed but remains
+unapproved; no diagnostic or retry was executed.
+
+### Revised-source recovery and recovered-image continuation
+
+Implemented `supersededRecoveryOutput` with separately generated source changes
+limited to npm registry/pinned build images. Original runtime, locked dependency
+metadata/integrities, identities and deployment targets remain fixed. Failed
+attempts form a bounded, append-only single-child lineage; prior claims and
+reservations remain immutable. All prior build owners/tags are reconciled and
+the lineage is checked again before dispatch.
+
+Implemented separate `mcp-recovered-image-schema/plan/run` authority. Successful
+recovery evidence and exact local image identity feed the shared scan, network-
+disabled smoke, unique-tag, push, create-only deployment and health stages.
+It preserves the original selected private identity and adds a one-shot target
+claim; failed stages remain consumed. No rebuilt image is treated as qualified
+without fresh scan/smoke and separately approved cloud authority.
+
+All 133 combined offline host-operation, build-recovery, original host-execution
+and verified-image regressions passed, including complete direct-ACA and ACA/APIM
+revised-source build-through-deployment flows. Syntax, strict types, asset
+inventory and whitespace checks passed. The targeted earlier checks overlap
+these totals. No live source generation, build, push or deployment is implied
+by this implementation.
+Follow-up checks passed for the source-local private identity lock boundary,
+the repeated revision request ceiling, and a fresh offline packed consumer.
+The capability check was updated for the newly available, separately approved
+continuation while preserving its existing boolean field type.
+Final hardening passed five selected offline tests covering both deployment
+profiles, late predecessor-evidence rejection with a safe reason code, and
+rejection of historical continuation output even when its claim is absent.
+Syntax, strict types, asset inventory and whitespace checks also passed.
+
+### Container registry diagnostic identity
+
+The container npm diagnostic now accepts exact approved Node tag-plus-digest
+references in Docker `RepoDigests`, alongside canonical digest-only references.
+It still rejects different digests, repositories, tagged versions, platforms
+and malformed digest lists before container creation. This fixes diagnostic
+reference matching only; feed selection, installation and build recovery remain
+separate operations, and consumed diagnostic records are never reset.
+All 26 offline host-operation checks passed (including 11 image-identity
+subcases), along with syntax, strict types, asset inventory and whitespace
+checks. These checks do not establish live feed access or installation success.
+
+### Build-only recovery
+
+Explicit connection-only follow-ups now use `connectionRecoveryOutput` after a
+linked attempt's sealed first-version-GET failure. They preserve the entire
+bounded lineage and use one deterministic child claim per parent, never a
+reset, implicit retry or permission to replay a dispatched build. Restoring
+the engine alone is not permission to execute a new plan.
+All 20 offline recovery regressions passed, including repeated explicit
+connection-only lineage, competing child approvals, and rejection of dispatched
+or ambiguous evidence. Syntax, strict types, asset inventory and whitespace
+checks passed. These checks do not qualify a live image or authorize deployment.
+
+An explicitly reviewed `rejectedRecoveryOutput` successor is available only for
+the original recovery's sealed engine-security rejection after two reads and
+no build dispatch. It binds the old claim, plan, intent and terminal result,
+revalidates before build, and creates a separate permanent target claim. No
+original claim is reset; dispatched-build failures, incomplete receipts and
+further successors stay blocked. This does not add deployment continuation.
+All 18 offline recovery regressions passed after this addition, including
+preserved original/rejected evidence, exact successor approval, changed evidence
+before dispatch, and rejection of further successors. Syntax, strict public
+types, asset inventory and whitespace checks passed. This is engineering
+verification, not live deployment acceptance.
+
+Recovery engine-check follow-up: unrelated insecure registry indexes no longer
+block the approved public image pulls. Docker Hub aliases and gcr.io are checked
+explicitly; debug, loopback-only insecure CIDRs and fail-closed metadata checks
+remain enforced. New receipts retain `engineSecurity` with fixed per-check
+statuses, not raw engine settings. The historical generic rejection cannot
+establish which setting failed, and this fix does not release consumed claims.
+Follow-up offline verification passed all 14 recovery tests, asset inventory,
+syntax, strict public types and whitespace checks. Synthetic cases cover
+unrelated insecure indexes, rejected approved registries, malformed metadata,
+safe failure receipts and the unchanged consumed-claim barrier. No live engine
+inspection or rebuild was performed.
+
+`mcp-build-recovery-schema/plan/run` implements a separate target-claimed local
+attempt for an eligible failed Container Apps build, including behind APIM.
+Parent receipts, reservations and outer journal stay immutable. Current trusted
+build files, exact fresh approval and owner-reviewed engine quiescence are
+required. Reconciliation preserves old images; failure/interruption remains
+consumed. Success is `built-unqualified`, never scan/deployment readiness.
+Downstream qualification/upload/deployment now has the separate recovered-image
+contract above; it remains outside build-only approval. See
+[build recovery](build-recovery.md).
+
+Offline verification passed: 12 recovery regressions, 8 selected shared-host,
+outer-journal and verified-image regressions, 9 Docker parser/push tests, and the
+fresh offline packed-consumer test. Asset inventory, syntax, strict public types
+and whitespace checks passed. No live Docker, Azure or provider operation,
+installed-skill update or publication occurred.
+
+### Safe Docker failure diagnostics
+
+Docker progress errors now retain a closed category, HTTP status, record index
+and optional numeric build step/total, instruction name and exit code. The safe
+projection is sealed into host failure receipts and new outer execution
+journals/status. Raw messages, commands, URLs, image names and credentials remain
+excluded. Unknown/malformed output stays explicitly inconclusive; categories
+are reported clues, not verified root causes. Earlier failed receipts remain
+unchanged and consumed. No live execution or Docker configuration change occurred.
+
+Offline verification passed: 9 parser/push tests, 5 selected host regressions
+and 1 outer-journal/status regression, plus asset inventory, syntax, strict types
+and whitespace checks. The journal regression rejects extra/invalid diagnostic
+fields and successful outcomes carrying failure metadata, and accepts historical
+failed events without diagnostics while preserving the no-replay barrier.
 
 ### Bounded generated query arguments and date ranges
 

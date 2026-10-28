@@ -102,7 +102,9 @@ async function inspectEngine(call) {
 async function containerProbe(input, target, call, cleanupCall, owner) {
   const image = dockerJson(await call(`${api}/images/${encodeURIComponent(input.image)}/json`));
   requireMetadata(image.Os === 'linux' && image.Architecture === 'amd64'
-    && image.RepoDigests?.some(value => [input.image.replace('node:22-bookworm-slim@', 'node@'),
+    && Array.isArray(image.RepoDigests)
+    && image.RepoDigests.some(value => [input.image, `docker.io/library/${input.image}`,
+      input.image.replace('node:22-bookworm-slim@', 'node@'),
       input.image.replace('node:22-bookworm-slim@', 'docker.io/library/node@')].includes(value)), 'DOCKER_IMAGE_MISMATCH');
   const name = `copilot-mcp-probe-${randomUUID()}`;
   let attempted = false, result, failure;

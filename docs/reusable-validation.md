@@ -9,6 +9,12 @@ For a retained eligible push-unknown OCI image, the separately approved
 create direct ACA without rebuilding, uploading or resuming the consumed run.
 It does not grant discovery/proof or modify either validation contract.
 
+For an eligible failed host build, [build-only recovery](build-recovery.md)
+provides one independent, explicitly approved local attempt. It preserves the
+consumed parent and stops at an unqualified image. A separate
+`mcp-recovered-image-schema/plan/run` contract now provides explicitly approved
+scan/smoke/push/create-only deployment; it never rebuilds or resumes the parent.
+
 ## Choose the entry point
 
 Use the existing commands in two stages rather than deploying another app when
@@ -255,8 +261,43 @@ run without push or deployment. Bounded raw scanner/database files are retained
 privately even when qualification rejects them; they are diagnostic data, not
 accepted scan evidence. Stage failures retain `unknown-no-replay` with the
 existing stop code and an allowlisted `reasonCode`, never raw exception text.
+Docker progress-stream failures also carry an optional `dockerFailure` in the
+sealed host receipt and, for new bounded runs, the outer journal/status. This
+contains only a closed category, HTTP status, record index, and when available
+the numeric build step/total, Dockerfile instruction name and process exit code.
+It never stores the command, URLs, image names, credentials or raw build output.
+
+| Reported category | What to investigate under a separate review |
+| --- | --- |
+| `certificate-validation` | Certificate trust for the reported download/build step; never disable TLS verification |
+| `name-resolution` / `network-timeout` | Network/DNS/proxy access for the selected registry or feed |
+| `registry-authorization` / `registry-rate-limit` | Approved registry/feed access or quota; not permission to adopt shared credentials |
+| `image-unavailable` | The exact selected image/manifest and platform |
+| `resource-exhausted` | Available disk/memory and reviewed resource limits; no automatic pruning |
+| `builder-unsupported` | Compatibility of the selected builder path; no automatic engine/storage switch |
+| `build-command-failed` | A build command exited nonzero; category alone does not identify its underlying cause |
+| `http-error` / `invalid-progress` / `missing-progress` / `unclassified` | Insufficient or unsupported response evidence; do not guess the cause |
+
+Categories are bounded interpretations of **untrusted Docker output**, not a
+verified root cause. A recognized npm error code from the current build step can
+explain Docker's subsequent generic RUN failure; only its fixed category survives.
+Older receipts without these fields remain unchanged and inconclusive. This
+feature cannot recover discarded output, refresh an approval, or authorize
+another build. Do not replay a consumed stage, bypass it with a new output
+directory, restart Docker or switch to a paid builder to diagnose it. Any future
+execution requires a separate reviewed recovery decision and current build-bound
+approval preserving the original history and reservations.
 Fixing a binding or dependency issue does not authorize replay or transfer a
 historical vulnerability exception.
+
+For a successful build whose separate `mcp-recovered-image` continuation failed
+at the scan-policy/inconclusive gate, the reviewed
+[runtime-remediation contract](build-recovery.md#runtime-remediation-after-a-recovered-image-fails-scanning)
+requires a new runtime digest, preserves the rejected scan and its consumed
+claim, and requires separate build and qualification approvals. Raw report
+counts cannot identify which compound assertion failed first. Unknown-severity
+findings remain inconclusive, and critical/high findings remain blocking;
+neither is waived by choosing a newer base image.
 
 The new executor is CLI-only, like the legacy validation runners. Internal
 Docker, Azure and transport seams are synthetic test infrastructure, not public

@@ -94,6 +94,34 @@ test('rejected status-only push remains consumed and cannot dispatch deployment 
   assert.equal(f.calls.length, count);
 });
 
+test('Docker build diagnostics are sealed and returned while the failed dispatch stays consumed', async t => {
+  const f = await fixture(t), docker = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = async (...args) => {
+    const value = await docker(...args);
+    return args[1].includes('/build?') ? response(Buffer.from([
+      { stream: `Step 3/8 : RUN npm ci ${secret}\n` },
+      { stream: `npm ERR! code ENOTFOUND\nnpm ERR! ${secret}\n` },
+      { error: `The command '/bin/sh -c npm ci ${secret}' returned a non-zero code: 1` },
+    ].map(row => JSON.stringify(row)).join('\n'))) : value;
+  };
+  const { plan, result } = await execute(f);
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.stage, 'build');
+  assert.equal(result.reasonCode, 'DOCKER_DISPATCH_FAILED');
+  assert.deepEqual(result.dockerFailure, { schemaVersion: 1, category: 'name-resolution',
+    httpStatus: 200, recordIndex: 3, step: 3, totalSteps: 8, instruction: 'RUN', exitCode: 1 });
+  const receipt = await readFile(path.join(f.options.output, 'build.result.json'), 'utf8');
+  assert.deepEqual(JSON.parse(receipt).dockerFailure, result.dockerFailure);
+  assert.equal(JSON.parse(receipt).contentDigest, result.evidenceDigest);
+  assert.ok(!receipt.includes(secret));
+  assert.equal(f.calls.filter(call => call.route?.includes('/build?')).length, 1);
+  assert.equal(f.calls.filter(call => call.route?.includes('/push?') || call.args?.includes('PUT')).length, 0);
+  const count = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, count);
+  assert.equal(await readFile(path.join(f.options.output, 'build.result.json'), 'utf8'), receipt);
+});
+
 for (const changed of ['transport', 'url-path-case', 'identity-missing', 'identity-different',
   'identity-extra', 'identity-case-alias', 'environment', 'registry-identity'])
   test(`ACA readback still rejects changed ${changed}`, async t => {

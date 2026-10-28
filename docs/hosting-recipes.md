@@ -184,6 +184,11 @@ Docker must already be running and support Linux/amd64 and Engine API **1.44**
 `\\.\pipe\docker_engine`, `\\.\pipe\dockerDesktopLinuxEngine`,
 `/var/run/docker.sock`, or `/run/user/<numeric-uid>/docker.sock`.
 TCP/SSH endpoints and ambient `DOCKER_HOST`/Docker CLI context are not used.
+
+The container npm probe accepts the approved Node tag-plus-digest or its
+canonical digest-only reference in `RepoDigests`, with or without the explicit
+`docker.io/library/` prefix. It still requires the exact digest and Linux/amd64;
+a tag alone, another repository or another tagged version does not qualify.
 `localEngineTrusted: true` is the owner's review of this privileged local
 daemon and its administration/logging boundary, not toolkit attestation.
 No Docker CLI installation, context change, engine start or implicit image

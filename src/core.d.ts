@@ -11,6 +11,137 @@ export interface LibraryInfo {
 }
 export function getLibraryInfo(options?: { signal?: AbortSignal }): Promise<LibraryInfo>;
 
+/** One-shot local build recovery; never resumes or deploys the consumed parent. */
+export interface BuildRecoveryConfig {
+  schemaVersion: 1;
+  oldHostOutput: string;
+  oldHostApproval: string;
+  /** One reviewed successor only for a sealed engine rejection before build dispatch. */
+  rejectedRecoveryOutput?: string;
+  /** Explicit fresh attempt after a linked recovery failed only its first read-only version request. */
+  connectionRecoveryOutput?: string;
+  /** All four revision fields are required together; older successor selectors are excluded. */
+  supersededRecoveryOutput?: string;
+  /** Requires all revision fields, a successful recovery, a sealed scan rejection and a different runtime pin. */
+  scanRejectedContinuationOutput?: string;
+  replacementProject?: string;
+  replacementSourceManifestDigest?: string;
+  sourceChangesReviewed?: true;
+  sourceManifestDigest: string;
+  accountName: string;
+  expiresAt: string;
+  maximumMs?: number;
+  localEngineTrusted: true;
+  previousBuildStoppedReviewed: true;
+  buildOnlyReviewed: true;
+  downloadsReviewed: true;
+  resourceCeilingsReviewed: true;
+}
+export interface BuildRecoveryOptions {
+  workspaceRoot: string;
+  project: string;
+  config: string;
+  output: string;
+  signal?: AbortSignal;
+}
+export interface BuildRecoveryPlan {
+  approvalToken: string;
+  localImage: string;
+  scope: {
+    kind: 'mcp-build-recovery-plan';
+    config: BuildRecoveryConfig;
+    sourceManifestDigest: string;
+    producerBuild: string;
+    effects: string[];
+    [key: string]: unknown;
+  };
+}
+export function getBuildRecoverySchema(): Promise<Record<string, unknown>>;
+export function planBuildRecovery(options: BuildRecoveryOptions): Promise<BuildRecoveryPlan>;
+export function runBuildRecovery(options: BuildRecoveryOptions & {
+  approval: string;
+  allowLocal: true;
+  allowNetwork: true;
+}): Promise<{
+  status: 'built-unqualified' | 'unknown-no-replay';
+  contentDigest: string;
+  localImage?: string;
+  imageId?: string;
+  reasonCode?: string;
+  stage?: string;
+  engineSecurity?: {
+    schemaVersion: 1;
+    checks: {
+      debugDisabled: 'passed' | 'failed' | 'unknown';
+      insecureRegistryCidrs: 'passed' | 'failed' | 'unknown';
+      builderRegistry: 'passed' | 'failed' | 'unknown';
+      runtimeRegistry: 'passed' | 'failed' | 'unknown';
+    };
+  };
+  dockerFailure?: {
+    schemaVersion: 1;
+    category: string;
+    httpStatus?: number;
+    recordIndex?: number;
+    step?: number;
+    totalSteps?: number;
+    instruction?: string;
+    exitCode?: number;
+  };
+  providerCalls: 0;
+  azureCommands: 0;
+}>;
+
+/** Separate one-shot scan/smoke/push/create-only deployment of a successful recovered image. */
+export interface RecoveredImageConfig {
+  schemaVersion: 1;
+  recoveryOutput: string;
+  recoveryApproval: string;
+  sourceManifestDigest: string;
+  azureIdentityProject: string;
+  accountName: string;
+  scannerImage: string;
+  expiresAt: string;
+  maximumMs?: number;
+  localEngineTrusted: true;
+  exclusiveControlReviewed: true;
+  downloadsReviewed: true;
+  resourceCeilingsReviewed: true;
+  createOnlyReviewed: true;
+  qualificationPushDeploymentReviewed: true;
+}
+export interface RecoveredImageOptions extends BuildRecoveryOptions {}
+export interface RecoveredImagePlan {
+  approvalToken: string;
+  requiresSignIn: false;
+  scope: {
+    kind: 'mcp-recovered-image-plan';
+    config: RecoveredImageConfig;
+    sourceManifestDigest: string;
+    producerBuild: string;
+    effects: string[];
+    [key: string]: unknown;
+  };
+}
+export function getRecoveredImageSchema(): Promise<Record<string, unknown>>;
+export function planRecoveredImage(options: RecoveredImageOptions): Promise<RecoveredImagePlan>;
+export function runRecoveredImage(options: RecoveredImageOptions & {
+  approval: string;
+  allowLocal: true;
+  allowNetwork: true;
+  allowCloud: true;
+}): Promise<{
+  status: 'passed' | 'unknown-no-replay';
+  evidenceDigest: string;
+  containerImage?: string;
+  endpoint?: string;
+  backendOrigin?: string;
+  imageReviewFile?: string;
+  stage?: string;
+  code?: string;
+  reasonCode?: string;
+}>;
+
 /** Independent direct-ACA deployment of a retained, fresh OCI manifest image.
  * Does not resume/re-authorize the consumed build/push execution. */
 export interface VerifiedImageDeploymentConfig {
