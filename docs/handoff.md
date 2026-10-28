@@ -5,6 +5,28 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **WeatherAPI REST-to-MCP live validation passed:** a fresh direct-ACA
+  execution on baseline `3806ba4` used the existing reusable runner in two
+  clean stages under one exact grant. Hosting completed before runtime sign-in,
+  with zero provider calls at the pause. The same grant then completed
+  expected-user Entra sign-in, authenticated discovery and exactly one
+  `get_event_forecast` call with `q: "Seattle"` and `days: 3`, returning
+  `protocol-success` at `2026-10-28T05:29:45.347Z`. The discovery-to-dispatch
+  interval was 74.776 seconds; receipt hashes, source/capture/argument bindings
+  and the single dispatch were checked. Total runner consumption was seven
+  steps, 45 logical Azure commands and one provider call, without rebuilding
+  or redeploying between stages. This is not a single uninterrupted process.
+  Pinned official Node slim, image integrity, nonroot smoke, upload, deployment,
+  readiness and health passed. Scanning/SBOM were explicitly `not-run` under
+  the approved disabled policy, not clean findings. A missing secret-scoped
+  reader role was separately approved and created before execution; the SDK
+  grant itself authorized no role changes. Owner query-log and entitlement
+  reviews remain declarations. Three returned forecast dates, business
+  correctness, negative authorization and consumer acceptance were not verified.
+  The app remains deployed and billable; no cleanup was authorized. Real
+  configuration, identities, secret references and receipts remain private
+  outside this repository. See [the tracker](progress-tracker.md).
+
 - **User-directed scan policy change:** new host/execution and recovered-image
   plans default `scanGate` to false. Set `scanGate: true` with a pinned
   `scannerImage` to enable the unchanged strict scanner checks. Disabled scans
