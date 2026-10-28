@@ -25,6 +25,18 @@ security selection, and both diagnostic-image families. Syntax, strict public
 types and asset inventory checks passed. This does not establish that any
 newly supported base image passes the live scan or that deployment is unblocked.
 
+Subsequent approved live Node slim attempt: the revised source built successfully
+with CFS (`built-unqualified`, 18 Docker requests, no Azure/provider calls in
+the build). A separate continuation under explicit deployment delegation
+verified the recovered image and stopped at scan with
+`HOST_EXECUTION_SCAN_INCONCLUSIVE` / `unknown-no-replay`. The retained report
+contains 1 critical, 67 high and 2 unknown finding entries; these are raw
+observations, not accepted qualification or independently verified exploitability.
+The receipt does not identify the first failed scan assertion. No smoke, new
+tag, push, deployment or provider call followed. Both new attempts remain
+consumed; complete lineage and all 38 original protected files were verified
+unchanged. Relaxing image-family selection did not waive the scan gate.
+
 ### Scan-rejected runtime remediation
 
 Implemented `scanRejectedContinuationOutput` for complete sealed scan-policy or
