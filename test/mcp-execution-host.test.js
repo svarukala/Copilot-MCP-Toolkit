@@ -22,13 +22,14 @@ const socket = String.raw`\\.\pipe\docker_engine`;
 const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value)) });
 const flags = { allowLocal: true, allowCloud: true, allowNetwork: true };
 const secret = 'synthetic-registry-token-never-persist';
-async function fixture(t, { gateway = false, key = false, login = false, oci = false } = {}) {
+async function fixture(t, { gateway = false, key = false, login = false, oci = false, nodeSlim = false } = {}) {
   const root = path.join(TOOLKIT_ROOT, '.test-output', `host-execution-${randomUUID()}`);
   await mkdir(root, { recursive: true });
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
   source.imageBuild = { builderImage: `node:22-bookworm-slim@sha256:${'d'.repeat(64)}`,
     runtimeImage: `gcr.io/distroless/nodejs22-debian13:nonroot@sha256:${'e'.repeat(64)}`, platform: 'linux/amd64' };
+  if (nodeSlim) source.imageBuild.runtimeImage = `node:22-trixie-slim@sha256:${'e'.repeat(64)}`;
   if (gateway) {
     source.recipe = 'container-apps-apim-v1';
     source.azure.gateway = { serviceName: 'synthetic-apim', resourceGroup: 'synthetic-gateway-rg',
@@ -63,6 +64,31 @@ async function execute(f) {
   const plan = await planHostExecution(f.options);
   return { plan, result: await runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies) };
 }
+
+test('Node slim host execution uses its actual binary for nonroot smoke on direct and gateway hosts', async t => {
+  for (const gateway of [false, true]) await t.test(gateway ? 'gateway' : 'direct', async t => {
+    const f = await fixture(t, { gateway, nodeSlim: true });
+    const { result } = await execute(f);
+    assert.equal(result.status, 'passed', JSON.stringify(result));
+    const smoke = f.calls.find(call => call.route?.includes('/containers/create?') && call.route.includes('-smoke'));
+    assert.deepEqual(smoke.execution.body.Entrypoint, ['/usr/local/bin/node']);
+    assert.equal(smoke.execution.body.User, '65532:65532');
+    assert.equal(smoke.execution.body.NetworkDisabled, true);
+    assert.equal(smoke.execution.body.HostConfig.ReadonlyRootfs, true);
+    assert.equal(f.calls.filter(call => call.route?.includes('/push?')).length, 1);
+  });
+});
+test('Node slim host execution still blocks critical and unknown scan findings before smoke or push', async t => {
+  for (const severity of ['CRITICAL', 'UNKNOWN']) await t.test(severity, async t => {
+    const f = await fixture(t, { nodeSlim: true });
+    f.findings.push({ Severity: severity });
+    const { result } = await execute(f);
+    assert.equal(result.status, 'unknown-no-replay');
+    assert.equal(result.stage, 'scan');
+    assert.equal(result.reasonCode, severity === 'UNKNOWN' ? 'HOST_EXECUTION_SCAN_INCONCLUSIVE' : 'HOST_EXECUTION_SCAN_POLICY');
+    assert.equal(f.calls.some(call => call.route?.includes('-smoke') || call.route?.includes('/push?')), false);
+  });
+});
 
 test('status-only Docker push summary proceeds through image verification and deployment', async t => {
   const f = await fixture(t), docker = f.dependencies.dockerRequest;

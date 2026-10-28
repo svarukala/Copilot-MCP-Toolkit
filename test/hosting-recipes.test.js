@@ -13,6 +13,7 @@ import { TOOLKIT_ROOT } from '../src/config.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createProtocolServer, toolDefinitions } from '../src/recipes/container-apps/runtime.js';
+import { runtimeNodePath } from '../src/mcp-image-review.js';
 
 const direct = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
 function gatewayInput() {
@@ -40,6 +41,48 @@ async function setup(t, input) {
   const config = path.join(root, 'input.json'); await writeFile(config, JSON.stringify(input));
   return { workspaceRoot: root, config, output: path.join(root, 'server') };
 }
+test('pinned runtime families generate matching nonroot entrypoints across all container hosts', async t => {
+  const hash = 'a'.repeat(64);
+  for (const template of [direct, gatewayInput(), appServiceInput()]) {
+    let baseline;
+    for (const family of ['gcr.io/distroless/nodejs22-debian13:nonroot', 'node:22-bookworm-slim', 'node:22-trixie-slim']) {
+      const input = structuredClone(template);
+      input.imageBuild = { builderImage: `node:22-trixie-slim@sha256:${hash}`,
+        runtimeImage: `${family}@sha256:${hash}`, platform: 'linux/amd64' };
+      const plan = await planHostingRecipe(await setup(t, input));
+      const entrypoint = family.startsWith('node:') ? '/usr/local/bin/node' : '/nodejs/bin/node';
+      assert.equal(runtimeNodePath(input.imageBuild.runtimeImage), entrypoint);
+      assert.ok(plan.files.Dockerfile.includes(`ENTRYPOINT ["${entrypoint}"]`));
+      assert.match(plan.files.Dockerfile, /COPY --from=dependencies --chown=65532:65532 \/app\/dist\/ \.\//);
+      assert.match(plan.files.Dockerfile, /USER 65532:65532/);
+      assert.match(plan.files.Dockerfile, /--strict-ssl=true --fetch-retries=0 --include=dev --ignore-scripts --no-audit/);
+      if (baseline) {
+        for (const name of Object.keys(plan.files).filter(name => name.startsWith('infra/')
+          || ['server.js', 'runtime.js', 'build-runtime.mjs', 'package.json', 'package-lock.json', '.npmrc'].includes(name))) {
+          assert.equal(plan.files[name], baseline.files[name], name);
+        }
+        assert.notEqual(plan.approvalToken, baseline.approvalToken);
+      } else baseline = plan;
+    }
+  }
+});
+test('pinned runtime families reject mutable arbitrary incompatible and malformed images', () => {
+  const hash = 'a'.repeat(64);
+  const good = { builderImage: `node:22-bookworm-slim@sha256:${hash}`,
+    runtimeImage: `node:22-trixie-slim@sha256:${hash}`, platform: 'linux/amd64' };
+  for (const runtimeImage of ['node:22-trixie-slim', `node:22-alpine@sha256:${hash}`,
+    `node:24-trixie-slim@sha256:${hash}`, `untrusted/node:22-trixie-slim@sha256:${hash}`,
+    `gcr.io/distroless/nodejs22-debian13:debug@sha256:${hash}`, `node:22-bookworm-slim@sha256:${'A'.repeat(64)}`,
+    `node:22-trixie-slim@sha256:${hash}\nRUN anything`]) {
+    assert.throws(() => compileHostingRecipe({ ...direct, imageBuild: { ...good, runtimeImage } }));
+    assert.throws(() => runtimeNodePath(runtimeImage), { code: 'MCP_IMAGE_QUALIFICATION' });
+  }
+  for (const builderImage of ['node:22', `node:22-alpine@sha256:${hash}`, good.runtimeImage.replace('node:', 'other/node:')]) {
+    assert.throws(() => compileHostingRecipe({ ...direct, imageBuild: { ...good, builderImage } }));
+  }
+  assert.throws(() => compileHostingRecipe({ ...direct, imageBuild: { ...good, platform: 'linux/arm64' } }));
+  assert.equal(runtimeNodePath(`gcr.io/distroless/nodejs22-debian12:nonroot@sha256:${hash}`), '/nodejs/bin/node');
+});
 test('all four generated hosts bind identical query/date schemas and execute them through the actual SDK', async t => {
   const dated = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-query-dates.json', import.meta.url)));
   const functions = JSON.parse(await readFile(new URL('../examples/mcp/functions-sdk.json', import.meta.url)));

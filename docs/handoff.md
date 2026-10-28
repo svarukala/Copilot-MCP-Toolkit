@@ -5,6 +5,18 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **Bounded image-family flexibility implemented:** builders accept pinned
+  official Node 22 bookworm/trixie slim; runtimes accept either slim family or
+  the existing Distroless Debian 12/13 nonroot families. Generation and shared
+  host/recovered-image smoke select the correct Node binary. All generated
+  runtimes retain user/group `65532:65532`; freshness, digest binding and
+  critical/high/unknown scan gates remain unchanged. Historical Distroless
+  generation remains byte-compatible; no existing source or attempt is reset.
+  A separately approved isolated CFS installation diagnostic passed after the
+  failed replacement build, with owned-container cleanup. It did not reproduce
+  or explain the old failure, build an image, qualify it or deploy anything.
+  See [image families](hosting-recipes.md#minimal-images-and-qualification).
+
 - **Scan-rejected runtime remediation implemented:** build recovery accepts
   `scanRejectedContinuationOutput` with the full source-revision selection for
   a successful recovery whose exact recovered-image continuation ended at scan

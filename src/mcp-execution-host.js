@@ -13,7 +13,7 @@ import { getLibraryInfo } from './machine-contract.js';
 import { readAzureIdentity, azureIdentityGuard, planAzureAccountSwitch, switchAzureAccount } from './azure-identity.js';
 import { runAzureCommand } from './azure.js';
 import { dockerSocketSchema, registryAuthHeader } from './docker-engine.js';
-import { reviewImage } from './mcp-image-review.js';
+import { reviewImage, runtimeNodePath } from './mcp-image-review.js';
 import { assertCompatibleGlobalPolicy, assertSafeDiagnostics, collectionItems, policyValue } from './apim-safety.js';
 import { executionDockerRequest, executionJson, executionProgress, executionTar, executionTarFile,
   executionImageLimit, executionImageBinding, executionPushResult, dockerFailureDiagnostic } from './mcp-execution-docker.js';
@@ -660,7 +660,7 @@ const runHostEngine = (options, dependencies = {}, continuation) => scoped(optio
           const image = await inspectImage(built.imageId);
           requireHost(image.Id === built.imageId && image.Config?.User === '65532:65532');
           const outcome = await container(`copilot-mcp-${owner.slice(0, 32)}-smoke`, restricted('smoke', built.imageId, {
-            entrypoint: ['/nodejs/bin/node'], args: ['--input-type=module', '-e', smokeCode],
+            entrypoint: [runtimeNodePath(source.input.imageBuild.runtimeImage)], args: ['--input-type=module', '-e', smokeCode],
             env: ['PORT=3000', 'PUBLIC_MCP_URL=http://localhost:3000/mcp',
               ...(source.input.backend.apiKey ? ['MCP_BACKEND_API_KEY=synthetic-host-smoke-not-a-provider-credential'] : [])],
           }));

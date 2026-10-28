@@ -96,7 +96,11 @@ hostingRecipes: {
         automaticFallback: false, existingSealedProjectMutation: false, installOrBuildExecution: false },
       secretResolution: false, roleGrants: false, sharedBackendEntitlement: true,
       sourceOnly: true, cloudExecution: false, liveQualified: false,
-      imageBuild: 'explicit-digest-pinned-node22-builder-and-distroless-nonroot-runtime-no-mutable-default',
+      imageBuild: 'explicit-digest-pinned-node22-builder-and-nonroot-runtime-no-mutable-default',
+      imageFamilies: { builder: ['node22-bookworm-slim', 'node22-trixie-slim'],
+        runtime: ['distroless-node22-debian12-nonroot', 'distroless-node22-debian13-nonroot',
+          'node22-bookworm-slim', 'node22-trixie-slim'],
+        generatedUser: '65532:65532', scanPolicyUnchanged: true },
     },
 containerAppsRecipe: {
       contractVersion: 1, recipe: 'container-apps-direct-v1',

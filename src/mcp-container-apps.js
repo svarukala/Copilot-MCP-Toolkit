@@ -8,7 +8,7 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
-import { imageBuildSchema } from './mcp-image-review.js';
+import { imageBuildSchema, runtimeNodePath } from './mcp-image-review.js';
 import { npmRegistryUrlSchema, resolveNpmRegistryUrl, mapRuntimeLock } from './npm-registry.js';
 import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
   backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
@@ -215,7 +215,7 @@ ENV NODE_ENV=production
 COPY --from=dependencies --chown=65532:65532 /app/dist/ ./
 USER 65532:65532
 EXPOSE 3000
-ENTRYPOINT ["/nodejs/bin/node"]
+ENTRYPOINT [${JSON.stringify(runtimeNodePath(build.runtimeImage))}]
 CMD ["server.js"]
 `;
 }

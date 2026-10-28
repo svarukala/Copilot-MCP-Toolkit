@@ -514,7 +514,7 @@ export const planBuildRecovery = options => scoped(options, () => prepare(option
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 // The trusted image-build schema permits only node on Docker Hub and distroless
 // on gcr.io. Unrelated registry entries do not govern those public pulls.
-export function assessBuildRecoveryEngine(info) {
+export function assessBuildRecoveryEngine(info, runtimeImage) {
   const indexes = info?.RegistryConfig?.IndexConfigs;
   const registryStatus = aliases => {
     if (!record(indexes)) return 'unknown';
@@ -527,6 +527,7 @@ export function assessBuildRecoveryEngine(info) {
     return 'passed';
   };
   const cidrs = info?.RegistryConfig?.InsecureRegistryCIDRs;
+  const dockerHub = ['docker.io', 'index.docker.io', 'registry-1.docker.io', 'https://index.docker.io/v1/'];
   return {
     schemaVersion: 1,
     checks: {
@@ -534,9 +535,8 @@ export function assessBuildRecoveryEngine(info) {
       insecureRegistryCidrs: !Array.isArray(cidrs) ? 'unknown'
         : cidrs.some(cidr => typeof cidr === 'string' && !['127.0.0.0/8', '::1/128'].includes(cidr))
           ? 'failed' : cidrs.some(cidr => typeof cidr !== 'string') ? 'unknown' : 'passed',
-      builderRegistry: registryStatus(['docker.io', 'index.docker.io', 'registry-1.docker.io',
-        'https://index.docker.io/v1/']),
-      runtimeRegistry: registryStatus(['gcr.io']),
+      builderRegistry: registryStatus(dockerHub),
+      runtimeRegistry: registryStatus(runtimeImage?.startsWith('node:') ? dockerHub : ['gcr.io']),
     },
   };
 }
@@ -548,7 +548,7 @@ async function reconcile(scope, localImage, docker, recordSecurity) {
     && (version.MinAPIVersion === undefined || /^1\.\d+$/.test(version.MinAPIVersion)
       && Number(version.MinAPIVersion.split('.')[1]) <= 44), 'BUILD_RECOVERY_ENGINE_UNSUPPORTED');
   const info = executionJson(await docker('/v1.44/info'));
-  const engineSecurity = assessBuildRecoveryEngine(info);
+  const engineSecurity = assessBuildRecoveryEngine(info, scope.downloads.runtimeImage);
   recordSecurity(engineSecurity);
   requireRecovery(Object.values(engineSecurity.checks).every(status => status === 'passed'),
   'BUILD_RECOVERY_ENGINE_UNTRUSTED');

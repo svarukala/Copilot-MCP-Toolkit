@@ -233,12 +233,16 @@ test('container diagnostics use an existing pinned image and remove only the own
   assert.equal(creates, 1); assert.equal(removes, 1);
 });
 test('container diagnostic identity accepts exact tagged digests but rejects different images and platforms', async t => {
-  const image = `node:22-bookworm-slim@${hash}`;
+  const image = `node:22-bookworm-slim@${hash}`, trixie = `node:22-trixie-slim@${hash}`;
   const cases = [
     { reference: image, allowed: true },
     { reference: `docker.io/library/${image}`, allowed: true },
     { reference: `node@${hash}`, allowed: true },
     { reference: `docker.io/library/node@${hash}`, allowed: true },
+    { image: trixie, reference: trixie, allowed: true },
+    { image: trixie, reference: `node@${hash}`, allowed: true },
+    { image: trixie, reference: `docker.io/library/node@${hash}`, allowed: true },
+    { image: trixie, reference: image, allowed: false },
     { reference: `node:22-bookworm-slim@sha256:${'c'.repeat(64)}`, allowed: false },
     { reference: `untrusted/node@${hash}`, allowed: false },
     { reference: `node:20-bookworm-slim@${hash}`, allowed: false },
@@ -248,7 +252,8 @@ test('container diagnostic identity accepts exact tagged digests but rejects dif
     { reference: image, malformed: true, allowed: false },
   ];
   for (const [index, entry] of cases.entries()) await t.test(`image identity case ${index + 1}`, async t => {
-    const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine, image });
+    const selected = entry.image ?? image;
+    const f = await fixture(t, { schemaVersion: 1, kind: 'container-npm-diagnostic', ...engine, image: selected });
     const plan = await planHostOperation(f.options);
     const id = 'b'.repeat(64);
     let creates = 0, removes = 0;
@@ -258,7 +263,7 @@ test('container diagnostic identity accepts exact tagged digests but rejects dif
         RepoDigests: entry.malformed ? entry.reference : [entry.reference],
       });
       if (route.includes('/containers/create')) {
-        creates++; assert.equal(opts.body.Image, image);
+        creates++; assert.equal(opts.body.Image, selected);
         return jsonResponse({ Id: id }, 201);
       }
       if (route.endsWith('/start')) return { status: 204, text: '' };

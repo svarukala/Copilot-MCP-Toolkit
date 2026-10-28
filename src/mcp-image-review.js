@@ -8,11 +8,21 @@ const image = { type: 'string', maxLength: 512, pattern: '^[a-z0-9.-]+/[a-z0-9._
 const timestamp = { type: 'string', format: 'date-time' };
 const count = { type: 'integer', minimum: 0, maximum: 1000000 };
 const label = { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._:/ -]{0,119}$' };
+export const node22SlimImageSchema = {
+  type: 'string', pattern: '^node:22-(?:bookworm|trixie)-slim@sha256:[a-f0-9]{64}$',
+};
+const distrolessRuntimePattern = '^gcr\\.io/distroless/nodejs22-debian(?:12|13):nonroot@sha256:[a-f0-9]{64}$';
 export const imageBuildSchema = object({
-  builderImage: { type: 'string', pattern: '^node:22-bookworm-slim@sha256:[a-f0-9]{64}$' },
-  runtimeImage: { type: 'string', pattern: '^gcr\\.io/distroless/nodejs22-debian(?:12|13):nonroot@sha256:[a-f0-9]{64}$' },
+  builderImage: node22SlimImageSchema,
+  runtimeImage: { oneOf: [node22SlimImageSchema, { type: 'string', pattern: distrolessRuntimePattern }] },
   platform: { const: 'linux/amd64' },
 });
+export function runtimeNodePath(runtimeImage) {
+  if (new RegExp(node22SlimImageSchema.pattern).test(runtimeImage)) return '/usr/local/bin/node';
+  if (new RegExp(distrolessRuntimePattern).test(runtimeImage)) return '/nodejs/bin/node';
+  throw Object.assign(new Error('Select an explicitly supported digest-pinned Node 22 runtime image.'),
+    { code: 'MCP_IMAGE_QUALIFICATION' });
+}
 export const imageReviewSchema = object({
   schemaVersion: { const: 1 }, kind: { const: 'image-qualification' }, image,
   sourceManifestDigest: digest, build: imageBuildSchema,

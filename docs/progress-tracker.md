@@ -9,6 +9,22 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Bounded image-family flexibility
+
+Official Node 22 bookworm/trixie slim are supported as digest-pinned builders
+and runtimes alongside the existing Distroless runtimes. Generated Dockerfiles
+and shared host/recovered-image smoke use the selected family's actual Node
+binary. Nonroot user/group `65532:65532`, exact source/image binding, fresh scans,
+zero critical/high and unknown-severity rejection remain required. No arbitrary
+image/entrypoint support, mutable defaults or automatic source updates.
+
+Verification passed 26 selected offline tests covering all three container
+generators, direct/gateway host smoke, critical/unknown scan rejection,
+failed-build source revision through recovered-image continuation, registry
+security selection, and both diagnostic-image families. Syntax, strict public
+types and asset inventory checks passed. This does not establish that any
+newly supported base image passes the live scan or that deployment is unblocked.
+
 ### Scan-rejected runtime remediation
 
 Implemented `scanRejectedContinuationOutput` for complete sealed scan-policy or
@@ -40,7 +56,14 @@ input bytes matched the earlier successful CFS build, so this receipt does not
 establish the underlying npm cause or a runtime-image defect. The new build claim
 is consumed. No scan, smoke, push, Azure operation, deployment or provider call
 followed. A separate bounded installation diagnostic was proposed but remains
-unapproved; no diagnostic or retry was executed.
+unapproved at that checkpoint; no diagnostic or retry was executed then.
+
+Subsequent explicit diagnostic approval: one bounded CFS dependency installation
+in the same pinned builder succeeded using the exact dependency input bytes,
+an empty temporary cache and disabled scripts/audit/retries. The owned temporary
+container was removed. This was a nonroot isolated diagnostic, not a repeat of
+the root Docker build stage; it neither establishes the historical failure's
+cause nor qualifies a built image. The failed build remains consumed.
 
 ### Revised-source recovery and recovered-image continuation
 

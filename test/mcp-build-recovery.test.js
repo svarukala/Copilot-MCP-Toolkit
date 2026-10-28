@@ -153,6 +153,38 @@ async function remediate(f, prepared, suffix = 'remediation', digit = '2') {
   return source;
 }
 
+test('Node slim source revision recovers a failed build and uses the matching continuation smoke binary', async t => {
+  const f = await fixture(t);
+  f.behavior.failure = 'The command returned a non-zero code: 1';
+  const failed = await execute(f), retained = await snapshot(f.options.output);
+  assert.equal(failed.result.status, 'unknown-no-replay');
+  await revise(f, { imageBuild: { builderImage: `node:22-trixie-slim@sha256:${'1'.repeat(64)}`,
+    runtimeImage: `node:22-trixie-slim@sha256:${'2'.repeat(64)}`, platform: 'linux/amd64' } }, 'node-slim');
+  delete f.behavior.failure;
+  const recovery = await execute(f);
+  assert.equal(recovery.result.status, 'built-unqualified', JSON.stringify(recovery.result));
+  const next = await continuation(f, recovery);
+  f.calls.length = 0;
+  const result = await next.run();
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+  const smoke = f.calls.find(call => call.route?.includes('/containers/create?') && call.route.includes('-smoke'));
+  assert.deepEqual(smoke.execution.body.Entrypoint, ['/usr/local/bin/node']);
+  assert.equal(smoke.execution.body.User, '65532:65532');
+  assert.equal(f.calls.some(call => call.route?.includes('/build?')), false);
+  assert.deepEqual(await snapshot(failed.plan.scope.output), retained);
+});
+
+test('Node slim recovery checks Docker Hub runtime security without requiring unrelated gcr settings', () => {
+  const info = { Debug: false, RegistryConfig: { InsecureRegistryCIDRs: ['127.0.0.0/8'],
+    IndexConfigs: { 'gcr.io': { Secure: false } } } };
+  const runtimeImage = `node:22-trixie-slim@sha256:${'a'.repeat(64)}`;
+  assert.equal(assessBuildRecoveryEngine(info).checks.runtimeRegistry, 'failed');
+  assert.equal(assessBuildRecoveryEngine(info, runtimeImage).checks.runtimeRegistry, 'passed');
+  info.RegistryConfig.IndexConfigs['docker.io'] = { Secure: false };
+  assert.equal(assessBuildRecoveryEngine(info, runtimeImage).checks.runtimeRegistry, 'failed');
+  assert.equal(assessBuildRecoveryEngine(info, runtimeImage).checks.builderRegistry, 'failed');
+});
+
 test('scan remediation preserves rejected scans and separately qualifies the replacement runtime without weakening policy', async t => {
   for (const [example, severity] of [['container-apps-direct', 'UNKNOWN'], ['container-apps-apim', 'CRITICAL']]) {
     await t.test(example, async t => {

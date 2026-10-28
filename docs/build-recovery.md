@@ -41,6 +41,13 @@ apart from resolved tarball URLs. Executable files must also match the current
 trusted generator. A new manifest alone, unchanged effective build inputs, or
 an arbitrary edited Dockerfile cannot qualify.
 
+Supported revisions include the official Node 22 bookworm/trixie slim runtime
+families as alternatives to Distroless, and either slim builder family. See
+[image families](hosting-recipes.md#minimal-images-and-qualification).
+The generated entrypoint and later smoke binary follow the selected family;
+user/group `65532:65532`, dependency integrity and scan requirements stay fixed.
+A diagnostic installation success is not build or image-qualification evidence.
+
 Eligibility requires the full sealed reconciliation/build-intent/terminal-failure
 chain with a bounded Docker build failure and no successful build result or
 later-stage artifacts. Missing, cancelled/incomplete or inconsistent records
@@ -186,8 +193,8 @@ performed by the runner.
 - The run checks the same explicit Docker socket, Linux/amd64 API compatibility
   and engine security settings: debug must be off, insecure CIDRs must be
   loopback-only, and the approved builder/runtime registries must not be insecure.
-  Registry-index checks apply to Docker Hub (including its known aliases) and
-  `gcr.io`, the only registries permitted by the trusted image-build schema.
+  Registry-index checks apply to Docker Hub (including its known aliases) for
+  the builder and to the selected runtime's Docker Hub or `gcr.io` registry.
   An insecure index for an unrelated registry is not a reason to block these
   pulls. Missing/malformed security metadata is inconclusive and blocks execution.
   It lists only parent-labelled containers/images

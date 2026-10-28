@@ -33,6 +33,13 @@ decision. This is skill guidance, not a new discovery command or runtime feature
 
 ## New or resume
 
+For container image selection, use the supported digest-pinned families in
+`docs/hosting-recipes.md`: official Node 22 bookworm/trixie slim builders and
+either slim or Distroless Debian 12/13 runtimes. Node slim is not a scan exception.
+Preserve generated nonroot execution and the family-specific Node entrypoint;
+do not hand-edit a sealed Dockerfile, reuse a consumed build, or infer readiness
+from a successful dependency-install diagnostic.
+
 When the owner wants a minimally interrupted, single-reviewed execution, read
 the **separate bounded execution contract** in `docs/reusable-validation.md` and
 `mcp-execution-schema`. Prepare a fresh `mcp-execution-plan` with the exact v2

@@ -193,7 +193,7 @@ a tag alone, another repository or another tagged version does not qualify.
 daemon and its administration/logging boundary, not toolkit attestation.
 No Docker CLI installation, context change, engine start or implicit image
 download is performed. The container probe requires an already-present
-`node:22-bookworm-slim@sha256:...` image; it has no credentials, mounts, writable
+`node:22-bookworm-slim@sha256:...` or `node:22-trixie-slim@sha256:...` image; it has no credentials, mounts, writable
 root filesystem or retained logs, drops capabilities, runs as nonroot and has
 bounded CPU/memory/process/time limits.
 
@@ -395,18 +395,33 @@ these placeholders are not accepted inputs):
 }
 ```
 
-The runtime may explicitly select either `nodejs22-debian12:nonroot` or
-`nodejs22-debian13:nonroot` from `gcr.io/distroless`, with a reviewed digest.
-Debian 12 inputs remain supported and unchanged; there is no automatic runtime
-upgrade. Switching distributions requires a new source project and fresh
-source-matched image qualification. A newer distribution or a previously
-successful deployment is not evidence that the selected image passes today's
-scan. The builder remains the pinned Node 22 bookworm-slim profile.
+The supported families are deliberately bounded, but Distroless is optional:
+
+| Role | Supported digest-pinned references |
+| --- | --- |
+| Builder | `node:22-bookworm-slim@sha256:...`, `node:22-trixie-slim@sha256:...` |
+| Runtime | Either builder family above, or `gcr.io/distroless/nodejs22-debian12:nonroot@sha256:...` / `nodejs22-debian13:nonroot@sha256:...` |
+
+Every generated runtime is forced to user/group `65532:65532`, including official
+Node images that otherwise default to root. Generation and the runner's
+network-disabled smoke use `/usr/local/bin/node` for Node slim and
+`/nodejs/bin/node` for Distroless. Existing Distroless Dockerfile bytes remain
+unchanged. Arbitrary registries/images, Alpine/musl, mutable tags, other Node
+majors and arbitrary entrypoint overrides are not supported.
+
+Node slim includes a shell, npm and more base-image packages than Distroless;
+those packages remain visible to the same scanner. Choosing a supported image
+does not qualify it or grant a scan exception. Zero critical/high findings,
+unknown-severity rejection, fresh database, nonroot smoke and exact digest
+binding remain unchanged. Switching families/distributions requires a new
+source project and fresh source-matched qualification. No automatic runtime
+upgrade, lookup, build or replay is performed.
 
 New container projects use the multistage Dockerfile to install locked dependencies
 including build-only `esbuild 0.25.10`, with lifecycle scripts disabled. The sealed
-`build-runtime.mjs` bundles the runtime and the final distroless nonroot image
-copies only `dist/`, not the installed dependency tree, build tool or npm cache.
+`build-runtime.mjs` bundles the runtime and the final nonroot image copies only
+`dist/`, not the builder's installed dependency tree, build tool or npm cache.
+This does not remove tools or packages already present in the selected base image.
 The container recipes accept only `linux/amd64`;
 [Container Apps requires this architecture](https://learn.microsoft.com/en-us/azure/container-apps/containers#limitations),
 and the App Service recipe uses the same bounded image profile. ARM64 and
