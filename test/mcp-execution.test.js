@@ -109,6 +109,7 @@ test('one execution grant advances anonymous generation/discovery/proof without 
   assert.equal(plan.grants.includes('sdk-host'), false);
   const result = await runExecution(f.active, f.deps);
   assert.equal(result.status, 'execution-completed');
+  assert.equal(result.consumerOnboarding, undefined);
   assert.equal(result.protocol, 'passed-historical');
   assert.equal(result.consumption.providerCalls, 1);
   assert.equal(result.consumption.azureCommands, 0);
@@ -152,6 +153,7 @@ for (const parameterized of [false, true]) test(`Entra existing execution uses o
   assert.equal(plan.creation.probeMode, 'session');
   const result = await runExecution({ ...f.active, onDeviceCode() {} }, { sessionDependencies: fixture });
   assert.equal(result.status, 'execution-completed');
+  assert.deepEqual(result.consumerOnboarding.choices.map(choice => choice.value), ['fcc', 'plugin', 'none']);
   assert.equal(auth, 1); assert.equal(calls, 1);
   assert.equal(result.consumption.providerCalls, 1);
 });

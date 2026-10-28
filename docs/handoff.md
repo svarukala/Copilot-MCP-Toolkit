@@ -5,6 +5,15 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **Consumer onboarding implemented/offline verified, not live-qualified:** `mcp-onboard` offers
+  FCC / Microsoft 365-Cowork plugin / None and resumes shared guarded SSO
+  registration using the existing executor. References are reused, not
+  recreated. Local HTML includes copyable setup fields; plugin export is a
+  v1.28 agentConnector starter plus observed tools, with metadata placeholders.
+  No directory/endpoint change, consumer publication or proof replay is implied.
+  See [consumer onboarding](consumer-onboarding.md). WeatherAPI consumer
+  registration and actual FCC/plugin acceptance are still unverified.
+
 - **WeatherAPI REST-to-MCP live validation passed:** a fresh direct-ACA
   execution on baseline `3806ba4` used the existing reusable runner in two
   clean stages under one exact grant. Hosting completed before runtime sign-in,

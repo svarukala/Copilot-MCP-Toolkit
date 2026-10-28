@@ -1,5 +1,15 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+consumerOnboarding: {
+      contractVersion: 1, commands: ['mcp-onboard-schema', 'mcp-onboard',
+        'mcp-consumer-schema', 'mcp-consumer-plan', 'mcp-consumer-bundle'],
+      choices: ['fcc', 'plugin', 'none'], authentication: 'shared-existing-entra-sso-executor',
+      input: 'prepared-private-fcc-and-auth-registration-configs', resumable: true,
+      registrationReuse: true, exactPhaseReviews: true, automaticRetry: false,
+      output: 'private-offline-html-and-optional-v1.28-agentConnector-starter',
+      newRegistration: 'separate-reviewed-executor-phases', endpointChanges: false,
+      publication: false, proofReplayAuthorized: false, liveQualified: false, publicLibrary: false,
+    },
 validation: {
       contractVersion: 2, supportedInputVersions: [1, 2], commands: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
         'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],

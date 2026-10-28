@@ -424,6 +424,25 @@ business correctness or host acceptance.
 
 ## Custom federated connector preparation
 
+After a secured MCP execution completes, offer exactly: **FCC**, **Microsoft
+365/Cowork plugin**, or **None**. Do not treat source generation or historical
+proof as fresh consumer readiness. Read `docs/consumer-onboarding.md`. Prepare
+private `mcp-onboard-schema` inputs using the exact existing descriptor, observed
+capture and owner-reviewed `mcp-fcc-schema`/`mcp-auth-registration-schema`
+metadata. Never invent a capture, registration ID or review. `mcp-onboard`
+provides the terminal journey and resumable shared auth execution; automation
+uses the existing explicit auth phase commands and `mcp-consumer-plan/bundle`.
+Reuse a supplied compatible registration and import a newly created receipt,
+including its Application ID URI. Preserve tenant/app restrictions and consumed
+attempts. No dummy Teams app for FCC; Windows shared-profile effects and
+AnyApp compatibility require their own existing review. None leaves everything
+unchanged and can return later without deployment or proof replay.
+For FCC provide the new local HTML setup guide. For plugin provide the
+agentConnector manifest starter and observed tools; leave only unfinished
+branding/app/legal metadata as placeholders. WIQD owns the remaining plugin
+project/package lifecycle. Directory settings, endpoint compatibility, consent,
+publication and actual consumer validation remain separately reviewed.
+
 Read `docs/federated-connectors.md` and `mcp-fcc-schema --json`. Use
 `mcp-fcc-plan --workspace-root ABS --config FILE --output NEW.json --json --summary`
 for a local onboarding draft. Review all metadata for private export and each

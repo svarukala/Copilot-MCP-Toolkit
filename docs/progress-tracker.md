@@ -9,6 +9,23 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Post-creation consumer onboarding
+
+Implemented a separate prepared-input terminal journey with FCC / plugin / None
+choices, existing-reference reuse, guarded existing auth-executor phases and
+resumable immutable local state. Completed execution JSON exposes next-step
+choices without prompting unattended callers. FCC and plugin export share the
+existing FCC metadata/auth/capture validation and offline HTML styling.
+Plugin output uses standalone v1.28 agentConnectors and observed tool schemas,
+not fabricated auth references or an automatically published WIQD package.
+Registration, endpoint configuration, local artifacts and consumer testing remain
+distinct; this implementation does not qualify Windows live registration or
+WeatherAPI consumer acceptance. See [consumer onboarding](consumer-onboarding.md).
+Offline consumer, FCC, execution, auth, handover and guided regressions passed,
+along with asset, syntax and public-type checks. A synthetic manifest was also
+checked against the official v1.28 schema; HTML tabs/copy controls were exercised
+locally. These checks involved no live registration or provider proof.
+
 ### WeatherAPI two-stage live validation
 
 A fresh direct-ACA WeatherAPI REST-to-MCP execution completed with the existing
