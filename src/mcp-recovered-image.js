@@ -24,6 +24,7 @@ export const recoveredImageSchema = {
     azureIdentityProject: location,
     accountName: { type: 'string', format: 'email', maxLength: 254 },
     scannerImage: { type: 'string', pattern: '^aquasec/trivy@sha256:[a-f0-9]{64}$' },
+    scanGate: { type: 'boolean', default: false },
     expiresAt: { type: 'string', format: 'date-time' },
     maximumMs: { type: 'integer', minimum: 60000, maximum: 3600000 },
     localEngineTrusted: { const: true },
@@ -34,9 +35,11 @@ export const recoveredImageSchema = {
     qualificationPushDeploymentReviewed: { const: true },
   },
   required: ['schemaVersion', 'recoveryOutput', 'recoveryApproval', 'sourceManifestDigest', 'azureIdentityProject',
-    'accountName', 'scannerImage', 'expiresAt', 'localEngineTrusted', 'exclusiveControlReviewed',
+    'accountName', 'expiresAt', 'localEngineTrusted', 'exclusiveControlReviewed',
     'downloadsReviewed', 'resourceCeilingsReviewed', 'createOnlyReviewed', 'qualificationPushDeploymentReviewed'],
 };
+recoveredImageSchema.allOf = [{ if: { properties: { scanGate: { const: true } }, required: ['scanGate'] },
+  then: { required: ['scannerImage'] } }];
 const ajv = new Ajv(); addFormats(ajv);
 const valid = ajv.compile(recoveredImageSchema);
 const requireRecovered = (ok, code = 'RECOVERED_IMAGE_EVIDENCE_INVALID') => {
@@ -61,12 +64,12 @@ function continuationClaimPath(recovery, workspaceRoot) {
     ? `${prefix}.recovered-image-${digest(recovery.plan.approvalToken).slice(7)}.json`
     : `${prefix}.recovered-image.json`;
 }
-function continuationDescription(source, oldConfig, input) {
+function continuationDescription(source, oldConfig, input, { historical = false } = {}) {
   const original = describeHostExecution(source, { ...oldConfig, ...Object.fromEntries(
     ['scannerImage', 'expiresAt', 'maximumMs', 'azureIdentityProject'].filter(key => input[key] !== undefined)
-      .map(key => [key, input[key]])) });
+      .map(key => [key, input[key]])), scanGate: input.scanGate ?? historical });
   const { scannerImage, database, javaDatabase } = original.downloads;
-  return { ...original, downloads: { scannerImage, database, javaDatabase } };
+  return { ...original, downloads: original.scanPolicy.enabled === false ? {} : { scannerImage, database, javaDatabase } };
 }
 
 // Historical scan rejection is evidence for a new runtime build, never qualification.
@@ -94,7 +97,7 @@ export async function inspectRejectedImageScan(directory, recovery, workspaceRoo
     && digest(scope.targets) === digest(recovery.plan.scope.targets)
     && digest(scope.image) === digest({ localImage: recovery.plan.localImage, ...recovery.built }));
   const originalIdentity = (await readControl(path.join(old.scope.output, 'identity.result.json'))).value.identity;
-  const description = continuationDescription(recovery.source, old.scope.config, input);
+  const description = continuationDescription(recovery.source, old.scope.config, input, { historical: true });
   check(digest(scope.identity) === digest(originalIdentity) && digest(scope.description) === digest(description)
     && Object.entries(description).every(([key, value]) => key === 'effective'
       ? digest(scope.effective) === digest({ ...value, maximumCommandMs: 60000, identityProject: input.azureIdentityProject })
@@ -190,7 +193,8 @@ async function prepare(options) {
   requireRecovered([...buildFiles, ...Object.keys(source.files).filter(name => name.startsWith('infra/'))]
     .every(name => source.files[name]?.toString('utf8') === generated.files[name]), 'RECOVERED_IMAGE_SOURCE_MISMATCH');
   const oldConfig = recovery.parent.old.scope.config;
-  const config = { ...input, dockerSocket: oldConfig.dockerSocket, imageRepository: oldConfig.imageRepository };
+  const config = { ...input, scanGate: input.scanGate ?? false,
+    dockerSocket: oldConfig.dockerSocket, imageRepository: oldConfig.imageRepository };
   const description = continuationDescription(source, oldConfig, input);
   const scope = {
     schemaVersion: 1, kind: 'mcp-recovered-image-plan', workspaceRoot, project: source.projectDir,
@@ -204,13 +208,15 @@ async function prepare(options) {
       'Separate one-shot qualification, upload and create-only deployment of the exact successful recovered local image. No rebuild or adoption of failed/unknown images.',
       'Preserve every original source, failure, reservation and recovery claim. Take one durable target-scoped continuation claim before any external operation; failure or interruption remains consumed.',
       'Recheck the sealed lineage, source, same private Azure identity, exact engine and recovered image ID/owner. No sign-in, shared cache use or account switching.',
-      'Download the exact pinned Trivy image and named scanner databases. Scan the actual exported image with fresh zero-critical/high results and retain bounded reports privately.',
+      config.scanGate
+        ? 'Download the exact pinned Trivy image and named scanner databases. Scan the actual exported image with fresh zero-critical/high results and retain bounded reports privately.'
+        : 'Vulnerability scan gate is disabled. No scanner/database downloads or SBOM generation; record scanning as not-run, never as clean. Image integrity and nonroot smoke remain required.',
       'Run nonroot network-disabled smoke with a synthetic backend key if needed. No provider request or real secret resolution during smoke.',
-      'Add only an absent unique local tag to the qualified image, obtain a transient ACR token in memory and push once. Never overwrite an existing local tag, delete the original image or perform Docker login.',
+      'Add only an absent unique local tag to the reviewed image, obtain a transient ACR token in memory and push once. Never overwrite an existing local tag, delete the original image or perform Docker login.',
       'Use existing create-only app/gateway stages, absence and registry-digest rechecks, conditional writes, readiness polling and one bounded public health GET. Preserve unrelated resources and inherited policies.',
       'No role grants, secret reads, discovery, proof, consumer publication or automatic retry. Exclusive engine/target control and prerequisites are owner-reviewed; resource ceilings are not a billing cap.',
       ...(recovery.scanRejections.length ? [
-        'This runtime-remediation lineage preserves every rejected scan and its claim. The replacement recovered build gets one deterministic continuation claim; all qualification gates run afresh with unchanged policy. No old scan approval or report is reused.',
+        'This runtime-remediation lineage preserves every rejected scan and its claim. The replacement recovered build gets one deterministic continuation claim under the newly reviewed scan policy. No old scan approval or report is reused.',
       ] : []),
     ],
   };

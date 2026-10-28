@@ -45,7 +45,8 @@ Supported revisions include the official Node 22 bookworm/trixie slim runtime
 families as alternatives to Distroless, and either slim builder family. See
 [image families](hosting-recipes.md#minimal-images-and-qualification).
 The generated entrypoint and later smoke binary follow the selected family;
-user/group `65532:65532`, dependency integrity and scan requirements stay fixed.
+user/group `65532:65532` and dependency integrity stay fixed. New continuations
+select the [opt-in scan policy](../README.md#optional-image-scanning) separately.
 A diagnostic installation success is not build or image-qualification evidence.
 
 Eligibility requires the full sealed reconciliation/build-intent/terminal-failure
@@ -115,9 +116,10 @@ All rejected-scan evidence is rechecked before building, including report bytes.
 After a successful replacement build, separately approve `mcp-recovered-image`
 again. Its permanent claim is
 `.recovered-image-<hash-of-recovery-approval>.json`; the historical
-`.recovered-image.json` claim is not removed or reused. The shared scan, fresh
-database, zero-critical/high, unknown-severity rejection, nonroot smoke and
-create-only deployment checks all run again. A scan failure can only lead to
+`.recovered-image.json` claim is not removed or reused. Nonroot smoke and
+create-only deployment checks run again. With `scanGate: true`, the shared scan,
+fresh database and critical/high/unknown rejection checks also run again.
+A scan failure can only lead to
 another explicitly reviewed **different runtime digest**, within the bounded
 lineage; it never grants an automatic retry. If the replacement build itself
 fails at the eligible build stage, use the normal changed-source successor
@@ -295,13 +297,16 @@ Azure identity.
 
 The closed config requires `schemaVersion: 1`, absolute `recoveryOutput`, exact
 `recoveryApproval`, the successful build's `sourceManifestDigest`, the original
-`azureIdentityProject` and matching `accountName`, a digest-pinned
-`aquasec/trivy@sha256:...` scanner image, fresh `expiresAt` within 24 hours, and
+`azureIdentityProject` and matching `accountName`, fresh `expiresAt` within 24 hours, and
 all six review flags: `localEngineTrusted`, `exclusiveControlReviewed`,
 `downloadsReviewed`, `resourceCeilingsReviewed`, `createOnlyReviewed` and
 `qualificationPushDeploymentReviewed`. Optional `maximumMs` is 60000 through
 3600000. The Docker socket and registry repository are inherited from the
 original plan, not selected through ambient settings or config overrides.
+Vulnerability scanning is off by default. To enable it, set `scanGate: true`
+and provide a digest-pinned `aquasec/trivy@sha256:...` `scannerImage`.
+Omission or `false` skips scanner/database downloads and SBOM generation and
+records them as `not-run`, not as passed vulnerability qualification.
 
 `--project` now selects the **successful recovery's source**, which may be the
 newly generated replacement. `--output` is a new sibling continuation directory
@@ -334,9 +339,10 @@ Azure identity must match the original identity receipt. Current source must
 match trusted build/runtime/deployment templates; the local image's ID, platform,
 nonroot user and recovery owner label must match the successful build.
 
-The existing host stages then scan the actual exported image, enforce fresh
-scanner data and zero critical/high findings, write bounded private scan/SBOM
-reports, and run nonroot **network-disabled** smoke. Only after these pass does
+The existing host stages verify the actual exported image's identity and run
+nonroot **network-disabled** smoke. If scanning is enabled, they also enforce
+fresh scanner data and zero critical/high findings, reject unknown severities,
+and write bounded private scan/SBOM reports. Only after the selected checks pass does
 the runner add a new absent local tag, push it with a transient in-memory ACR
 credential, and verify the resulting image digest. It does not overwrite or
 delete the original local image. Cloud writes remain create-only with target

@@ -100,7 +100,7 @@ hostingRecipes: {
       imageFamilies: { builder: ['node22-bookworm-slim', 'node22-trixie-slim'],
         runtime: ['distroless-node22-debian12-nonroot', 'distroless-node22-debian13-nonroot',
           'node22-bookworm-slim', 'node22-trixie-slim'],
-        generatedUser: '65532:65532', scanPolicyUnchanged: true },
+        generatedUser: '65532:65532', scanGateDefault: false, scanGateOptIn: true },
     },
 containerAppsRecipe: {
       contractVersion: 1, recipe: 'container-apps-direct-v1',

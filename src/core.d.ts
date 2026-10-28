@@ -100,7 +100,9 @@ export interface RecoveredImageConfig {
   sourceManifestDigest: string;
   azureIdentityProject: string;
   accountName: string;
-  scannerImage: string;
+  /** Disabled by default for new plans; true requires scannerImage. */
+  scanGate?: boolean;
+  scannerImage?: string;
   expiresAt: string;
   maximumMs?: number;
   localEngineTrusted: true;

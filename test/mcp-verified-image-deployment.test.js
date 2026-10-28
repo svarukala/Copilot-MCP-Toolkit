@@ -23,7 +23,7 @@ async function snapshot(dir) {
   return Object.fromEntries(await Promise.all((await readdir(dir)).sort().map(async name =>
     [name, (await readFile(path.join(dir, name))).toString('base64')])));
 }
-async function fixture(t, { oci = true } = {}) {
+async function fixture(t, { oci = true, scanGate = true } = {}) {
   const root = path.join(TOOLKIT_ROOT, '.test-output', `verified-image-${randomUUID()}`);
   await mkdir(root, { recursive: true });
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -36,7 +36,7 @@ async function fixture(t, { oci = true } = {}) {
   await writeHostingRecipe({ ...generation, approval: (await planHostingRecipe(generation)).approvalToken });
   const host = { schemaVersion: 1, azureIdentityProject: path.join(root, 'identity'),
     accountName: 'operator@example.com', dockerSocket: String.raw`\\.\pipe\docker_engine`,
-    localEngineTrusted: true, scannerImage: `aquasec/trivy@sha256:${'c'.repeat(64)}`, imageRepository: 'reviewed/mcp',
+    localEngineTrusted: true, scanGate, scannerImage: `aquasec/trivy@sha256:${'c'.repeat(64)}`, imageRepository: 'reviewed/mcp',
     expiresAt: new Date(Date.now() + 3600000).toISOString(), downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true };
   const old = { workspaceRoot: root, project, config: path.join(root, 'host.json'), output: path.join(root, 'old') };
@@ -86,6 +86,28 @@ async function execute(f) {
   const plan = await planVerifiedImageDeployment(f.options);
   return { plan, result: await runVerifiedImageDeployment({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies) };
 }
+
+test('deployment-only inherits a disabled parent scan gate without claiming clean findings', async t => {
+  const f = await fixture(t, { scanGate: false });
+  const retained = await snapshot(f.old.output);
+  const { plan, result } = await execute(f);
+  assert.equal(result.status, 'passed', JSON.stringify(result));
+  assert.deepEqual(plan.scope.scanPolicy, { enabled: false });
+  assert.equal((await json(result.imageReviewFile)).result.scan.status, 'not-run');
+  assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
+  assert.deepEqual(await snapshot(f.old.output), retained);
+  assert.equal(f.calls.some(call => call.system === 'docker'), false);
+});
+
+test('deployment-only cannot use not-run scan evidence under an enabled parent policy', async t => {
+  const f = await fixture(t);
+  await rechain(f, (stage, result) => {
+    if (stage === 'scan') result.value = { status: 'not-run', reason: 'scan-gate-disabled',
+      recordedAt: new Date().toISOString(), binding: result.value.binding };
+  });
+  await assert.rejects(planVerifiedImageDeployment(f.options));
+  assert.equal(f.calls.length, 0);
+});
 async function rechain(f, mutate = () => {}) {
   let previous = f.oldPlan.approvalToken;
   for (const stage of ['identity', 'preflight', 'build', 'scan', 'smoke', 'push']) {

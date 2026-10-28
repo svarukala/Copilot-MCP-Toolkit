@@ -411,9 +411,11 @@ majors and arbitrary entrypoint overrides are not supported.
 
 Node slim includes a shell, npm and more base-image packages than Distroless;
 those packages remain visible to the same scanner. Choosing a supported image
-does not qualify it or grant a scan exception. Zero critical/high findings,
-unknown-severity rejection, fresh database, nonroot smoke and exact digest
-binding remain unchanged. Switching families/distributions requires a new
+does not establish vulnerability qualification. New host executions default
+to scanning off; opt in with `scanGate: true` and a pinned `scannerImage`.
+Enabled scans retain zero critical/high findings, unknown-severity rejection
+and fresh database requirements. Nonroot smoke and exact digest binding are
+always required. Switching families/distributions requires a new
 source project and fresh source-matched qualification. No automatic runtime
 upgrade, lookup, build or replay is performed.
 
@@ -450,9 +452,10 @@ never modify sealed source or reuse partial output to bypass these checks.
 
 This is not a dependency upgrade: source/build installations retain the complete
 SDK dependency tree, which can still include affected packages. Only the new
-final image omits unused components, and a **fresh image scan** must establish
-its findings. Zero-critical/high policy and scanner completeness requirements
-are unchanged. Functions remains source-only without the bundler/dev entries.
+final image omits unused components. Only a **fresh image scan** can establish
+its findings; disabled scanning makes no such claim. When enabled, zero-critical/high
+policy and scanner completeness requirements remain unchanged.
+Functions remains source-only without the bundler/dev entries.
 Historical generated projects and consumed execution grants are not upgraded;
 regenerate and review new source/build/download pins before a new live run.
 
@@ -462,7 +465,17 @@ project, config, new output JSON and exact write approval). It binds the source,
 base digests/platform, builder-run evidence, SBOM, scan and network-disabled
 nonroot actual-image smoke metadata to the same final image. The initial policy
 requires zero critical/high findings and scan/database age no greater than 24
-hours. Other findings remain visible; no exception is silently granted.
+hours. This version-1 scanned review remains strict, including for historical
+evidence. Other findings remain visible; no exception is silently granted.
+
+For a review without vulnerability scanning, use `schemaVersion: 2`,
+`scanGate: false`, and a current `reviewedAt` timestamp instead. Retain the same
+image, source, build, builder and successful smoke fields, but use
+`scan: { "image": "<same digest-pinned image>", "status": "not-run" }` and
+the same shape for `sbom`. Do not supply zero finding counts or fabricated report
+digests. The result is `passed-image-review-without-vulnerability-scan`, with a
+24-hour review expiry, not a clean scan. New host runners generate this record
+automatically by default. See [opting in](../README.md#optional-image-scanning).
 
 A release config may supply `imageReviewFile`, resolved relative to that config.
 The review is revalidated against source, image and freshness; invalid evidence

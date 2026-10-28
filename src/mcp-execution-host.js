@@ -31,7 +31,6 @@ export const hostExecutionSchema = object({
   accountName: { type: 'string', format: 'email', maxLength: 254 },
   dockerSocket: dockerSocketSchema,
   localEngineTrusted: { const: true },
-  scannerImage: { type: 'string', pattern: '^aquasec/trivy@sha256:[a-f0-9]{64}$' },
   imageRepository: { type: 'string', maxLength: 120,
     pattern: '^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*$' },
   expiresAt: { type: 'string', format: 'date-time' },
@@ -39,11 +38,16 @@ export const hostExecutionSchema = object({
   resourceCeilingsReviewed: { const: true },
   createOnlyReviewed: { const: true },
 }, {
+  scanGate: { type: 'boolean', default: false,
+    description: 'Opt in to vulnerability scanning and its blocking policy. Disabled by default for new plans.' },
+  scannerImage: { type: 'string', pattern: '^aquasec/trivy@sha256:[a-f0-9]{64}$' },
   azureIdentityProject: { type: 'string', minLength: 1, maxLength: 1024,
     description: 'Absolute path to an existing project-private selected Azure identity; omission selects the source project.' },
   privateLoginReviewed: { const: true },
   maximumMs: { type: 'integer', minimum: 60000, maximum: 3600000 },
 });
+hostExecutionSchema.allOf = [{ if: { properties: { scanGate: { const: true } }, required: ['scanGate'] },
+  then: { required: ['scannerImage'] } }];
 const ajv = new Ajv(); addFormats(ajv);
 const valid = ajv.compile(hostExecutionSchema);
 const api = '/v1.44';
@@ -67,11 +71,13 @@ try {
   process.exit(1);
 } catch { process.exit(1); }`;
 
-export function describeHostExecution(source, config) {
+export function describeHostExecution(source, config, { historical = false } = {}) {
   requireHost(valid(config) && ['container-apps-direct-v1', 'container-apps-apim-v1'].includes(source?.input?.recipe)
     && source.input.imageBuild && typeof source.review?.npmRegistryUrl === 'string'
     && /^sha256:[a-f0-9]{64}$/.test(source.manifest?.files?.['package-lock.json']),
   'HOST_EXECUTION_INVALID');
+  const scanEnabled = config.scanGate ?? historical;
+  requireHost(!scanEnabled || typeof config.scannerImage === 'string');
   return boundedSnapshot({
     effective: { maximumMs: config.maximumMs ?? 1800000, privateLoginReviewed: config.privateLoginReviewed === true,
       maximumImageBytes: executionImageLimit, maximumReportBytes: 16 * 1024 * 1024,
@@ -80,7 +86,7 @@ export function describeHostExecution(source, config) {
       health: healthPolicy,
       authenticationAndSecretResolution: 'Startup and health can confirm configured credential injection, not independent Key Vault access, provider-key validity, rotation or authentication enforcement.' },
     downloads: { builderImage: source.input.imageBuild.builderImage, runtimeImage: source.input.imageBuild.runtimeImage,
-      scannerImage: config.scannerImage, database, javaDatabase,
+      ...(scanEnabled ? { scannerImage: config.scannerImage, database, javaDatabase } : {}),
       npmRegistryUrl: source.review.npmRegistryUrl, packageLockDigest: source.manifest.files['package-lock.json'],
       dependencies: 'Exact sealed package-lock URLs/integrities, including build-only bundler; npm ci without scripts/audit/retry; no ambient credentials.' },
     ...(source.review.runtimePackaging ? { runtimePackaging: source.review.runtimePackaging } : {}),
@@ -90,7 +96,7 @@ export function describeHostExecution(source, config) {
     localScanner: { memoryBytes: 1073741824, nanoCpus: 1000000000 },
     localSmoke: { memoryBytes: 536870912, nanoCpus: 1000000000 },
     maximumContainerPids: 128, invoiceCapEnforceable: false },
-    scanPolicy: { critical: 0, high: 0, maximumAgeHours: 24 },
+    scanPolicy: scanEnabled ? { critical: 0, high: 0, maximumAgeHours: 24 } : { enabled: false },
   });
 }
 
@@ -119,7 +125,8 @@ async function prepare(options) {
   requireHost(['container-apps-direct-v1', 'container-apps-apim-v1'].includes(source.input.recipe)
     && source.input.imageBuild && source.files.Dockerfile, 'HOST_EXECUTION_RECIPE_UNSUPPORTED');
   const configPath = await assertProjectPath(path.resolve(options.config));
-  const config = await readControl(configPath);
+  const input = await readControl(configPath);
+  const config = { ...input, scanGate: input.scanGate ?? false };
   requireHost(valid(config));
   const output = await assertProjectPath(path.resolve(options.output));
   requireHost((await lstat(path.dirname(output))).isDirectory()
@@ -154,8 +161,11 @@ async function prepare(options) {
     identity, login, targets: resourceTargets(source),
     effects: [
       'Use only the exact existing private Azure identity, or the explicitly reviewed new private device login. Never copy caches or switch a mismatched identity.',
-      'Build only current-generator-matched sealed source on the trusted Docker engine; download the named public images, scanner databases and pinned npm dependencies.',
-      'Scan the actual exported image, retain raw scanner files privately, and run nonroot network-disabled health smoke with a synthetic key only when required.',
+      'Build only current-generator-matched sealed source on the trusted Docker engine; download the reviewed build images and pinned npm dependencies.',
+      config.scanGate
+        ? 'Scan the actual exported image and retain raw scanner files privately; enforce fresh zero-critical/high results and reject unknown severity.'
+        : 'Vulnerability scan gate is disabled. No scanner/database downloads, vulnerability assessment or SBOM generation; image review explicitly records not-run, not a clean scan.',
+      'Run nonroot network-disabled health smoke with a synthetic key only when required.',
       'Obtain a transient ACR token in memory; push only the unique source/run-bound repository tag; never perform Docker login.',
       'Create the exact absent app and generated gateway children only, with last-moment absence checks and conditional PUT headers. Never update, grant roles, register apps, resolve secrets or delete cloud resources.',
       'One unauthenticated HTTPS GET to the newly created backend origin /health, with public DNS pinned to TLS, no redirects, a 10-second total deadline and 1 KiB response bound. No backend/provider operation or Key Vault secret read.',
@@ -174,8 +184,9 @@ async function retained(options) {
   const plan = await readControl(filename);
   requireHost(plan.approvalToken === `mcp-host-execution/${digest(plan.scope)}`
     && plan.requiresSignIn === !plan.scope.identity, 'HOST_EXECUTION_PLAN_CHANGED');
-  const source = await readRecipeProject(options.project), config = await readControl(path.resolve(options.config));
-  const description = describeHostExecution(source, config);
+  const source = await readRecipeProject(options.project), input = await readControl(path.resolve(options.config));
+  const config = Object.hasOwn(plan.scope.config, 'scanGate') ? { ...input, scanGate: input.scanGate ?? false } : input;
+  const description = describeHostExecution(source, config, { historical: true });
   const { identityProject, ...effective } = plan.scope.effective;
   requireHost(digest(plan.scope.description) === digest(description)
     && digest({ ...Object.fromEntries(Object.keys(description).map(key => [key, plan.scope[key]])), effective }) === digest(description),
@@ -578,6 +589,14 @@ const runHostEngine = (options, dependencies = {}, continuation) => scoped(optio
           return evidence.built;
         }) : await stage('build', () => buildHostImage(scope, source, owner, taggedImage, docker));
         scan = await stage('scan', async () => {
+          if (scope.scanPolicy.enabled === false) {
+            const archive = await docker(`${api}/images/${encodeURIComponent(built.imageId)}/get`, {
+              maxBytes: executionImageLimit, timeoutMs: 300000,
+            });
+            requireHost(archive.status === 200);
+            return { status: 'not-run', reason: 'scan-gate-disabled', recordedAt: new Date().toISOString(),
+              binding: executionImageBinding(archive.body, built.imageId) };
+          }
           executionProgress(await docker(`${api}/images/create?fromImage=${encodeURIComponent(scope.config.scannerImage)}&platform=linux%2Famd64`,
             { method: 'POST', maxBytes: 8 * 1024 * 1024, timeoutMs: 600000 }));
           const scanner = await inspectImage(scope.config.scannerImage);
@@ -700,14 +719,17 @@ const runHostEngine = (options, dependencies = {}, continuation) => scoped(optio
         }
         const qualification = await stage('qualification', async () => {
           const image = pushed.containerImage;
-          const input = { schemaVersion: 1, kind: 'image-qualification', image, sourceManifestDigest: scope.sourceManifestDigest,
+          const input = { schemaVersion: scan.status === 'not-run' ? 2 : 1, kind: 'image-qualification', image, sourceManifestDigest: scope.sourceManifestDigest,
             build: source.input.imageBuild, builder: { run: `host-${(recoveredBuild
               ? scope.config.recoveryApproval.split(':').at(-1) : deployedImage
                 ? scope.config.oldHostApproval.split(':').at(-1) : owner).slice(0, 32)}`, evidenceDigest: built.buildEvidenceDigest },
+            ...(scan.status === 'not-run' ? { scanGate: false, reviewedAt: scan.recordedAt,
+              scan: { image, status: 'not-run' }, sbom: { image, status: 'not-run' } } : {
             scan: { image, scanner: 'Trivy pinned execution', databaseUpdatedAt: scan.databaseUpdatedAt, scannedAt: scan.scannedAt,
               critical: scan.critical, high: scan.high, medium: scan.medium, low: scan.low, reportDigest: scan.reportDigest },
+            sbom: { image, reportDigest: scan.sbomDigest } }),
             smoke: { image, networkDisabled: true, nonroot: true, status: 'passed', evidenceDigest: smoke.evidenceDigest },
-            sbom: { image, reportDigest: scan.sbomDigest } };
+          };
           const result = reviewImage(source, input);
           const body = { schemaVersion: 1, kind: 'mcp-recipe-operator-review',
             sourceManifestDigest: scope.sourceManifestDigest, input, result };
@@ -847,7 +869,8 @@ const runHostEngine = (options, dependencies = {}, continuation) => scoped(optio
           imageReviewFile: qualification.imageReviewFile,
           authenticationVerified: false, providerVerified: false, consumerVerified: false,
           observedMilestones: { build: recoveredBuild ? 'recovery-passed-image-reverified' : deployedImage ? 'historical-passed' : 'passed',
-            zeroCriticalHighScan: deployedImage ? 'historical-passed-still-fresh-at-dispatch' : 'passed',
+            zeroCriticalHighScan: scan.status === 'not-run' ? 'not-run'
+              : deployedImage ? 'historical-passed-still-fresh-at-dispatch' : 'passed',
             nonrootNetworkDisabledSmoke: deployedImage ? 'historical-passed' : 'passed',
             registryPush: deployedImage ? 'historical-unknown-image-reverified-in-acr' : 'passed',
             appDeploymentReadback: 'passed', appRevisionReadiness: 'healthy-running-control-plane-readback',

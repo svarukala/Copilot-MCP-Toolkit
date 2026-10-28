@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-27.
+Last updated: 2026-10-28.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -9,7 +9,31 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Opt-in vulnerability scanning
+
+At the user's direction, new host and recovered-image plans default to
+`scanGate: false`; the reusable execution runner uses the same host setting.
+Explicit `scanGate: true` requires a pinned scanner and retains the strict
+critical/high/unknown, completeness and freshness checks. Disabled mode skips
+scanner downloads and SBOM generation, records `not-run` instead of clean
+findings, and still verifies image export integrity and nonroot smoke.
+Version-2 image reviews preserve the policy in release evidence. Deployment-only
+continuations inherit the parent's policy, not a new default. Historical
+pre-change plans, reviews, scan failures and consumed claims remain unchanged.
+See [README](../README.md#optional-image-scanning). This is a code-policy change,
+not a live deployment or resolution of the historical scan failures below.
+
+Offline verification covers default-off direct/gateway hosts, strict opt-in
+rejections, image-integrity and smoke failures, recovered-image and deployment-only
+policy inheritance, historical strict descriptions, versioned review validation
+and complete reusable-runner journeys. The runner's image-build milestone now
+accepts an explicitly disabled scan only under that reviewed policy and records
+the omission in its note. A skipped scan is never reported as passed.
+Syntax, strict public types, asset inventory and whitespace checks passed.
+
 ### Bounded image-family flexibility
+
+Historical policy/evidence at implementation time (before the opt-in change above):
 
 Official Node 22 bookworm/trixie slim are supported as digest-pinned builders
 and runtimes alongside the existing Distroless runtimes. Generated Dockerfiles

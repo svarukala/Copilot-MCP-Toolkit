@@ -1,9 +1,20 @@
 # Session handoff
 
-Last updated: 2026-10-27. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-28. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **User-directed scan policy change:** new host/execution and recovered-image
+  plans default `scanGate` to false. Set `scanGate: true` with a pinned
+  `scannerImage` to enable the unchanged strict scanner checks. Disabled scans
+  and SBOMs are explicitly `not-run`; image export integrity, nonroot smoke,
+  source/identity checks and create-only deployment remain mandatory.
+  Version-2 image reviews record the disabled policy; historical version-1
+  reviews and pre-change plan descriptions remain strict. Old failures and
+  consumed claims are not reopened. No live deployment is implied.
+  See [README](../README.md#optional-image-scanning). The entries below record
+  earlier implementation and live evidence under the then-required scan policy.
 
 - **Bounded image-family flexibility implemented:** builders accept pinned
   official Node 22 bookworm/trixie slim; runtimes accept either slim family or

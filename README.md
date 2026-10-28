@@ -28,7 +28,47 @@ Microsoft 365 Copilot.**
 [Quick start](#quick-start) |
 [FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
 [What is supported](#what-is-supported) |
+[Optional image scanning](#optional-image-scanning) |
 [Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Optional image scanning
+
+**The vulnerability scan gate is off by default for new Container Apps host
+executions and recovered-image continuations.** This is a toolkit policy, not
+an MCP or Azure Container Apps requirement. With the gate off, the runner does
+not download Trivy or its databases, run vulnerability scanning, or generate a
+scanner SBOM. Evidence says `not-run`, never "clean" or vulnerability-qualified.
+
+To enable the blocking scan gate, add these fields to your host configuration
+(`host` inside an `mcp-execution` config), or your `mcp-recovered-image` config:
+
+```json
+{
+  "scanGate": true,
+  "scannerImage": "aquasec/trivy@sha256:<reviewed-64-character-sha256-digest>"
+}
+```
+
+Replace the placeholder with an independently reviewed Trivy digest before
+planning. Enabled scanning requires complete image-bound reports, a scan and
+database no older than 24 hours, zero critical/high findings, and no
+unknown-severity findings. Failures stop execution before smoke, push or
+deployment. Omit `scanGate` or set it to `false` to disable scanning;
+`scannerImage` alone does not enable it.
+
+Image/source integrity, digest pinning, nonroot network-disabled smoke,
+private Azure identity, create-only deployment checks and no-replay protections
+remain mandatory. Organization and subscription policies still apply.
+**Skipping the scan can deploy vulnerable components; use a scanning policy
+appropriate to your environment, especially for production.**
+
+Historical strict plans and receipts retain their original meaning. This default
+does not convert old failures into successes, release consumed claims, or
+authorize another deployment. The deployment-only verified-image continuation
+inherits its parent's scan policy and cannot turn an enabled gate off.
+Manual image review supports a version-2 `scanGate: false` record with explicit
+`not-run` scan/SBOM fields; version-1 scanned reviews remain strict.
+See [image review](docs/hosting-recipes.md#bundled-container-runtime).
 
 ## Disclaimer, AI-generated code and user responsibility
 

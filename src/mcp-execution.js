@@ -135,6 +135,9 @@ async function prepare(options) {
       'Provider budget is reserved before the proof-capable phase; failed, unknown and interrupted work is never retried.',
       'Azure budget counts logical CLI commands, including identity reads. Existing bounded read-only transport retries are not additional mutation authority.',
       'SDK host downloads, scanner and resource ceilings are defined by the host configuration and sealed source. No arbitrary shell, secret export, app registration, consent or consumer publication.',
+      ...(hosting ? [input.host.scanGate === true
+        ? 'Vulnerability scanning is enabled: complete fresh image-bound reports with zero critical/high findings and no unknown severity are required.'
+        : 'Vulnerability scanning is disabled: no scanner/database downloads or SBOM generation; results record not-run, not clean. Image integrity and nonroot smoke remain required.'] : []),
       ...(secretGrant ? ['The exact generated APIM secret-access template grants Key Vault Secrets User only on the selected secret to the selected APIM system identity. No broader role grant is permitted.']
         : ['No role grants are authorized by this profile.']),
       'Cloud resource sizes/targets are bounded by the reviewed definition, not a currency billing cap. Resources can continue charging after the execution expires.',
@@ -516,8 +519,10 @@ export const runExecution = (options, dependencies = {}) => scoped(options, asyn
           const observed = host.observedMilestones;
           const deployed = observed?.appDeploymentReadback === 'passed'
             && observed.appRevisionReadiness === 'healthy-running-control-plane-readback';
+          const scanDisabled = run.plan.hostReview.scanPolicy.enabled === false;
           const verified = {
-            'image-build': observed?.build === 'passed' && observed.zeroCriticalHighScan === 'passed'
+            'image-build': observed?.build === 'passed'
+              && observed.zeroCriticalHighScan === (scanDisabled ? 'not-run' : 'passed')
               && observed.nonrootNetworkDisabledSmoke === 'passed' && observed.registryPush === 'passed',
             'host-deployment': deployed,
             'runtime-deployment': deployed && (run.plan.creation.scenario !== 'container-apps-apim-create-v2'
@@ -526,7 +531,9 @@ export const runExecution = (options, dependencies = {}) => scoped(options, asyn
           };
           const rows = next.report.milestones.filter(m => verified[m.name] && m.outcome === 'pending')
             .map(m => ({ name: m.name, outcome: 'passed', evidenceDigest: host.evidenceDigest,
-              note: m.name === 'secret-resolution'
+              note: m.name === 'image-build' && scanDisabled
+                ? 'Image integrity, nonroot smoke and registry push passed. Vulnerability scan and SBOM were not run under the reviewed disabled policy.'
+                : m.name === 'secret-resolution'
                 ? 'Pinned runtime startup and health confirmed injection. Provider key validity and rotation remain unverified.'
                 : 'Bounded host executor receipt. See retained adapter observations. Not independent attestation.' }));
           if (rows.length) { await checkpoint(run, rows, execution, adapters); continue; }

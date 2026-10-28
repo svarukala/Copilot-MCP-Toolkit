@@ -322,7 +322,9 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
   test(`SDK complete bounded journey: gateway=${gateway}, key=${key}, query arguments=${key}`, async t => {
     const f = await setup(t, `container-apps-${gateway ? 'apim' : 'direct'}${key ? '-api-key' : ''}`,
       gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2');
-    f.input.host.scannerImage = syntheticHostScannerImage;
+    f.input.host.scanGate = gateway;
+    if (gateway) f.input.host.scannerImage = syntheticHostScannerImage;
+    else delete f.input.host.scannerImage;
     f.input.limits.maximumAzureCommands = 200;
     if (key) {
       const operation = Object.values(f.definition.document.paths)[0].get;
@@ -341,7 +343,7 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
       f.creation.discovery.discoveryClientId = client;
     }
     const plan = await f.start();
-    assert.equal(plan.hostReview.downloads.scannerImage, syntheticHostScannerImage);
+    assert.equal(plan.hostReview.downloads.scannerImage, gateway ? syntheticHostScannerImage : undefined);
     assert.equal(plan.hostReview.ceilings.containerApps.maxReplicas, 1);
     assert.equal(plan.hostReview.readback.health.attempts, 1);
     assert.match(plan.hostSourceManifestDigest, /^sha256:[a-f0-9]{64}$/);
@@ -386,6 +388,8 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     assert.equal(fixture.calls.filter(call => call.endsWith('/devicecode')).length, 1);
     assert.deepEqual(waits, [65000]);
     assert.equal(result.milestones.find(row => row.name === 'image-build').outcome, 'passed');
+    if (!gateway) assert.match(result.milestones.find(row => row.name === 'image-build').note,
+      /Vulnerability scan and SBOM were not run/);
     assert.equal(result.milestones.find(row => row.name === 'runtime-deployment').outcome, 'passed');
     if (key) {
       assert.equal(result.milestones.find(row => row.name === 'secret-resolution').outcome, 'passed');

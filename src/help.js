@@ -150,7 +150,9 @@ Recipe reviews: schema describes bounded operator evidence. Plan/bundle require
 workspace/project/config and new output JSON; bundle needs exact --approve.
 Container generation emits a minimal nonroot Dockerfile only when imageBuild
 provides reviewed builder/runtime digests and platform. No mutable base fallback.
-Image review binds scan/SBOM/smoke metadata to source and image, not attestation.
+Image review binds source/image and smoke, not attestation. New host plans default
+scanGate to false (scan/SBOM not-run); opt in with scanGate:true and scannerImage.
+Historical version-1 scanned reviews remain strict.
 Release may reference imageReviewFile; stale or failing qualification is refused.
 Review kinds also cover preserving Container Apps/Entra updates, readiness,
 authentication impact, secret metadata and cost/closeout. Nothing is executed.

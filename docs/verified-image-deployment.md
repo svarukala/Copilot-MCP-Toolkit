@@ -14,7 +14,9 @@ behavior or authorize cloud execution.
   network-disabled nonroot smoke, followed by a retained **unknown-no-replay push**
   result. All six sealed intent/result pairs must form the exact parent chain.
   A passed push, missing result, active parent lock or later stage intent is not
-  eligible. No parent file or original target reservation is changed.
+  eligible. For new parents with scanning disabled, the scan-stage receipt
+  records `not-run` and verified image-export binding, not a clean scan.
+  No parent file or original target reservation is changed.
 - Only OCI manifest-ID images are supported: the exact digest supplied for ACR
   must equal the image ID in the prior verified export binding and build receipt.
   Classic config-ID-only images cannot establish this correspondence and fail
@@ -23,7 +25,12 @@ behavior or authorize cloud execution.
   resource limits, build/scan/smoke receipts and private scanner/SBOM/database
   files are checked locally and bound into the new approval. The scan and database
   must remain at most 24 hours old with zero HIGH/CRITICAL findings, including at
-  mutation dispatch. Missing, modified, incomplete or stale evidence blocks.
+  mutation dispatch when the parent's gate was enabled. With a disabled parent
+  gate, the exact `not-run` record and image binding must be present and no
+  scanner reports may be substituted; the record expires after 24 hours.
+  The new deployment inherits that policy and cannot switch an enabled parent
+  to disabled. Historical parents without a scan flag remain strict.
+  Missing, modified, incomplete or stale evidence blocks.
 - Historical source is read without regeneration or resealing. Its deployment
   template and runtime configuration must match the **current trusted compiler**.
   Historical producer IDs or generated documentation alone need not match the

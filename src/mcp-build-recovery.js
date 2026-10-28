@@ -97,7 +97,7 @@ async function evidence(source, config, workspaceRoot, activeIdentityProject) {
     && old.scope.sourceManifestDigest === source.manifest.contentDigest
     && config.sourceManifestDigest === source.manifest.contentDigest
     && config.accountName.toLowerCase() === old.scope.config.accountName.toLowerCase());
-  const description = describeHostExecution(source, old.scope.config);
+  const description = describeHostExecution(source, old.scope.config, { historical: true });
   requireRecovery(digest(old.scope.description) === digest(description)
     && Object.entries(description).every(([key, value]) => key === 'effective'
       ? Object.entries(value).every(([name, entry]) => old.scope.effective[name] === entry)
@@ -502,7 +502,7 @@ async function prepare(options) {
           : 'Preserve every source and attempt in the bounded lineage. Take one deterministic child claim per failed build; inspect all prior build owners/tags without deleting or adopting their images. No branching, implicit retry or restoration of consumed authority.',
       ] : []),
       ...(priorScanOwners.length ? [
-        'Check every prior rejected-scan owner for remaining containers and block if any exist. Preserve scanner volumes and images; no cleanup or adoption of rejected reports. A later continuation must rerun the unchanged scan and smoke gates under separate approval.',
+        'Check every prior rejected-scan owner for remaining containers and block if any exist. Preserve scanner volumes and images; no cleanup or adoption of rejected reports. A later continuation requires smoke and an explicitly reviewed scan policy under separate approval.',
       ] : []),
     ],
   };

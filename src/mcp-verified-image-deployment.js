@@ -76,7 +76,7 @@ async function inspectEvidence(source, config, workspaceRoot) {
     && /^sha256:[a-f0-9]{64}$/.test(old.scope.producerBuild)
     && old.scope.sourceManifestDigest === source.manifest.contentDigest
     && config.sourceManifestDigest === source.manifest.contentDigest);
-  const description = describeHostExecution(source, old.scope.config);
+  const description = describeHostExecution(source, old.scope.config, { historical: true });
   requireEvidence(digest(old.scope.description) === digest(description)
     && Object.entries(description).every(([key, value]) => key === 'effective'
       ? Object.entries(value).every(([name, entry]) => old.scope.effective[name] === entry)
@@ -119,11 +119,17 @@ async function inspectEvidence(source, config, workspaceRoot) {
     && /^sha256:[a-f0-9]{64}$/.test(scan.binding.configDigest) && scan.binding.configDigest !== built.imageId
     && /^sha256:[a-f0-9]{64}$/.test(scan.binding.archiveDigest)
     && /^sha256:[a-f0-9]{64}$/.test(built.buildEvidenceDigest), 'VERIFIED_IMAGE_DIGEST_MISMATCH');
-  requireEvidence(scan.critical === 0 && scan.high === 0 && fresh(scan.scannedAt) && fresh(scan.databaseUpdatedAt)
-    && Date.parse(scan.databaseUpdatedAt) <= Date.parse(scan.scannedAt)
-    && smoke.networkDisabled === true && smoke.nonroot === true && smoke.status === 'passed'
+  const scanDisabled = description.scanPolicy.enabled === false;
+  requireEvidence(smoke.networkDisabled === true && smoke.nonroot === true && smoke.status === 'passed'
     && smoke.providerCalled === false && /^sha256:[a-f0-9]{64}$/.test(smoke.evidenceDigest));
   const privateDigests = {}, documents = {};
+  if (scanDisabled) {
+    requireEvidence(scan.status === 'not-run' && scan.reason === 'scan-gate-disabled' && fresh(scan.recordedAt)
+      && Object.keys(scan).sort().join(',') === 'binding,reason,recordedAt,status'
+      && !names.some(name => ['scanner.private.json', 'sbom.private.json', 'scanner-database.private.json'].includes(name)));
+  } else {
+  requireEvidence(scan.critical === 0 && scan.high === 0 && fresh(scan.scannedAt) && fresh(scan.databaseUpdatedAt)
+    && Date.parse(scan.databaseUpdatedAt) <= Date.parse(scan.scannedAt));
   for (const [name, expected] of [['scanner.private.json', scan.reportDigest], ['sbom.private.json', scan.sbomDigest],
     ['scanner-database.private.json', undefined]]) {
     const filename = await assertProjectPath(path.join(oldOutput, name)), stat = await lstat(filename);
@@ -153,6 +159,7 @@ async function inspectEvidence(source, config, workspaceRoot) {
     }
   }
   requireEvidence(Object.entries(counts).every(([key, count]) => scan[key] === count));
+  }
   const reservationFile = path.join(workspaceRoot, '.mcp-execution-host-targets', `${digest(app.toLowerCase()).slice(7)}.json`);
   const reservation = await readControl(reservationFile);
   requireEvidence(reservation.schemaVersion === 1 && reservation.plan === old.approvalToken && reservation.resourceId === app,
@@ -177,8 +184,9 @@ async function prepare(options) {
   requireEvidence(Date.parse(config.expiresAt) > Date.now() && Date.parse(config.expiresAt) <= Date.now() + 86400000,
     'VERIFIED_IMAGE_APPROVAL_EXPIRED');
   const evidence = await inspectEvidence(source, config, workspaceRoot);
-  requireEvidence(Date.parse(config.expiresAt) <= Math.min(Date.parse(evidence.scan.scannedAt),
-    Date.parse(evidence.scan.databaseUpdatedAt)) + 86400000, 'VERIFIED_IMAGE_APPROVAL_EXCEEDS_SCAN');
+  const evidenceTime = evidence.description.scanPolicy.enabled === false ? Date.parse(evidence.scan.recordedAt)
+    : Math.min(Date.parse(evidence.scan.scannedAt), Date.parse(evidence.scan.databaseUpdatedAt));
+  requireEvidence(Date.parse(config.expiresAt) <= evidenceTime + 86400000, 'VERIFIED_IMAGE_APPROVAL_EXCEEDS_SCAN');
   // Historical source remains sealed. Only deployment/runtime configuration must
   // match today's trusted compiler; docs, generated review/build IDs and bundles
   // need not be regenerated to deploy an already scanned immutable image.
@@ -203,7 +211,9 @@ async function prepare(options) {
     effective: { ...description.effective, identityProject: config.azureIdentityProject },
     effects: [
       'Independent expiring direct-ACA create-only authority; the consumed parent is evidence, never resumed or reauthorized.',
-      'Read retained source, build/scan/smoke chain and private reports; require fresh zero-critical/high scan and scanner database.',
+      evidence.description.scanPolicy.enabled === false
+        ? 'Read retained source, image-integrity and smoke chain. Preserve the parent scan-gate-disabled policy and not-run evidence; no vulnerability qualification is claimed.'
+        : 'Read retained source, build/scan/smoke chain and private reports; require fresh zero-critical/high scan and scanner database.',
       'Recheck the exact OCI manifest digest in ACR once with the same private Azure identity immediately before create.',
       'Create only the exact absent app with the unchanged trusted template, identity and resource ceilings; no roles, keys or unrelated resources.',
       'Readiness polling and one bounded public HTTPS /health GET only; no provider, discovery, proof or consumer authority.',

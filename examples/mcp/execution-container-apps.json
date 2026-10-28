@@ -22,7 +22,7 @@
     "accountName": "operator@example.com",
     "dockerSocket": "\\\\.\\pipe\\dockerDesktopLinuxEngine",
     "localEngineTrusted": true,
-    "scannerImage": "aquasec/trivy@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "scanGate": false,
     "imageRepository": "synthetic-mcp",
     "expiresAt": "2099-01-01T00:00:00.000Z",
     "downloadsReviewed": true,

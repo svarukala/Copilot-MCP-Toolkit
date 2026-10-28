@@ -129,7 +129,7 @@ New SDK container source reviews also disclose the locked build-only bundler.
 The host build context includes the sealed `build-runtime.mjs`; only its
 bundled distribution enters the runtime image, including truthful component
 metadata and notices for scanning. See [runtime packaging](hosting-recipes.md#bundled-container-runtime).
-This does not waive the zero-critical/high gate or authorize a new run.
+This does not waive an enabled zero-critical/high gate or authorize a new run.
 Old source/build pins and consumed grants cannot adopt the changed packaging.
 
 | Family | Automatic execution under the new grant | Remaining boundary |
@@ -178,7 +178,12 @@ SDK scenarios additionally require the closed `host` schema and an explicit new
 review, including exact package-lock identity, scanner database references,
 effective time/size bounds and CPU/memory/replica ceilings. The executor checks
 that projection again against generated source before dispatch. No tool silently
-chooses newer dependencies or waives vulnerability findings.
+chooses newer dependencies or waives findings under an enabled gate.
+New runs default `host.scanGate` to false: no scanner/database downloads or
+SBOM generation, and evidence explicitly records `not-run`. To opt in, set
+`host.scanGate: true` with a pinned `host.scannerImage`. Image integrity,
+nonroot smoke and all identity/deployment/proof protections remain mandatory.
+See [optional image scanning](../README.md#optional-image-scanning).
 The existing recipe must admit at least four MCP POSTs per minute and
 `minimumProofDelayMs` must be 65000. The wait covers the aggregate initialization,
 notification, metadata and call window, not just provider calls.
@@ -194,9 +199,10 @@ origin, rate limits and response contract before authorizing a call. A changed
 fixture does not authorize another deployment or reset a consumed proof.
 
 The [SDK envelope example](../examples/mcp/execution-container-apps.json) is also
-synthetic: replace both expiries, the scanner digest, account, identifiers and
+synthetic: replace both expiries, account, identifiers and
 resource choices, and add actual reviewed `imageBuild` builder/runtime digests
-to the copied recipe definition. The runner does not select image versions.
+to the copied recipe definition. Add a reviewed scanner digest only when opting
+in to scanning. The runner does not select image versions.
 `host.dockerSocket` selects an explicitly trusted local engine; it is not a Docker
 context or remote daemon fallback. `privateLoginReviewed: true` permits login to
 the new source project's private Azure profile if needed. Alternatively supply
@@ -254,7 +260,8 @@ sets `executionReadiness`, consumer attestation or renewed proof authority.
 Image qualification binds the exact exported image bytes, not just matching
 filesystem layers. Classic Docker-save config IDs and containerd OCI manifest
 IDs are resolved through a single-image export with verified config and layer
-hashes (and the OCI manifest chain when applicable). Trivy must report that
+hashes (and the OCI manifest chain when applicable), even with scanning off.
+When scanning is enabled, Trivy must report that
 config digest and the same ordered diff IDs. Ambiguous exports, missing blobs,
 changed configuration or layer bytes and mismatched scanner metadata stop the
 run without push or deployment. Bounded raw scanner/database files are retained
@@ -296,7 +303,8 @@ at the scan-policy/inconclusive gate, the reviewed
 requires a new runtime digest, preserves the rejected scan and its consumed
 claim, and requires separate build and qualification approvals. Raw report
 counts cannot identify which compound assertion failed first. Unknown-severity
-findings remain inconclusive, and critical/high findings remain blocking;
+findings remain inconclusive, and critical/high findings remain blocking under
+an enabled scan gate;
 neither is waived by choosing a newer base image.
 
 The new executor is CLI-only, like the legacy validation runners. Internal

@@ -38,7 +38,7 @@ async function fixture(t, example = 'container-apps-direct', { identityInSource 
   await writeHostingRecipe({ ...generation, approval: (await planHostingRecipe(generation)).approvalToken });
   const host = { schemaVersion: 1, azureIdentityProject: identityInSource ? project : path.join(root, 'identity'),
     accountName: 'operator@example.com', dockerSocket: String.raw`\\.\pipe\docker_engine`,
-    localEngineTrusted: true, scannerImage: `aquasec/trivy@sha256:${'c'.repeat(64)}`, imageRepository: 'reviewed/mcp',
+    localEngineTrusted: true, scanGate: true, scannerImage: `aquasec/trivy@sha256:${'c'.repeat(64)}`, imageRepository: 'reviewed/mcp',
     expiresAt: new Date(Date.now() + 3600000).toISOString(), downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true };
   const old = { workspaceRoot: root, project, config: path.join(root, 'host.json'), output: path.join(root, 'old') };
@@ -119,12 +119,13 @@ async function revise(f, changes, suffix = 'revised') {
   return source;
 }
 
-async function continuation(f, recovery, suffix = 'continuation') {
+async function continuation(f, recovery, suffix = 'continuation', scanGate = true) {
   const config = {
     schemaVersion: 1, recoveryOutput: f.options.output, recoveryApproval: recovery.plan.approvalToken,
     sourceManifestDigest: recovery.plan.scope.sourceManifestDigest,
     azureIdentityProject: f.oldPlan.scope.effective.identityProject, accountName: f.config.accountName,
-    scannerImage: f.oldPlan.scope.config.scannerImage, expiresAt: new Date(Date.now() + 1800000).toISOString(),
+    ...(scanGate ? { scanGate: true, scannerImage: f.oldPlan.scope.config.scannerImage } : {}),
+    expiresAt: new Date(Date.now() + 1800000).toISOString(),
     localEngineTrusted: true, exclusiveControlReviewed: true, downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true, qualificationPushDeploymentReviewed: true,
   };
@@ -135,6 +136,23 @@ async function continuation(f, recovery, suffix = 'continuation') {
   return { config, options, plan, run: dependencies => runRecoveredImage({ ...options, ...flags,
     allowCloud: true, approval: plan.approvalToken }, dependencies ?? f.synthetic.dependencies) };
 }
+
+test('new recovered-image continuation defaults to scanning off without weakening its parent evidence', async t => {
+  for (const example of ['container-apps-direct', 'container-apps-apim']) await t.test(example, async t => {
+    const f = await fixture(t, example), recovery = await execute(f);
+    const retained = await snapshot(f.old.output);
+    const prepared = await continuation(f, recovery, 'no-scan', false);
+    assert.equal(prepared.plan.scope.config.scanGate, false);
+    assert.deepEqual(prepared.plan.scope.downloads, {});
+    const result = await prepared.run();
+    assert.equal(result.status, 'passed', JSON.stringify(result));
+    assert.equal((await json(result.imageReviewFile)).input.scan.status, 'not-run');
+    assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
+    assert.deepEqual(await snapshot(f.old.output), retained);
+    assert.equal(f.calls.some(call => call.route?.includes('-scan') || call.route?.includes('-sbom')), false);
+    assert.ok(f.calls.some(call => call.route?.includes('-smoke')));
+  });
+});
 
 async function rejectedScan(t, example = 'container-apps-direct', severity = 'HIGH') {
   const f = await fixture(t, example, { identityInSource: example === 'container-apps-direct' });

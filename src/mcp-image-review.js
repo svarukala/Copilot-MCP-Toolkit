@@ -23,7 +23,7 @@ export function runtimeNodePath(runtimeImage) {
   throw Object.assign(new Error('Select an explicitly supported digest-pinned Node 22 runtime image.'),
     { code: 'MCP_IMAGE_QUALIFICATION' });
 }
-export const imageReviewSchema = object({
+const scannedImageReviewSchema = object({
   schemaVersion: { const: 1 }, kind: { const: 'image-qualification' }, image,
   sourceManifestDigest: digest, build: imageBuildSchema,
   builder: object({ run: label, evidenceDigest: digest }),
@@ -33,6 +33,14 @@ export const imageReviewSchema = object({
     status: { const: 'passed' }, evidenceDigest: digest }),
   sbom: object({ image, reportDigest: digest }),
 });
+export const imageReviewSchema = { oneOf: [scannedImageReviewSchema, object({
+  ...scannedImageReviewSchema.properties,
+  schemaVersion: { const: 2 },
+  scanGate: { const: false },
+  reviewedAt: timestamp,
+  scan: object({ image, status: { const: 'not-run' } }),
+  sbom: object({ image, status: { const: 'not-run' } }),
+})] };
 const ajv = new Ajv(); addFormats(ajv);
 const valid = ajv.compile(imageReviewSchema);
 export function reviewImage(project, input) {
@@ -50,21 +58,25 @@ export function reviewImage(project, input) {
   requireImage(project.input.imageBuild && metadataDigest(boundedSnapshot(project.input.imageBuild))
     === metadataDigest(boundedSnapshot(input.build)),
   'Generate a new source project with these explicit digest-pinned imageBuild inputs before qualification.');
-  const now = Date.now(), scanned = Date.parse(input.scan.scannedAt), database = Date.parse(input.scan.databaseUpdatedAt);
+  const disabled = input.schemaVersion === 2;
+  const now = Date.now(), scanned = Date.parse(disabled ? input.reviewedAt : input.scan.scannedAt),
+    database = Date.parse(disabled ? input.reviewedAt : input.scan.databaseUpdatedAt);
   requireImage(database <= scanned && scanned <= now && now - scanned <= 86400000 && now - database <= 86400000,
-    'Scan and scanner database must be no more than 24 hours old and not future-dated. Refresh through a separately reviewed scan, never by editing receipts.');
-  requireImage(input.scan.critical === 0 && input.scan.high === 0,
+    disabled ? 'Image review must be no more than 24 hours old and not future-dated; never refresh retained receipts.'
+      : 'Scan and scanner database must be no more than 24 hours old and not future-dated. Refresh through a separately reviewed scan, never by editing receipts.');
+  requireImage(disabled || input.scan.critical === 0 && input.scan.high === 0,
     'The initial image policy requires zero critical/high findings; no implicit exception or deployment is permitted.');
   return {
-    status: 'passed-operator-evidence-review-not-attestation', image: input.image,
+    status: disabled ? 'passed-image-review-without-vulnerability-scan' : 'passed-operator-evidence-review-not-attestation', image: input.image,
     sourceManifestDigest: project.manifest.contentDigest,
     sourceHashes: Object.fromEntries(['Dockerfile', 'package-lock.json', 'runtime-config.json', 'server.js', 'runtime.js']
       .map(name => [name, project.manifest.files[name]])),
     build: input.build, builder: input.builder, scan: input.scan, smoke: input.smoke, sbom: input.sbom,
-    policy: { maximumCritical: 0, maximumHigh: 0, maximumAgeHours: 24 },
+    policy: disabled ? { scanGate: false, maximumAgeHours: 24 } : { maximumCritical: 0, maximumHigh: 0, maximumAgeHours: 24 },
     expiresAt: new Date(Math.min(scanned, database) + 86400000).toISOString(),
     imageSourceCorrespondence: 'operator-evidence-not-cryptographically-attested',
     limitations: ['Imported metadata and digests are operator assertions, not verification of scanner execution, file copies or signed build provenance.',
-      'Zero critical/high findings is a point-in-time package policy, not a guarantee of no exploitable vulnerabilities.'],
+      disabled ? 'Vulnerability scanning and SBOM generation were not run. This review does not establish vulnerability qualification.'
+        : 'Zero critical/high findings is a point-in-time package policy, not a guarantee of no exploitable vulnerabilities.'],
   };
 }

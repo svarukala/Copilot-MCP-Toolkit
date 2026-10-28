@@ -35,7 +35,11 @@ decision. This is skill guidance, not a new discovery command or runtime feature
 
 For container image selection, use the supported digest-pinned families in
 `docs/hosting-recipes.md`: official Node 22 bookworm/trixie slim builders and
-either slim or Distroless Debian 12/13 runtimes. Node slim is not a scan exception.
+either slim or Distroless Debian 12/13 runtimes. New host/execution and recovered-image
+plans default vulnerability scanning to off. Set `scanGate: true` with a reviewed
+pinned `scannerImage` to opt in. Never silently opt users in or fabricate a clean
+scan; disabled scanning/SBOM are `not-run`. Image/source integrity, nonroot smoke,
+identity, inherited cloud policies and no-replay checks remain required.
 Preserve generated nonroot execution and the family-specific Node entrypoint;
 do not hand-edit a sealed Dockerfile, reuse a consumed build, or infer readiness
 from a successful dependency-install diagnostic.
@@ -112,10 +116,12 @@ The replacement source must use a different runtime digest, with unchanged
 application code, dependency metadata/integrities and deployment targets.
 Public registry inspection, source generation, replacement build and later
 qualification/deployment require their own reviews. A newer pin is not evidence
-of a fix; never suppress unknown findings or weaken the zero-critical/high gate.
+of a fix. When scanning is enabled, never suppress unknown findings or weaken
+the zero-critical/high gate. A new plan's explicit scan selection does not
+reinterpret historical strict evidence or release a consumed claim.
 Preserve all old claims, reports, images and scanner volumes. Confirm prior
 builds/scans stopped and exclusive engine control. A successful replacement has
-its own one-shot continuation claim; all scan/smoke gates run again. This is not
+its own one-shot continuation claim; smoke and any opted-in scan run again. This is not
 recovery for transport failures, missing receipts or later deployment failures.
 See the runtime-remediation section of `docs/build-recovery.md`.
 
