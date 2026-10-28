@@ -202,6 +202,10 @@ Resume with --workspace-root ABS --project SAVEDDIR. Existing references are
 reused; new registration uses the existing executor with separate exact reviews,
 including Windows shared-profile disclosure and actual sign-in identity review.
 No redeployment, proof replay, FCC submission or plugin publication is implied.
+The interactive execution completion menu enters this journey after selection;
+it does not only print a command. JSON callers receive an appContinuation
+contract: collect missing inputs and present the next exact auth/export review
+using explicit commands. Selection alone authorizes no provider operation.
 mcp-consumer-schema/plan/bundle exports offline HTML and, for plugin, a v1.28
 manifest starter with observed tools. Plan/bundle requires --workspace-root ABS
 --config FILE --output NEWDIR; bundle adds the exact --approve token.

@@ -35,7 +35,24 @@ export function consumerNextSteps(workspaceRoot) {
   return {
     status: 'optional-consumer-onboarding', choices: consumerChoices,
     command: ['mcp-onboard', '--workspace-root', workspaceRoot],
+    commandRequiresTerminal: true,
     input: 'Prepare mcp-onboard-schema inputs against this exact endpoint descriptor and observed capture. Existing runs and proof receipts stay unchanged.',
+    afterSelection: {
+      fcc: 'Continue to missing-input collection and exact shared SSO registration/reuse review, then export FCC HTML. Do not stop at selection.',
+      plugin: 'Continue to missing-input collection and exact shared SSO registration/reuse review, then export the plugin manifest starter, observed tools and HTML. Do not stop at selection.',
+      none: 'Stop without consumer effects. The MCP and all evidence remain unchanged.',
+    },
+    appContinuation: {
+      mode: 'agent-driven-explicit-command-reviews',
+      selectionIsExecutionApproval: false,
+      instruction: 'A user choosing FCC or Plugin is asking to begin onboarding. Present the next exact approval or ask for a genuinely missing input in the same conversation. A generic separate-review disclaimer is not a completed handoff.',
+      preparation: ['mcp-onboard-schema', 'mcp-auth-registration-schema', 'mcp-auth-execution-schema', 'mcp-fcc-schema', 'mcp-consumer-schema'],
+      registration: ['mcp-auth-execution-status', 'mcp-auth-execution-plan', 'mcp-auth-execute'],
+      referenceExport: ['mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
+      consumerExport: ['mcp-consumer-plan', 'mcp-consumer-bundle'],
+      boundaries: 'Use existing guarded commands with their own exact approvals. Login requires a real terminal and current identity review. Do not use the terminal-only wizard in noninteractive tools, fabricate approvals, rebuild the MCP or replay discovery/proof.',
+      doneWhen: 'The actual compatible registration reference and Application ID URI are imported and the requested files exist, or the user explicitly stops, or a specific blocker is reported. Publication and consumer testing are separate.',
+    },
     effects: 'Separate reviewed registration and local handover; no deployment or proof replay.',
   };
 }

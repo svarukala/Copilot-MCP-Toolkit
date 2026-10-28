@@ -9,7 +9,7 @@ import { secretIssues } from './validation.js';
 import { loadAuthRegistration, planAuthRegistrationBundle, writeAuthRegistrationBundle, readAuthRegistrationBundle } from './mcp-auth-registration.js';
 import { planAuthExecution, executeAuthPhase, readAuthExecutionStatus } from './mcp-auth-execution.js';
 import { prepareFccInput } from './mcp-fcc.js';
-import { consumerChoices, planConsumerBundle, writeConsumerBundle, readConsumerBundle } from './mcp-consumer.js';
+import { consumerChoices, consumerNextSteps, planConsumerBundle, writeConsumerBundle, readConsumerBundle } from './mcp-consumer.js';
 
 export const onboardingSchema = {
   type: 'object', additionalProperties: false, required: ['schemaVersion', 'fccConfig', 'registrationConfig'],
@@ -194,4 +194,16 @@ export async function guidedOnboarding(p, options, dependencies = {}) {
     if (result.status === 'onboarding-paused') result.resume[2] = options.workspaceRoot;
     return result;
   });
+}
+export async function continueConsumerSelection(p, options, dependencies = {}) {
+  const selected = await p.choose('What would you like to do with this secured MCP next?', consumerChoices);
+  const result = await guidedOnboarding(p, { ...options, consumer: selected }, dependencies);
+  const bundle = result.outputPath
+    ? await withCliWorkspace(options.workspaceRoot, () => readConsumerBundle(result.outputPath)) : undefined;
+  const missingPlugin = selected === 'plugin' && bundle && !bundle.artifacts['plugin/manifest.template.json'];
+  return { ...consumerNextSteps(options.workspaceRoot), selected, result,
+    status: missingPlugin ? 'consumer-starter-blocked' : result.status, command: result.resume ?? null,
+    ...(bundle ? { artifacts: Object.keys(bundle.artifacts), gaps: bundle.gaps } : {}),
+    ...(missingPlugin ? { reason: 'HTML was exported, but no plugin manifest was emitted. Resolve the reported missing authentication/tool or reference-size blockers; do not register again or replay proof.' } : {}),
+    incomplete: selected !== 'none' && (result.status !== 'consumer-draft-written-not-published' || Boolean(missingPlugin)) };
 }

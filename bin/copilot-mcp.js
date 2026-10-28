@@ -21,7 +21,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   return withCliFeedback(() => mainWithFeedback(args, dependencies));
 }
 async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider,
-  hostOperationDependencies, sessionDependencies, sessionProofApproval, executionDependencies } = {}) {
+  hostOperationDependencies, sessionDependencies, sessionProofApproval, executionDependencies, consumerPrompter } = {}) {
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
@@ -198,17 +198,18 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
         }, { ...executionDependencies, sessionDependencies: executionDependencies?.sessionDependencies ?? sessionDependencies,
           mcpProjectOperation: executionDependencies?.mcpProjectOperation ?? mcpProjectOperation, runAzure });
         if (result.consumerOnboarding) {
-          if (kind === 'run' && options.interactive && !json && process.stdin.isTTY && process.stderr.isTTY) {
-            prompter = createPrompter();
-            const selected = await prompter.choose('What would you like to do with this secured MCP next?', result.consumerOnboarding.choices);
+          if (kind === 'run' && options.interactive && !json
+            && (consumerPrompter || process.stdin.isTTY && process.stderr.isTTY)) {
+            prompter = consumerPrompter ?? createPrompter();
+            const { continueConsumerSelection } = await import('../src/guided-onboarding.js');
+            result.consumerOnboarding = await continueConsumerSelection(prompter, { workspaceRoot },
+              { provider: authExecutionProvider });
             prompter.close(); prompter = undefined;
-            result.consumerOnboarding.selected = selected;
-            result.consumerOnboarding.command = selected === 'none' ? null
-              : [...result.consumerOnboarding.command, '--consumer', selected];
           }
         }
         print(result, true);
-        return ['blocked', 'paused', 'waiting-for-owner', 'input-required', 'sign-in-required'].includes(result.status) ? 2 : 0;
+        return result.consumerOnboarding?.incomplete
+          || ['blocked', 'paused', 'waiting-for-owner', 'input-required', 'sign-in-required'].includes(result.status) ? 2 : 0;
       } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
     }
     if (['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',

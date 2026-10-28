@@ -156,6 +156,33 @@ for (const parameterized of [false, true]) test(`Entra existing execution uses o
   assert.deepEqual(result.consumerOnboarding.choices.map(choice => choice.value), ['fcc', 'plugin', 'none']);
   assert.equal(auth, 1); assert.equal(calls, 1);
   assert.equal(result.consumption.providerCalls, 1);
+  if (!parameterized) {
+    const stdout = [], stderr = [];
+    t.mock.method(process.stdout, 'write', value => { stdout.push(String(value)); return true; });
+    t.mock.method(process.stderr, 'write', value => { stderr.push(String(value)); return true; });
+    const args = ['mcp-execution-run', '--workspace-root', f.root, '--project', f.output, '--interactive'];
+    const deps = { sessionDependencies: fixture, onMcpDeviceCode() {},
+      consumerPrompter: { choose: async () => assert.fail('JSON must not prompt') } };
+    assert.equal(await main([...args, '--json'], deps), 0);
+    assert.equal(JSON.parse(stdout.join('')).consumerOnboarding.appContinuation.selectionIsExecutionApproval, false);
+    stdout.length = 0;
+    let asked = false, closed = false;
+    deps.consumerPrompter = { choose: async () => 'plugin',
+      ask: async () => { asked = true; throw Error('Synthetic missing prepared input'); },
+      close() { closed = true; } };
+    assert.equal(await main(args, deps), 1);
+    assert.equal(asked, true); assert.equal(closed, true);
+    assert.match(stderr.join(''), /Synthetic missing prepared input/);
+    assert.equal(stdout.join(''), '');
+    deps.consumerPrompter = { choose: async () => 'none', close() {} };
+    assert.equal(await main(args, deps), 0);
+    const stopped = JSON.parse(stdout.join(''));
+    assert.equal(stopped.consumerOnboarding.selected, 'none');
+    assert.equal(stopped.consumerOnboarding.result.writes, false);
+    assert.equal(stopped.consumerOnboarding.incomplete, false);
+    assert.equal((await executionStatus(f.active)).journalDigest, result.journalDigest);
+    assert.equal(auth, 1); assert.equal(calls, 1);
+  }
 });
 
 for (const condition of ['toolError', 'unknown']) test(`${condition} remains consumed and blocks resume without raw diagnostics`, async t => {

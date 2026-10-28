@@ -9,6 +9,23 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Consumer selection continuation
+
+Corrected the completion-menu dead end: selecting FCC or Plugin now enters
+the existing reviewed terminal journey; it does not merely return a command.
+JSON next steps and skill guidance explicitly direct the app agent to collect
+missing inputs and present the next exact registration/export review. Selection
+is intent, not execution approval. This is agent-driven app continuation, not
+a native app event hook or automatic resumption of a stopped conversation.
+Incomplete selected onboarding is distinct from successful MCP execution;
+a missing plugin manifest remains blocked even when HTML was exported.
+Twenty offline consumer tests and three targeted execution regressions passed,
+including actual synthetic registration-to-starter output, declined review/None,
+noninteractive JSON behavior and unchanged proof consumption. Asset inventory,
+syntax and public-type checks passed. These do not qualify live app-agent
+continuation or Teams Developer Portal registration.
+No live registration, deployment, discovery, proof or publication was performed.
+
 ### Post-creation consumer onboarding
 
 Implemented a separate prepared-input terminal journey with FCC / plugin / None

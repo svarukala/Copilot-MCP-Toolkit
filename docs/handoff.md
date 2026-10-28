@@ -5,6 +5,13 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **Consumer selection continuation:** the terminal completion menu now enters
+  the existing reviewed onboarding journey instead of only returning a command.
+  JSON/skill guidance requires the app agent to collect missing inputs and
+  present the next exact review, not stop at "Plugin selected". App continuation
+  is agent-driven, not a native event hook. No live registration, publication,
+  endpoint change or replay was performed for this correction.
+
 - **Consumer onboarding implemented/offline verified, not live-qualified:** `mcp-onboard` offers
   FCC / Microsoft 365-Cowork plugin / None and resumes shared guarded SSO
   registration using the existing executor. References are reused, not

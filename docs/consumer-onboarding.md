@@ -3,14 +3,51 @@
 After a successful reusable execution, choose **FCC**, **Microsoft 365 / Cowork
 plugin**, or **None**. These are next steps, not part of the consumed execution
 grant. JSON/noninteractive execution returns `consumerOnboarding` with the choices
-and command; only a real, non-JSON `mcp-execution-run --interactive` displays the
-menu. Selecting a consumer at that menu returns its next command, not a new
-registration. None leaves the endpoint and all evidence untouched.
+and an app continuation contract; only a real, non-JSON
+`mcp-execution-run --interactive` displays the terminal menu. Selecting a
+consumer at that menu enters the existing onboarding journey: prepared-input
+collection, exact reviews, registration/reuse and export. It does not merely
+return a command. None leaves the endpoint and all evidence untouched.
+Declined/blocked onboarding is reported separately from the completed MCP
+execution; incomplete selected onboarding returns exit code 2.
 
 The assistant should prepare the small private input below from the selected
 endpoint descriptor and already observed tools, then offer the choice. Source
 generation alone is not a deployed MCP. Never manufacture a capture or reuse
 an old proof approval to finish onboarding.
+
+## GitHub Copilot app continuation
+
+The app agent drives the existing explicit commands, not the terminal wizard.
+The JSON `consumerOnboarding.appContinuation` identifies preparation,
+registration and export commands and their approval boundaries. Choosing
+Plugin or FCC requests that next task, **not blanket cloud consent**. The agent
+must ask for a genuinely missing input or show the next exact approval rather
+than end with "selected; creation is separately reviewed". An earlier request
+to stop after creating the MCP and ask has been fulfilled once the agent asks;
+the subsequent selection requests onboarding preparation.
+
+Reuse the saved descriptor, capture and any compatible registration receipt.
+Prepare private inputs, review each existing auth-executor phase, import the
+real reference, then review and write the consumer bundle. Sign-in still needs
+a real-terminal handoff and actual account/tenant confirmation; a noninteractive
+app tool must not impersonate a terminal. Do not copy caches or redirect challenges.
+The agent stops on a concrete blocker, an explicit user stop, or actual outputs,
+not merely on acknowledging the consumer choice.
+
+To continue a previously stopped app conversation:
+
+> Continue with Cowork plugin onboarding for the MCP we just created. Reuse its
+> saved descriptor, observed tools and handover; do not redeploy or repeat its
+> proof. Collect any missing nonsecret inputs and show the next exact secretless
+> SSO registration/reuse review now. After the separately approved operations,
+> export the placeholder plugin manifest, observed tool-description file and
+> HTML with the actual registration reference and Application ID URI. Do not
+> publish or make a consumer call. If blocked, identify the concrete missing
+> prerequisite rather than ending at "Plugin selected."
+
+This is agent-directed continuation, not a native app event hook or automatic
+registration. Source updates do not resume an already stopped conversation.
 
 ## One shared authentication journey
 

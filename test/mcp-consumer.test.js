@@ -8,7 +8,7 @@ import { prepareMcpServer } from '../src/mcp-server.js';
 import { planMcpDiscovery } from '../src/mcp-discovery.js';
 import { boundedSnapshot, metadataDigest, savedJson } from '../src/anonymous-metadata.js';
 import { planConsumerBundle, writeConsumerBundle, readConsumerBundle, consumerNextSteps } from '../src/mcp-consumer.js';
-import { guidedOnboarding } from '../src/guided-onboarding.js';
+import { guidedOnboarding, continueConsumerSelection } from '../src/guided-onboarding.js';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
 const client = '22222222-2222-4222-8222-222222222222';
@@ -222,11 +222,53 @@ test('plugin cannot reuse a different SpecificApp identity', async t => {
   assert.deepEqual(f.calls, []);
 });
 test('machine next steps and CLI never implicitly enter a terminal workflow', () => {
-  assert.deepEqual(consumerNextSteps('private-workspace').choices.map(choice => choice.value), ['fcc', 'plugin', 'none']);
+  const next = consumerNextSteps('private-workspace');
+  assert.deepEqual(next.choices.map(choice => choice.value), ['fcc', 'plugin', 'none']);
+  assert.equal(next.commandRequiresTerminal, true);
+  assert.equal(next.appContinuation.selectionIsExecutionApproval, false);
+  assert.match(next.afterSelection.plugin, /Do not stop at selection/);
+  assert.match(next.afterSelection.fcc, /Do not stop at selection/);
+  assert.deepEqual(next.appContinuation.registration,
+    ['mcp-auth-execution-status', 'mcp-auth-execution-plan', 'mcp-auth-execute']);
+  assert.deepEqual(next.appContinuation.consumerExport, ['mcp-consumer-plan', 'mcp-consumer-bundle']);
   for (const [command, expected] of [['mcp-consumer-schema', 0], ['mcp-onboard-schema', 0], ['mcp-onboard', 1]]) {
     const result = spawnSync(process.execPath, [path.join(TOOLKIT_ROOT, 'bin', 'copilot-mcp.js'), command, '--json'],
       { encoding: 'utf8', timeout: 30000 });
     assert.equal(result.status, expected, result.stderr);
     assert.equal(typeof JSON.parse(result.stdout), 'object'); assert.equal(result.stderr, '');
   }
+});
+test('execution menu Plugin selection continues through reviewed registration and actual starter export', async t => {
+  const f = await fixture(t, { fresh: true }), p = prompt('plugin');
+  const questions = [], choose = p.choose;
+  p.choose = async (...args) => { questions.push(args[0]); return choose(...args); };
+  p.ask = async question => question.startsWith('Prepared') ? f.guided.config : f.guided.output;
+  const next = await continueConsumerSelection(p, { workspaceRoot: f.root }, { provider: f.provider });
+  assert.equal(next.selected, 'plugin');
+  assert.equal(next.status, 'consumer-draft-written-not-published');
+  assert.equal(next.incomplete, false); assert.equal(next.command, null);
+  assert.equal(questions.filter(value => value.startsWith('What would')).length, 1);
+  assert.equal(questions.filter(value => value.startsWith('Approve')).length, 7);
+  assert.deepEqual(f.calls, ['initialize', 'login', 'account', 'register', 'close']);
+  const manifest = JSON.parse(await readFile(path.join(next.result.outputPath, 'plugin', 'manifest.template.json')));
+  assert.equal(manifest.agentConnectors[0].toolSource.remoteMcpServer.authorization.referenceId, reference.registrationId);
+  assert.ok(next.artifacts.includes('plugin/tools/mcp-tools.json'));
+});
+test('execution menu respects None and declined FCC review without provider effects', async t => {
+  const f = await fixture(t, { fresh: true });
+  const none = await continueConsumerSelection(prompt('none'), { workspaceRoot: f.root }, { provider: f.provider });
+  assert.equal(none.selected, 'none'); assert.equal(none.incomplete, false);
+  assert.equal(none.result.writes, false);
+  const declined = await continueConsumerSelection(prompt('fcc', 1), f.guided, { provider: f.provider });
+  assert.equal(declined.incomplete, true); assert.equal(declined.result.writes, false);
+  assert.deepEqual(f.calls, []);
+  assert.ok(!(await readdir(f.root)).includes('onboarding'));
+});
+test('execution menu reports a missing plugin manifest as blocked, not completed onboarding', async t => {
+  const f = await fixture(t, { capture: false });
+  const result = await continueConsumerSelection(prompt('plugin'), f.guided, { provider: f.provider });
+  assert.equal(result.status, 'consumer-starter-blocked'); assert.equal(result.incomplete, true);
+  assert.ok(result.gaps.some(g => g.code === 'PLUGIN_AUTH_OR_TOOLS_MISSING'));
+  assert.ok(!result.artifacts.includes('plugin/manifest.template.json'));
+  assert.deepEqual(f.calls, []);
 });
