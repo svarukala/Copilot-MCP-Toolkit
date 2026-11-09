@@ -306,5 +306,7 @@ mcpDiscovery: {
 restAuthoring: {
       contractVersion: 1, commands: ['rest-tools-plan', 'rest-tools-write'],
       workspaceRoot: true, evidence: 'user-authored-openapi', cloudExecution: false, overwrite: false,
+      literalPaths: 'root-or-ASCII-segments-with-dotted-filenames-no-dot-leading-segments',
+      scalarBounds: { string: ['minLength', 'maxLength'], integer: ['minimum', 'maximum'] },
     }
 }; }

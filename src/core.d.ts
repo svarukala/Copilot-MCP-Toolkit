@@ -258,7 +258,8 @@ export const restAuthoringVersion: 1;
 
 export type RestToolArgument = {
   name: string; description: string; required: boolean; backendName?: string;
-} & ({ type: 'string'; default?: string } | { type: 'integer'; default?: number });
+} & ({ type: 'string'; default?: string; minLength?: number; maxLength?: number }
+  | { type: 'integer'; default?: number; minimum?: number; maximum?: number });
 
 export interface RestToolDefinition {
   title: string;
@@ -280,7 +281,8 @@ export interface PreparedRestToolDocument {
   operationIds: string[];
   operations: Array<{ operationId: string; toolName: string; method: 'GET'; path: string;
     parameters: Array<{ name: string; in: 'query'; description: string; required: boolean;
-      schema: { type: 'string' | 'integer'; default?: string | number } }>;
+      schema: { type: 'string'; default?: string; minLength?: number; maxLength?: number }
+        | { type: 'integer'; default?: number; minimum?: number; maximum?: number } }>;
     backendMapping: { path: string; query: Record<string, string | number>; parameterNames: Record<string, string> } }>;
   limitations: string[];
 }

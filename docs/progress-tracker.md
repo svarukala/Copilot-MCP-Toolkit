@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-26.
+Last updated: 2026-11-02.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,72 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### REST authoring compatibility
+
+The approved offline correction admits literal dotted backend filenames,
+retains typed string-length/integer-range bounds through OpenAPI and APIM
+query guards, and honors an explicit private authoring workspace. Default
+workspace Windows ambiguity and symlink/junction protection is preserved.
+Synthetic five-tool coverage selects the intended current-weather tool
+explicitly rather than relying on sorted operation order. Historical
+authoring/proof identifiers and one-use approval semantics are unchanged.
+
+This is local engineering, not Azure deployment, provider entitlement,
+authenticated discovery, consumer registration or publication. Initial
+targeted execution had two regression failures: sorted synthetic-tool selection
+and default-workspace Windows path validation; both received focused corrections.
+The initial three-file run passed **293/295**; it is not reported as an all-green
+run. After those corrections, complete authoring/compatibility checks passed
+**21/21**, and the explicit synthetic five-tool native proof passed **1/1**.
+Syntax and strict public types passed. The full native file and full repository
+suite were not rerun after the corrections.
+
+### Native REST pilot deployment
+
+A private five-tool native APIM pilot completed foundation/finalize checks,
+deny-first staging, secret-scoped access, gateway deployment, owned-resource
+readback and shared-policy/unrelated-API preservation checks. Existing APIM,
+vault, network and system identity configuration were reused without replacement.
+Dedicated resource/discovery apps and home-tenant service principals were
+configured and read back. Anonymous requests to both owned routes returned 401.
+
+The owner explicitly accepted residual privileged-debug-trace/intermediary
+logging risks for the limited pilot; query masking is not reported as complete
+logging assurance. The immutable descriptor remains generation evidence;
+deployment is recorded separately in private lifecycle history. Authenticated
+discovery initially timed out during caller authentication without a capture.
+A separately approved expected-user metadata-only attempt subsequently captured
+all five tools. The earlier failure remains retained. No provider proof has been
+dispatched. Business correctness and consumer acceptance remain unestablished.
+Supported local SSO preparation and a clearly labeled locally authored native
+HTML handover were saved privately. A separately approved private Windows
+consumer setup subsequently created a draft Teams app and one secretless
+HomeTenant/SpecificApp SSO registration through the guarded ATK executor.
+The result remains `created-unverified`; expected-account portal settings
+and scope verification are still pending. Exact additive resource-app and
+owned-policy consumer-access changes were read back, preserving the original
+Graph readback failure and separate reconciliation without replaying its PATCH.
+
+The private WIQD project has two authored skills, original icons and the actual
+OAuthPluginVault reference. A private ZIP now includes unchanged genuine observed
+metadata through the correct package-relative `mcpToolDescription.file`.
+WIQD static validation and exact six-file archive/identity/content checks passed.
+APIM's observed schemas omit string-length/range keywords: an initial local
+packager check stopped before writes, then the corrected helper recorded those
+omissions without synthesizing schema fields or repeating discovery.
+Static/archive success does not establish server-side deep validation or
+consumer runtime acceptance. Owner-supplied legal pages are explicit placeholders.
+The owner's first Cowork sideload reported a Microsoft-platform auth-configuration
+lookup 404, before MCP endpoint access. The owner subsequently reported changing
+the existing registration's app restriction and adding the short permission
+name; the screenshot still lacks the required fully qualified portal scope.
+That scope correction and post-change connection remain unverified. No agent
+registration mutation, replacement, app extension or publication was performed.
+No install, publication or native toolkit HTML-generator capability is implied.
+Unused local publication
+scaffolding was disabled; none of this adds an automatic toolkit/WIQD adapter.
+Private identities, generated projects and live evidence are not stored here.
 
 ### Stabilized runner workflow and final regression
 

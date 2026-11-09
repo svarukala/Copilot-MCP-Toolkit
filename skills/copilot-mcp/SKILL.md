@@ -187,6 +187,12 @@ Start with the user's intent: a new setup or resuming an existing private projec
 For New, ask source type (REST API or existing MCP) and then source authentication.
 For REST, a fixed query-free GET can be described without an existing OpenAPI
 file; otherwise collect local OpenAPI 3.0.x JSON and explicit operation IDs.
+`rest-tools-*` can author literal dotted filenames such as `/v1/record.json`,
+string `minLength`/`maxLength` and integer `minimum`/`maximum`. Preserve these
+bounds in the OpenAPI and APIM mapping; do not turn a bounded date string into a
+claim of date-format validation or provider coverage. Dot-leading segments,
+traversal, alternate origins and dynamic routes remain rejected. Use the explicit
+private workspace for both authoring input and new output.
 Collect only scenario-relevant metadata, keeping backend authentication separate
 from caller authentication. For anonymous REST, explicitly ask Entra (default)
 or public anonymous APIM. Public accepts only fixed parameter-free GETs and
