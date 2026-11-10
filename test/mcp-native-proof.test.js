@@ -44,6 +44,8 @@ import { prepareDelegatedFixture, createDelegatedFixture } from '../src/mcp-dele
 
 import { managedIdentityRequests } from '../src/apim-managed-identity.js';
 
+import { prepareRestToolDocument } from '../src/rest-authoring.js';
+
 import { planMcpAuthRejection, executeMcpAuthRejection, readMcpAuthRejections } from '../src/mcp-auth-rejection.js';
 
 const baseline = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'catalog.json'), 'utf8'));
@@ -85,7 +87,9 @@ async function fixture(t, changeInput = () => {}, proofOptions = {}) {
   await selectMockAzureIdentity(dir, input.azure);
   const cfg = mcpRuntimeConfig(input), apiId = review.descriptor.ownership.apiId;
   const template = JSON.parse(review.files['infra/gateway.json']);
-  const map = JSON.parse(review.files['infra/operation-map.json']).server[0];
+  const mappings = JSON.parse(review.files['infra/operation-map.json']).server;
+  const map = proofOptions.toolName ? mappings.find(item => item.displayName === proofOptions.toolName) : mappings[0];
+  assert.ok(map);
   const tool = { name: map.displayName, description: map.description,
     inputSchema: proofOptions.schema ?? { additionalProperties: false, properties: {}, required: [], type: 'object' } };
   const tools = { tools: [tool] };
@@ -1224,6 +1228,50 @@ test('mapped API-key generic scalar GET retains other tools and does not imply b
   assert.equal(Object.hasOwn(result.result, 'backendAssertion'), false);
   assert.equal(result.result.businessCorrectnessVerified, false);
   assert.equal(f.dependencies.calls.filter(method => method === 'tools/call').length, 1);
+});
+
+test('five authored dotted-path tools retain schemas and qualify one bounded current query proof offline', async t => {
+  const names = ['get_current_weather', 'search_locations', 'get_forecast', 'get_astronomy', 'get_timezone'];
+  const paths = ['current', 'search', 'forecast', 'astronomy', 'timezone'];
+  const q = { type: 'string', minLength: 1, maxLength: 256 };
+  const authored = prepareRestToolDocument({ title: 'Synthetic weather fixture', apiKeyQueryParameter: 'key',
+    tools: names.map((name, index) => ({ name, description: `Read synthetic ${paths[index]} data.`,
+      backendPath: `/v1/${paths[index]}.json`, fixedQuery: {},
+      arguments: [{ name: 'q', description: 'Explicit location.', required: true, ...q },
+        ...(name === 'get_forecast' ? [{ name: 'days', description: 'Days including today.',
+          type: 'integer', required: true, minimum: 1, maximum: 3 }] : [])] })) });
+  const f = await mappedKeyFixture(t, input => {
+    input.backend.endpoint = 'https://weather.example.com';
+    input.document = authored.document;
+    input.operationIds = authored.operationIds;
+  }, { toolName: 'get_current_weather', schema: { type: 'object', additionalProperties: false, properties: { q }, required: ['q'] },
+    arguments: { q: 'London' }, responseAssertion: undefined });
+  assert.equal(f.tool.name, 'get_current_weather');
+  const map = JSON.parse(f.review.files['infra/operation-map.json']).server;
+  assert.deepEqual(map.map(tool => tool.displayName).sort(), [...names].sort());
+  for (const item of map.filter(item => item.displayName !== f.tool.name)) {
+    const operation = authored.operations.find(op => op.operationId === item.originalOperationId);
+    f.tools.tools.push({ name: item.displayName, description: item.description,
+      inputSchema: { type: 'object', additionalProperties: false,
+        properties: Object.fromEntries(operation.parameters.map(p => [p.name, p.schema])),
+        required: operation.parameters.filter(p => p.required).map(p => p.name) } });
+  }
+  replaceCaptureTools(f, f.tools);
+  f.outputs.get(f.operationPath).properties = { method: 'GET', urlTemplate: '/tools/get_current_weather', templateParameters: [],
+    request: { queryParameters: [{ name: 'q', type: 'string', required: true }], headers: [], representations: [] } };
+  for (const value of ['', 'x'.repeat(257), 'London&key=other']) {
+    await assert.rejects(planMcpProjectProof(f.dir, { ...f.selection, arguments: { q: value } }),
+      { code: 'PROOF_ARGUMENTS_INVALID' });
+  }
+  const review = await planMcpProjectProof(f.dir, f.selection);
+  assert.equal(review.operation.capture.tools.tools.length, 5);
+  assert.equal(review.operation.nativeGetMapping.backendMapping.path, '/v1/current.json');
+  assert.deepEqual(review.operation.nativeGetMapping.backendQuery, { q: 'London' });
+  const result = await execute(f, review);
+  assert.equal(result.result.status, 'protocol-success');
+  assert.equal(result.result.businessCorrectnessVerified, false);
+  assert.equal(f.dependencies.calls.filter(method => method === 'tools/call').length, 1);
+  await assert.rejects(execute(f, review), { code: 'PROOF_REPLAY_BLOCKED' });
 });
 
 test('mapped API-key query normalization rejects ambiguous ARM representations', async t => {

@@ -56,6 +56,15 @@ async function recoveredImageConsumer(options: import('copilot-mcp-toolkit').Rec
   return { kind, status, schema: await api.getRecoveredImageSchema() };
 }
 void recoveredImageConsumer;
+prepareRestToolDocument({ title: 'Synthetic bounded selectors', tools: [{
+  name: 'read_record', description: 'Read a synthetic record.', backendPath: '/v1/record.json', fixedQuery: {},
+  arguments: [
+    { name: 'q', description: 'Explicit selector.', type: 'string', required: true, minLength: 1, maxLength: 256 },
+    { name: 'days', description: 'Bounded days.', type: 'integer', required: true, minimum: 1, maximum: 3 },
+    // @ts-expect-error Integer bounds cannot be supplied for a string argument.
+    { name: 'invalid', description: 'Wrong scalar bound.', type: 'string', required: true, minimum: 1 },
+  ],
+}] });
 void compareRestCapture;
 void McpToolkitError;
 

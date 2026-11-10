@@ -100,8 +100,16 @@ not imply those operations qualify for read-only runtime proof.
 
 `rest-tools-*` authors a narrower GET/query subset: literal backend paths, fixed
 query values, inline string/integer scalar arguments and documented constraints.
+Its authoring input supports string `minLength`/`maxLength` and integer
+`minimum`/`maximum`, including validation of constrained defaults. Literal
+filenames may contain dots; dot-leading path segments and traversal remain
+unsupported. Both default and explicit-workspace authoring reject Windows
+ambiguous paths and symlink/junction aliases.
 It supports bounded defaults/enums/ranges and a deliberately small anchored ASCII
 pattern/literal-choice language. It is not general JSON Schema or regex translation.
+Enums and patterns belong to the lower-level OpenAPI mapping compiler, not the
+`rest-tools-*` argument input. Date formats and provider-specific date coverage
+are not inferred from length bounds.
 `x-cowork-backend` remains the historical mapping annotation; its spelling has
 contract significance and does not require Cowork.
 
