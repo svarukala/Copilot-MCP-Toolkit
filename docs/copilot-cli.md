@@ -112,8 +112,10 @@ filename. See the [recipe preparation guide](hosting-recipes.md#preparing-a-reci
 The wizard points to the matching example and
 validates that the file matches your selected host. All four recipes support
 Entra caller sign-in and fixed-path, explicitly reviewed read-only GETs, with an
-anonymous or Key Vault API-key backend. They do not inherit APIM's broader
-authentication or operation choices. See [hosting recipes](hosting-recipes.md)
+anonymous or Key Vault API-key backend. Direct/gateway ACA additionally accepts
+prepared explicit [OAuth/OBO pilot](backend-oauth.md) recipes with parameter-free
+GETs; the wizard does not author those auth settings field by field. Hosts do
+not inherit APIM's broader authentication or operation choices. See [hosting recipes](hosting-recipes.md)
 for required existing infrastructure, permissions and container build pins.
 Declared inline query arguments and date-range rules can be supplied in the
 recipe; see [query arguments](hosting-recipes.md#query-arguments-and-date-ranges).
@@ -123,9 +125,12 @@ No key value or authentication cache is imported.
 Before the setup choices, the wizard explains **REST API security separately
 from MCP caller sign-in**. Native APIM supports no auth, Key Vault API keys and
 limited Entra passthrough/managed-identity modes. The four generated hosting
-profiles support only no auth or API keys for the REST API, even when Container
-Apps sits behind APIM; their Entra settings protect the MCP endpoint itself.
-Third-party OAuth and Basic authentication for REST are unsupported.
+profiles share no-auth/API-key REST support; their Entra caller settings protect
+the MCP endpoint, not the backend. ACA-only OAuth/OBO pilots require their own
+explicit backend configuration, whether direct or behind APIM. App Service and
+Functions reject those pilots. Basic/username-password REST authentication is
+not implemented. Pilot hosting is separately reviewed and manual, not supported
+by the bounded execution/host-execution runners.
 See the [security matrix](hosting-recipes.md#rest-api-security-versus-mcp-caller-sign-in).
 
 After you choose a new source directory, the wizard shows the full configuration,
@@ -136,7 +141,8 @@ install dependencies, build images, deploy, test or export an HTML report.
 A changed recipe or existing destination is rejected rather than silently
 adopted or overwritten. Functions is explicitly marked preview.
 
-Third-party OAuth for REST is labeled unsupported and exits without writing.
+The native APIM REST choice labels third-party OAuth unsupported on that route
+and exits without writing, pointing to the separate ACA pilot guide.
 Existing OAuth MCP references do not implement provider login, discovery or
 runtime proof. Experimental proxy v3 remains an explicit advanced-definition
 opt-in, not an automatic fallback.

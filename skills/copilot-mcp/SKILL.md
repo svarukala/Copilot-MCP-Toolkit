@@ -310,8 +310,11 @@ requires public-data/read-only declarations plus aggregate rate limits. Use
 Do not ask for resource app IDs, scopes, caller allowlists or a discovery client
 for that choice; explicit Azure tenant/subscription/account is still required
 for management, and public MCP discovery selection is `{}`. API-key sources use Key Vault references;
-generic third-party REST OAuth is unsupported and existing OAuth MCP is
-reference-only. Do not silently choose experimental proxy v3.
+native APIM does not implement third-party REST OAuth. Direct/gateway ACA has
+separate explicit OAuth/OBO pilots: read `docs/backend-oauth.md`, preserve their
+parameter-free GET and manual-hosting boundaries, and do not silently change the
+user's host or operations to fit them. Existing OAuth MCP remains reference-only.
+Do not silently choose experimental proxy v3.
 
 The human terminal CLI now has a New / Resume / Advanced wizard with explicit
 local-generation confirmation. Do not run its interactive prompts inside a

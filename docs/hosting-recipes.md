@@ -77,19 +77,30 @@ There are two separate connections: **client -> MCP endpoint** and
 **MCP implementation -> your REST API**. Entra caller sign-in does not make
 Entra or arbitrary OAuth authentication to the REST API available.
 
-| REST API security | Native REST-to-MCP in APIM | Generated Container Apps / App Service / Functions |
-| --- | --- | --- |
-| No authentication | Supported | Supported: `backend.auth: "anonymous"` |
-| API key in a header or query parameter | Supported through a Key Vault reference | Supported: `backend.auth: "api-key"` with Key Vault and a dedicated managed identity |
-| Microsoft Entra user/delegated token | Limited same-resource/audience passthrough; no token exchange or on-behalf-of (OBO) flow | Not supported |
-| Microsoft Entra application access | Existing APIM system-assigned identity with the exact backend application-role assignment | Not supported |
-| Third-party OAuth | Not supported for REST backends | Not supported |
-| Username/password or Basic authentication | Not supported by this setup | Not supported |
+| REST API security | Native REST-to-MCP in APIM | Generated ACA, direct or behind APIM | Generated App Service / Functions |
+| --- | --- | --- | --- |
+| No authentication | Supported | `backend.auth: "anonymous"` | `backend.auth: "anonymous"` |
+| API key in a header or query parameter | Supported through a Key Vault reference | `backend.auth: "api-key"` with Key Vault and a dedicated managed identity | Same Key Vault API-key profile |
+| Microsoft Entra user/delegated access | Limited same-resource/audience passthrough; no token exchange or OBO | Explicit same-tenant `entra-obo-v1` pilot; not generic passthrough | Not supported |
+| Microsoft Entra application access through managed identity | Existing APIM system-assigned identity with the exact backend application-role assignment | No managed-identity backend token profile; OAuth client credentials are a separate pilot | Not supported |
+| OAuth application/client credentials | Not supported for REST backends | Explicit `oauth-client-credentials-v1` pilot | Not supported |
+| OAuth per-user authorization code + PKCE | Not supported for REST backends | Explicit `oauth-authorization-code-v1` pilot; memory-only single-process connections | Not supported |
+| Username/password or Basic authentication to the REST API | Not supported | Design-only, not implemented | Not supported |
 
 **All four generated hosting recipes require Entra caller sign-in**, configured
 in `authentication`. Their narrower REST backend options are in `backend`.
-Putting the generated Container Apps server behind APIM does **not** add Entra
-or OAuth backend support.
+Putting the generated Container Apps server behind APIM does **not** add an
+authentication profile: the ACA runtime implements the same explicitly selected
+backend profiles with or without the gateway.
+
+The [OAuth/OBO pilots](backend-oauth.md) accept only parameter-free fixed GETs,
+with separately reviewed Key Vault client-secret or certificate references.
+OAuth client authentication is not username/password authentication to the REST
+API. These pilots do not establish compatibility with arbitrary providers.
+The v3 `mcp-validation-*` journey supports their separate owner checkpoints;
+`mcp-execution-*` and `mcp-host-execution-*` reject them before effects.
+Pilot hosting remains a separately reviewed manual operation. Anonymous/API-key
+profiles retain bounded query-argument support on all four generated hosts.
 
 The default examples use no backend authentication. For an API-key backend,
 start from the matching `*-api-key.json` example instead. Supply only the Key
@@ -569,7 +580,8 @@ Username/password, arbitrary routing and write tools remain unsupported.
 
 ## Query arguments and date ranges
 
-All four hosts use the shared parameter-aware runtime. Existing recipes without
+All four hosts use the shared parameter-aware runtime for anonymous/API-key
+backends; ACA OAuth/OBO pilots remain parameter-free. Existing recipes without
 parameters keep their empty tool input schema. For parameterized GETs, declare
 inline **operation-level** OpenAPI `parameters` with `in: "query"`. The backend
 origin and literal path remain fixed; the runtime URL-encodes validated values.
@@ -837,7 +849,9 @@ node .\bin\copilot-mcp.js mcp-hosting-create --workspace-root C:\McpProjects `
 Use the installed `copilot-mcp` command in place of `node .\bin\copilot-mcp.js`
 if installed. The commands below use that shorter form.
 The original `mcp-container-apps-*` commands intentionally remain recipe-1-only.
-These source projects are not part of the terminal wizard or APIM Resume flow.
+The terminal wizard accepts prepared hosting recipe files and reviews local
+generation; it does not author OAuth/OBO settings field by field. Hosting source
+projects are not APIM connection projects and do not use the APIM Resume flow.
 Source generation cannot log in, install dependencies or change Azure.
 
 ## Source, release and endpoint are different things
