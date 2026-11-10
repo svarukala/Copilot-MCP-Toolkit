@@ -4,6 +4,8 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema, McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { oauthProfiles, oauthSettingsSchema, validateOAuthSettings, createBackendAuthorization } from './backend-auth.js';
+import { createAuthPortal } from './auth-portal.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
@@ -150,7 +152,7 @@ export function validateApiKeyPlacement(value) {
   }
 }
 export const runtimeSchema = object({
-  schemaVersion: { const: 1 },
+  schemaVersion: { enum: [1, 2] },
   name: text(100),
   authentication: object({
     tenantId: uuid, audience: uuid, scope: { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9_.-]{0,119}$' },
@@ -174,10 +176,10 @@ runtimeSchema.properties.gateway = object({
   tenantId: uuid, audience: uuid, principalId: uuid, role: { const: 'Mcp.Gateway' },
   publicUrl: { type: 'string', pattern: '^https://[a-z][a-z0-9-]+\\.azure-api\\.net/[a-z][a-z0-9-]+/mcp$' },
 });
-runtimeSchema.properties.backendAuthentication = {
+runtimeSchema.properties.backendAuthentication = { oneOf: [{
   type: 'object', additionalProperties: false, required: ['type'],
   properties: { type: { const: 'api-key' }, ...apiKeyPlacementProperties }, oneOf: apiKeyPlacementChoice,
-};
+}, ...oauthProfiles.map(type => object({ type: { const: type }, settings: oauthSettingsSchema }))] };
 const ajv = new Ajv();
 addFormats(ajv);
 const validate = ajv.compile(runtimeSchema);
@@ -197,7 +199,13 @@ export function validateRuntimeConfig(value) {
   if (!validate(config)) throw new Error('Invalid runtime configuration.');
   config.authentication = canonicalCaller(config.authentication);
   if (config.gateway) config.gateway = canonicalGateway(config.gateway);
-  if (config.backendAuthentication) validateApiKeyPlacement(config.backendAuthentication);
+  const oauth = oauthProfiles.includes(config.backendAuthentication?.type);
+  if (config.schemaVersion !== (oauth ? 2 : 1)) throw new Error('Authentication profile requires its exact runtime version.');
+  if (oauth) validateOAuthSettings(config.backendAuthentication.type, config.backendAuthentication.settings, config.authentication);
+  else if (config.backendAuthentication) validateApiKeyPlacement(config.backendAuthentication);
+  if (oauth && config.tools.some(tool => tool.queryParameters?.length || tool.dateRange)) {
+    throw new Error('OAuth/OBO pilot operations remain parameter-free fixed GETs.');
+  }
   if (config.gateway && (config.gateway.tenantId !== config.authentication.tenantId
     || config.gateway.audience === config.authentication.audience)) throw new Error('Invalid independent gateway authentication.');
   const application = new URL(config.authentication.applicationIdUri);
@@ -288,7 +296,7 @@ async function readBounded(stream, maximum) {
 }
 
 export function resolveBackendCredential(config, env) {
-  if (!config.backendAuthentication) return undefined;
+  if (config.backendAuthentication?.type !== 'api-key') return undefined;
   const credential = env[backendCredentialEnvironment];
   if (typeof credential !== 'string' || !/^[\x21-\x7e]{1,4096}$/.test(credential)
     || /@Microsoft\.KeyVault|keyvaultref:|identityref:|https?:\/\/|[<>]/i.test(credential)) {
@@ -319,7 +327,7 @@ function reflectsCredential(content, parsed, credential) {
   return false;
 }
 
-export function createProtocolServer(value, { request = fetch, signal, env = process.env,
+export function createProtocolServer(value, { request = fetch, signal, env = process.env, caller, backendAuthorization,
   log = event => process.stderr.write(`${JSON.stringify(event)}\n`) } = {}) {
   const config = validateRuntimeConfig(value);
   const credential = resolveBackendCredential(config, env);
@@ -336,6 +344,7 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
     }
     let failureKind = 'request';
     let httpStatus, timeout, requestSignal;
+    let backendDispatched = false;
     try {
       const url = new URL(`${config.backendOrigin}${tool.path}`);
       for (const [name, value] of Object.entries(args)) url.searchParams.set(name, String(value));
@@ -346,13 +355,21 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
         else url.searchParams.set(auth.queryParameterName, credential);
       }
       if (url.href.length > 24576) throw new Error('Backend URL exceeds the limit.');
+      let access;
+      if (config.schemaVersion === 2) {
+        if (!backendAuthorization) throw Object.assign(new Error('Backend authorization context is missing.'), { code: 'AUTH_CONTEXT_REQUIRED' });
+        access = await backendAuthorization.authorize(caller, signal);
+        headers.authorization = `Bearer ${access}`;
+      }
       timeout = AbortSignal.timeout(10000);
       requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+      backendDispatched = true;
       const response = await request(url.href, {
         method: 'GET', redirect: 'error', headers,
         signal: requestSignal,
       });
       if (Number.isInteger(response.status) && response.status >= 100 && response.status <= 599) httpStatus = response.status;
+      if (response.status === 401 && backendAuthorization) backendAuthorization.reject(caller);
       if (!response.ok || response.redirected || !/^application\/(?:[a-z0-9.+-]+\+)?json(?:;|$)/i.test(response.headers.get('content-type') ?? '')) {
         failureKind = response.redirected ? 'redirect' : !response.ok ? 'http-status' : 'content-type';
         await response.body?.cancel();
@@ -370,7 +387,8 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
       failureKind = 'invalid-json';
       const parsed = JSON.parse(content);
       failureKind = 'credential-reflection';
-      if (credential !== undefined && reflectsCredential(content, parsed, credential)) {
+      const secrets = [credential, access, ...(backendAuthorization?.client.sensitive ?? [])].filter(Boolean);
+      if (secrets.some(secret => reflectsCredential(content, parsed, secret))) {
         throw new Error('Backend response contains credential material.');
       }
       return { content: [{ type: 'text', text: content }] };
@@ -380,10 +398,13 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
       } else if (failureKind === 'response-read' && error?.code === 'PAYLOAD_TOO_LARGE') {
         failureKind = 'response-too-large';
       }
-      log({ event: 'backend-call-failed', tool: tool.name, failureKind,
-        ...(httpStatus === undefined ? {} : { httpStatus }) });
+      log({ event: !backendDispatched && config.schemaVersion === 2 ? 'backend-authorization-failed' : 'backend-call-failed',
+        tool: tool.name, failureKind, ...(httpStatus === undefined ? {} : { httpStatus }),
+        ...(config.schemaVersion === 2 ? { code: /^AUTH_[A-Z_]+$/.test(error.code ?? '') ? error.code : 'BACKEND_CALL_FAILED' } : {}) });
       return { isError: true, content: [{ type: 'text',
-        text: 'The backend call failed or returned an unsupported response. No retry was performed; execution may have occurred.' }] };
+        text: !backendDispatched && config.schemaVersion === 2
+          ? 'Backend authorization failed before REST dispatch. Explicit connection or owner recovery may be required; no retry was performed.'
+          : 'The backend call failed or returned an unsupported response. No retry was performed; execution may have occurred.' }] };
     }
   });
   return server;
@@ -421,6 +442,12 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
   const verifyGateway = config.gateway ? dependencies.verifyGateway ?? createGatewayVerifier(config.gateway) : undefined;
   const advertised = config.gateway ? new URL(config.gateway.publicUrl) : endpoint;
   const metadataUrl = new URL('.well-known/oauth-protected-resource', advertised.href.replace(/mcp$/, '')).href;
+  const backendAuthorization = config.schemaVersion === 2 ? createBackendAuthorization(config, dependencies) : undefined;
+  const portalSettings = config.backendAuthentication?.settings?.portal;
+  if (portalSettings && `${portalSettings.publicBaseUrl}/mcp` !== advertised.href) {
+    throw new Error('Connection callbacks must match the exact advertised MCP endpoint.');
+  }
+  const portal = portalSettings ? createAuthPortal(config, backendAuthorization, { ...dependencies, verify, log }) : undefined;
   let windowStart = performance.now(), count = 0, active = 0;
   return async (req, res) => {
     const send = (status, error, headers = {}) => {
@@ -442,8 +469,9 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
           scopes_supported: [`${config.authentication.applicationIdUri}/${config.authentication.scope}`], bearer_methods_supported: ['header'] }));
         return;
       }
-      if (req.url !== '/mcp') { send(404, 'Not found.'); return; }
-      if (req.method !== 'POST') { send(405, 'This stateless server supports POST only.', { allow: 'POST' }); return; }
+      const authRoute = portal && /^\/auth(?:[/?]|$)/.test(req.url);
+      if (req.url !== '/mcp' && !authRoute) { send(404, 'Not found.'); return; }
+      if (!authRoute && req.method !== 'POST') { send(405, 'This stateless server supports POST only.', { allow: 'POST' }); return; }
       if (performance.now() - windowStart >= 60000) { windowStart = performance.now(); count = 0; }
       if (++count > config.requestsPerMinute || active >= 20) {
         send(429, 'Request limit reached.', { 'retry-after': '60' }); return;
@@ -462,12 +490,17 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
             send(rejected ? 403 : 503, rejected ? 'Gateway identity is not permitted.' : 'Gateway validation is unavailable.'); return;
           }
         }
+        if (authRoute) {
+          if (!await portal(req, res)) send(404, 'Not found.');
+          return;
+        }
         const challenge = { 'www-authenticate': `Bearer resource_metadata="${metadataUrl}"` };
         const authorization = req.headers.authorization;
         if (typeof authorization !== 'string' || authorization.length > 16384 || !/^Bearer [A-Za-z0-9._-]+$/.test(authorization)) {
           send(401, 'A valid delegated Entra access token is required.', challenge); return;
         }
-        try { await verify(authorization.slice(7)); }
+        let caller;
+        try { caller = await verify(authorization.slice(7)); }
         catch (error) {
           const forbidden = error.code === 'CALLER_FORBIDDEN';
           const invalid = tokenErrors.has(error.code);
@@ -485,6 +518,8 @@ export function createRequestHandler(value, publicUrl, dependencies = {}) {
         if (!body || Array.isArray(body) || typeof body !== 'object') { send(400, 'Use one JSON-RPC object, not a batch.'); return; }
         const controller = new AbortController();
         const server = createProtocolServer(config, { ...dependencies, log, signal: controller.signal,
+          caller: caller ? { ...caller, ...(config.backendAuthentication?.type === 'entra-obo-v1'
+            ? { assertion: authorization.slice(7) } : {}) } : undefined, backendAuthorization,
           env: { [backendCredentialEnvironment]: credential } });
         const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
         res.once('close', () => {

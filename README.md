@@ -280,6 +280,7 @@ selected values for your environment.
 | Azure Functions | SDK custom handler on Linux Flex Consumption, with managed-identity storage. **Public preview.** [Recipe 4](docs/functions-recipe.md). |
 | Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
 | Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
+| OAuth/OBO REST backends on ACA | Explicit application OAuth, hosted user PKCE and same-tenant OBO runtime pilots on direct/gateway ACA. Key Vault secret/certificate references; memory-only user connections. [Contracts and limits](docs/backend-oauth.md). Not named-provider/live qualification. |
 | Username/password MCP | Backlog only; not implemented. |
 | Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
 | Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |

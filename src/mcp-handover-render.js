@@ -128,7 +128,7 @@ export const handoverUiScript = `(() => {
 })();`;
 
 export function handoverArchitecture(input) {
-  const gateway = Boolean(input.azure.gateway), key = Boolean(input.backend.apiKey);
+  const gateway = Boolean(input.azure.gateway), key = Boolean(input.backend.apiKey), oauth = Boolean(input.backend.oauth);
   const host = input.recipe === 'functions-sdk-v1' ? 'Functions SDK (preview)'
     : input.recipe === 'app-service-container-v1' ? 'App Service container' : 'Container Apps';
   const nodes = [
@@ -138,15 +138,16 @@ export function handoverArchitecture(input) {
     { id: 'backend', x: 800, y: 160, label: 'REST backend' },
     { id: 'entra', x: 380, y: 20, label: 'Microsoft Entra ID' },
     { id: 'supply', x: 140, y: 320, label: input.azure.storage ? 'Storage + identity' : 'ACR + pull identity' },
-    ...(key ? [{ id: 'vault', x: 650, y: 320, label: 'Key Vault + identity' }] : []),
+    ...(key || oauth ? [{ id: 'vault', x: 650, y: 320, label: 'Key Vault + identity' }] : []),
   ].map(node => ({ ...node, width: 190, height: 80 }));
   const edges = [
     { id: 'call', from: 'caller', to: gateway ? 'gateway' : 'host', label: 'Delegated token', axis: 'horizontal' },
     ...(gateway ? [{ id: 'gateway-call', from: 'gateway', to: 'host', label: 'Caller + gateway tokens', axis: 'horizontal' }] : []),
-    { id: 'backend-call', from: 'host', to: 'backend', label: key ? `API key (${input.backend.apiKey.headerName ? 'header' : 'query'})` : 'Anonymous GET', axis: 'horizontal' },
+    { id: 'backend-call', from: 'host', to: 'backend', label: key ? `API key (${input.backend.apiKey.headerName ? 'header' : 'query'})`
+      : oauth ? 'Backend access token' : 'Anonymous GET', axis: 'horizontal' },
     { id: 'auth', from: 'entra', to: 'host', label: 'JWT validation', axis: 'vertical' },
     { id: 'supply-link', from: 'supply', to: 'host', label: 'Platform prerequisite', axis: 'up' },
-    ...(key ? [{ id: 'secret', from: 'vault', to: 'host', label: 'Startup secret reference', axis: 'up' }] : []),
+    ...(key || oauth ? [{ id: 'secret', from: 'vault', to: 'host', label: 'Startup secret reference', axis: 'up' }] : []),
   ].map(edge => {
     const a = nodes.find(n => n.id === edge.from), b = nodes.find(n => n.id === edge.to);
     const start = edge.axis === 'horizontal' ? [a.x + a.width, a.y + 40]

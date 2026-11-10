@@ -53,7 +53,8 @@ const valid = ajv.compile(hostExecutionSchema);
 const api = '/v1.44';
 const appVersion = '2025-01-01', apimVersion = '2024-05-01';
 export const buildFiles = Object.freeze(['Dockerfile', '.dockerignore', '.npmrc', 'package.json', 'package-lock.json',
-  'runtime-config.json', 'server.js', 'runtime.js', 'build-runtime.mjs', 'LICENSE', 'THIRD-PARTY-NOTICES.md']);
+  'runtime-config.json', 'server.js', 'runtime.js', 'build-runtime.mjs', 'LICENSE', 'THIRD-PARTY-NOTICES.md',
+  'backend-auth.js', 'auth-portal.js']);
 const database = 'ghcr.io/aquasecurity/trivy-db:2';
 const javaDatabase = 'ghcr.io/aquasecurity/trivy-java-db:1';
 const healthPolicy = Object.freeze({ method: 'GET', route: '/health', target: 'Exact approved app origin verified against readback.',
@@ -123,6 +124,7 @@ export function resourceTargets(source) {
 async function prepare(options) {
   const source = await readRecipeProject(options.project);
   requireHost(['container-apps-direct-v1', 'container-apps-apim-v1'].includes(source.input.recipe)
+    && source.runtime.schemaVersion === 1
     && source.input.imageBuild && source.files.Dockerfile, 'HOST_EXECUTION_RECIPE_UNSUPPORTED');
   const configPath = await assertProjectPath(path.resolve(options.config));
   const input = await readControl(configPath);
@@ -329,7 +331,10 @@ export const runRecoveredImageHost = (options, dependencies, continuation) =>
   runHostEngine(options, dependencies, { ...continuation, kind: 'recovered-build' });
 
 export function buildImageEvidenceDigest(source, imageId, context) {
-  const body = context ?? executionTar(Object.fromEntries(buildFiles.map(name => [name, source.files[name]])));
+  // Pre-OAuth evidence used the original ordered archive; inspecting it grants no new build authority.
+  const names = source.files['backend-auth.js'] === undefined && source.files['auth-portal.js'] === undefined
+    ? buildFiles.filter(name => !['backend-auth.js', 'auth-portal.js'].includes(name)) : buildFiles;
+  const body = context ?? executionTar(Object.fromEntries(names.map(name => [name, source.files[name]])));
   return digest({ contextDigest: bytesDigest(body), imageId,
     sourceManifestDigest: source.manifest.contentDigest, build: source.input.imageBuild });
 }

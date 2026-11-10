@@ -126,6 +126,11 @@ async function prepareRelease(options) {
         'Inspect the exact Key Vault resource/secret reference and dedicated identity in the selected tenant/subscription. Confirm pre-existing least-privilege secret Get access without resolving/exporting the secret.',
         'Review shared backend entitlement and safe header/query logging; verify platform reference resolution and restart/rotation behavior separately. Never weaken caller/gateway authentication or grant roles implicitly.',
       ] : []),
+      ...(project.input.backend.oauth ? [
+        'Inspect the exact versioned backend/portal Key Vault references and dedicated identity. Never resolve credentials into toolkit evidence.',
+        'Review client/certificate registration, exact consent and callback URLs, token expiry/rotation/revocation and diagnostic suppression. No automatic retry.',
+        'Per-user OAuth is a single-process/single-active-revision memory-only pilot. Confirm one replica, reconnect after restart and gateway auth-route bypass rejection.',
+      ] : []),
       'Confirm every newly created resource name is absent. ARM can overwrite resources; these files are not a concurrency/no-overwrite guard.',
       'Review the source, dependencies, base image and final artifact. An image digest does not prove it was built from this source.',
       'Review the selected npmRegistryUrl and sealed .npmrc/lock URLs before any install or remote build. Use no ambient npm credentials/configuration or fallback; preserve TLS and package integrity. Registry access and build execution need separate approval.',
@@ -186,6 +191,9 @@ async function prepareReference(options) {
   requireArtifact(typeof config.endpoint === 'string'
     && (project.runtime.gateway ? config.endpoint === project.runtime.gateway.publicUrl : new URL(config.endpoint).pathname === '/mcp'),
   'Use the recipe gateway URL, or the actual direct host /mcp endpoint; custom route mappings are not supported.');
+  if (project.input.backend.oauth?.portal) requireArtifact(
+    config.endpoint === `${project.input.backend.oauth.portal.publicBaseUrl}/mcp`,
+    'The actual endpoint must match the reviewed portal callback base. Regenerate mismatched source; never rewrite its seal.');
   const a = project.runtime.authentication;
   const definition = { schemaVersion: 1, kind: 'existing-mcp', server: { id: config.serverId, name: project.input.name },
     endpoint: config.endpoint, inbound: { type: 'entra', tenantId: a.tenantId, clientId: a.audience,
@@ -195,6 +203,9 @@ async function prepareReference(options) {
   const origin = { schemaVersion: 1, kind: 'recipe-endpoint-reference', recipe: project.input.recipe,
     sourceManifestDigest: project.manifest.contentDigest, endpoint: config.endpoint,
     assertion: 'operator-supplied-endpoint-not-deployment-readback', authentication: 'configuration-not-verified',
+    ...(project.input.backend.oauth ? { backendAuthorization: {
+      profile: project.input.backend.auth, settings: project.input.backend.oauth,
+    } } : {}),
     tools: 'not-imported-use-fresh-observed-discovery', proofReplayAuthorized: false };
   const plan = { action: 'mcp-recipe-reference-create', outputPath, review, origin };
   return { ...plan, approvalToken: `mcp-recipe-reference/${metadataDigest(boundedSnapshot(plan))}` };

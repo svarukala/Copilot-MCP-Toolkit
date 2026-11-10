@@ -1,4 +1,5 @@
 import { resolveNpmRegistryUrl } from './npm-registry.js';
+import { backendSecretBindings } from './mcp-hosting-targets.js';
 
 const step = (id, title, kind, instruction, expected, command) =>
   ({ id, title, kind, instruction, expected, ...(command ? { command } : {}) });
@@ -16,6 +17,12 @@ export function handoverResources(input) {
     ['Storage account', a.storage?.accountResourceId], ['Storage identity', a.storage?.identityResourceId],
     ['Key Vault', input.backend.apiKey?.keyVaultResourceId], ['Secret-reader identity', input.backend.apiKey?.identityResourceId],
   ]) if (id) rows.push([label, id, 'configured-reuse']);
+  for (const { reference } of backendSecretBindings(input).filter(() => input.backend.oauth)) {
+    for (const [label, id] of [['Client credential Key Vault', reference.keyVaultResourceId],
+      ['Client credential reader', reference.identityResourceId]]) {
+      if (!rows.some(row => row[1].toLowerCase() === id.toLowerCase())) rows.push([label, id, 'configured-reuse']);
+    }
+  }
   if (a.gateway) {
     const service = `${prefix}${a.gateway.resourceGroup}/providers/Microsoft.ApiManagement/service/${a.gateway.serviceName}`;
     if (a.gateway.resourceGroup.toLowerCase() !== a.resourceGroup.toLowerCase()) {
@@ -50,6 +57,9 @@ export function destinationEdits(input) {
     add(field, 'Review the existing destination APIM service, inherited policies and independent gateway identity/role. Its audience must differ from the caller audience.');
   }
   add('backend.origin', 'Keep only if the same backend is intended and its shared-use terms are reviewed. Update matching document.servers URLs when present.');
+  for (const field of ['backend.auth', 'backend.oauth', 'backend.credentialReferences']) {
+    if (input.backend.oauth) add(field, 'Re-review exact grant, issuer/endpoints, client/certificate registration, scopes/resource, callbacks and versioned Key Vault references. Never enter credentials. Memory-only user sessions require one process/replica; restart loses connections. Update matching OpenAPI security and regenerate a new source.');
+  }
   for (const field of ['backend.apiKey.tenantId', 'backend.apiKey.keyVaultResourceId', 'backend.apiKey.identityResourceId',
     'backend.apiKey.secretIdentifier', 'backend.apiKey.headerName', 'backend.apiKey.queryParameterName',
     'backend.apiKey.sharedAccessReviewed', 'backend.apiKey.queryExposureReviewed']) {
@@ -80,7 +90,7 @@ export function handoverGuide(input) {
           ? 'App Service requires a Linux dedicated Basic-or-higher plan, ACR and matching image-pull identity resource/client IDs.'
           : 'Container Apps requires an existing environment, ACR and image-pull identity. The separate mcp-bootstrap flow can prepare prerequisite templates for the direct recipe only.'}
 ${gateway ? 'Inspect the existing APIM service, API/path name absence, inherited policies and gateway managed identity as a separate deployment target.' : ''}
-${input.backend.apiKey ? 'Inspect Key Vault references, dedicated identity access and safe header/query diagnostics. Never retrieve a key into this handover.' : ''}`,
+${input.backend.apiKey || input.backend.oauth ? 'Inspect Key Vault references, dedicated identity access and safe diagnostics. Never retrieve credentials into this handover. OAuth additionally needs explicit client registration, consent, callbacks, expiry/rotation/revocation and topology qualification.' : ''}`,
       'Documented destination prerequisites and approvals. No toolkit handover command creates resources or grants roles.'),
     step('identity', 'Review destination identity and authentication', 'approval-required',
       'Select an explicit tenant/subscription/account with project-private Azure authentication. Never switch a shared Azure CLI profile or copy caches. Review Entra audience, scope, allowed clients and consent. Native Windows ATK SSO uses a separately reviewed normal user profile; Linux isolation is optional for SSO. Login and registration each need their own approval.',

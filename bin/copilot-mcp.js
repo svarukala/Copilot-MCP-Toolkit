@@ -231,13 +231,15 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       if (kind === 'schema') {
         const creation = await import('../src/mcp-validation-journey.js');
         print({ ...validation.validationSchema, creationScenario: creation.creationScenarioSchema,
-          creationCheckpoint: creation.creationCheckpointSchema, creationCoverage: creation.creationCoverage }, true);
+          creationCheckpoint: creation.creationCheckpointSchema, creationCoverage: creation.creationCoverage,
+          authCreationScenario: creation.authCreationScenarioSchema, authCreationCheckpoint: creation.authCreationCheckpointSchema,
+          authCreationCoverage: creation.authCreationCoverage }, true);
         return 0;
       }
       const { readControl } = await import('../src/mcp-control.js');
       const input = await readControl(['plan', 'start'].includes(kind) ? path.resolve(options.config)
         : path.resolve(options.project, 'validation-run.json'));
-      const creation = input.schemaVersion === 2;
+      const creation = [2, 3].includes(input.schemaVersion);
       if (creation) validation = await import('../src/mcp-validation-journey.js');
       if (!creation && options['allow-cloud'] !== undefined) throw new Error('Existing-deployment v1 validation has no cloud execution phase.');
       if ((!creation && options['allow-network'] && !options.interactive)

@@ -94,6 +94,41 @@ global.fetch = () => { throw new Error('UNEXPECTED_NETWORK'); };
     } finally { await rename(withheld, notice); }
   });
   const bundled = await import(pathToFileURL(path.join(standalone, 'app', 'runtime.js')).href);
+  await t.test('bundled OAuth authorizes only the selected REST call without source helper files', async t => {
+    const { runtime } = compileHostingRecipe(await example('container-apps-direct-oauth'));
+    let exchanges = 0, calls = 0, handler;
+    const server = createServer((req, res) => handler(req, res));
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    handler = bundled.createRequestHandler(runtime, `${origin}/mcp`, {
+      env: { MCP_BACKEND_CLIENT_CREDENTIAL: 'synthetic-bundle-client' }, log: () => {},
+      verify: async () => ({ tid: runtime.authentication.tenantId, oid: '77777777-7777-4777-8777-777777777777' }),
+      request: async (url, options) => {
+        if (url === runtime.backendAuthentication.settings.tokenEndpoint) {
+          exchanges++;
+          assert.equal(new URLSearchParams(options.body).get('grant_type'), 'client_credentials');
+          return Response.json({ access_token: 'synthetic.bundle.access', token_type: 'Bearer', expires_in: 3600 });
+        }
+        calls++;
+        assert.equal(new URL(url).origin, runtime.backendOrigin);
+        assert.equal(options.headers.authorization, 'Bearer synthetic.bundle.access');
+        return Response.json({ ok: true });
+      },
+    });
+    const post = body => fetch(`${origin}/mcp`, { method: 'POST',
+      headers: { authorization: 'Bearer synthetic-caller', accept: 'application/json, text/event-stream',
+        'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const listed = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+    assert.equal(listed.status, 200);
+    assert.equal((await listed.json()).result.tools.length, runtime.tools.length);
+    assert.equal(exchanges, 0); assert.equal(calls, 0);
+    const called = await post({ jsonrpc: '2.0', id: 2, method: 'tools/call',
+      params: { name: runtime.tools[0].name, arguments: {} } });
+    assert.equal(called.status, 200);
+    assert.equal((await called.json()).result.isError, undefined);
+    assert.equal(exchanges, 1); assert.equal(calls, 1);
+  });
   const keys = await generateKeyPair('RS256');
   for (const family of ['container-apps-direct', 'container-apps-apim', 'app-service-container']) {
     for (const key of [false, true]) await t.test(`${family}, backend-key=${key}`, async t => {
