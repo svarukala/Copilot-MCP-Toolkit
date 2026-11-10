@@ -28,6 +28,7 @@ export const commandFamilies = {
   journey: ['mcp-status', 'mcp-resume', 'mcp-diagnose'],
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
   federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
+  consumerOnboarding: ['mcp-onboard-schema', 'mcp-onboard', 'mcp-consumer-schema', 'mcp-consumer-plan', 'mcp-consumer-bundle'],
   registration: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
   wiqdHandoff: ['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'],
   registrationExecution: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
@@ -194,6 +195,22 @@ First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinar
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.
 Diagnosis is local evidence-only; no network probes, retries or host UI diagnosis.
+Consumer onboarding: mcp-onboard-schema describes the prepared FCC/shared SSO
+inputs. mcp-onboard --workspace-root ABS --config FILE --output NEWDIR is a
+terminal-only FCC / plugin / None journey, optionally --consumer fcc|plugin|none.
+Resume with --workspace-root ABS --project SAVEDDIR. Existing references are
+reused; new registration uses the existing executor with separate exact reviews,
+including Windows shared-profile disclosure and actual sign-in identity review.
+No redeployment, proof replay, FCC submission or plugin publication is implied.
+The interactive execution completion menu enters this journey after selection;
+it does not only print a command. JSON callers receive an appContinuation
+contract: collect missing inputs and present the next exact auth/export review
+using explicit commands. Selection alone authorizes no provider operation.
+mcp-consumer-schema/plan/bundle exports offline HTML and, for plugin, a v1.28
+manifest starter with observed tools. Plan/bundle requires --workspace-root ABS
+--config FILE --output NEWDIR; bundle adds the exact --approve token.
+Missing authentication/tools never become fabricated manifest values.
+
 FCC: mcp-fcc-schema describes local onboarding input. mcp-fcc-plan requires
 --workspace-root, --config and --output NEW.json; mcp-fcc-bundle also requires
 the exact --approve token. Output is a private onboarding draft, not a Microsoft

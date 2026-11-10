@@ -368,6 +368,9 @@ async function status(run, workspaceRoot, extra = {}) {
   const stoppedIntent = run.events.find(event => event.contentDigest === (run.pending ?? failed?.data.intentDigest));
   const diagnostic = stoppedIntent?.data.phase === 'sdk-host' ? dockerFailureDiagnostic(failed?.data.dockerFailure) : undefined;
   const used = consumption(run);
+  const consumerOnboarding = !stopped && report.status !== 'blocked' && report.protocol === 'passed-historical'
+    && (run.plan.definition.inbound?.type === 'entra' || run.plan.definition.authentication)
+    ? (await import('./mcp-consumer.js')).consumerNextSteps(workspaceRoot) : null;
   return {
     schemaVersion: 1, runDirectory: run.dir, scenario: run.plan.creation.scenario,
     status: stopped || report.status === 'blocked' ? 'blocked'
@@ -380,6 +383,7 @@ async function status(run, workspaceRoot, extra = {}) {
     expiresAt: run.plan.input.expiresAt, expired: Date.now() >= Date.parse(run.plan.input.expiresAt),
     consumption: used, limits: run.plan.input.limits, protocol: report.protocol,
     milestones: report.milestones, consumerExecutionAttested: false, executionReadiness: false,
+    ...(consumerOnboarding ? { consumerOnboarding } : {}),
     proofReplayAuthorized: false, repeatPrompt: false, ...extra,
   };
 }

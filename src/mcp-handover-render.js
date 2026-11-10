@@ -4,7 +4,7 @@ export const escapeHtml = value => String(value).replaceAll('&', '&amp;').replac
   .replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const show = value => escapeHtml(typeof value === 'string' ? value : JSON.stringify(value));
 const scriptHash = value => `'sha256-${createHash('sha256').update(value).digest('base64')}'`;
-const themeScript = `(() => {
+export const themeScript = `(() => {
   const param = new URLSearchParams(window.location.search).get("scoutTheme");
   const theme =
     param || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -86,6 +86,7 @@ svg{width:100%;min-width:800px;height:auto}.diagram-node{fill:var(--cp-surface-s
 @media(max-width:700px){main{padding:16px}h1{font-size:26px}.card{padding:16px}dl{grid-template-columns:1fr}dd{margin-bottom:12px}}
 @media print{body{background:var(--cp-surface)}main{max-width:none;padding:0}nav,button,.check,#copy-status{display:none}.panel[hidden]{display:block!important}.card{break-inside:avoid}pre{white-space:pre-wrap}svg{min-width:0}}
 `;
+export { css as handoverCss };
 export const handoverUiScript = `(() => {
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   const select = (tab, focus) => {

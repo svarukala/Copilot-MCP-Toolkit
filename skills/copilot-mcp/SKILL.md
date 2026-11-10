@@ -424,6 +424,63 @@ business correctness or host acceptance.
 
 ## Custom federated connector preparation
 
+After a secured MCP execution completes, offer exactly: **FCC**, **Microsoft
+365/Cowork plugin**, or **None**. Do not treat source generation or historical
+proof as fresh consumer readiness. Read `docs/consumer-onboarding.md`. Prepare
+private `mcp-onboard-schema` inputs using the exact existing descriptor, observed
+capture and owner-reviewed `mcp-fcc-schema`/`mcp-auth-registration-schema`
+metadata. Never invent a capture, registration ID or review. `mcp-onboard`
+provides the terminal journey and resumable shared auth execution; automation
+uses the existing explicit auth phase commands and `mcp-consumer-plan/bundle`.
+
+**A consumer selection starts a new onboarding task; it is not the final result.**
+When the user chooses FCC or Plugin in app chat, continue in that conversation:
+inspect the retained inputs/results, collect only missing nonsecret metadata and
+present the next exact operation for approval. Do not finish with "Plugin
+selected", a suggested command, or "consumer creation is separately reviewed".
+Separate review means **ask for that review now**, not defer the task implicitly.
+An earlier "stop after MCP creation and ask" instruction is satisfied by asking;
+the subsequent consumer choice requests preparation of that consumer, but is
+not blanket authority for registration, tenant changes, consent or publication.
+
+For app/noninteractive sessions, do not invoke terminal-only `mcp-onboard`.
+Use this explicit continuation:
+1. Reuse the completed run's exact descriptor and observed capture. Do not
+   redeploy, refresh discovery, repeat the proof or copy authentication caches.
+2. Inspect any retained registration result/session before starting one.
+   Prepare the private FCC and shared Entra SSO registration inputs. Ask for
+   missing account, restrictions or provider setup rather than inventing them.
+   Preserve existing references and require exact descriptor/request binding.
+3. If a compatible reference is missing, use `mcp-auth-execution-plan` and the
+   existing `mcp-auth-execute` phases with their exact approvals and flags.
+   Obtain the reviewed real-terminal login/identity confirmation when required;
+   never treat a noninteractive shell as authenticated or retry a consumed call.
+   If login is blocked, give the concrete sign-in handoff, not a selection-only
+   completion message.
+4. Import the successful `result.json` with `source.registrationResultFile`,
+   export the shared authentication bundle and reference it from the private
+   FCC input using `source.authenticationBundleFile`. Never invent a reference
+   or combine an explicit reference with result-file import.
+5. Review and run `mcp-consumer-plan/bundle` for the chosen consumer. For Plugin,
+   verify `plugin/manifest.template.json`, its observed tool-description file,
+   HTML and integrity manifest exist. Branding/legal/app metadata can have
+   disclosed placeholders; authentication references and tool schemas cannot.
+6. Finish only with actual files/reference, an explicit user stop, or a specific
+   blocker and next action. Do not describe a blocked draft with no plugin
+   manifest as plugin creation. Packaging, publication, directory/endpoint
+   updates and actual consumer calls are still separately reviewed.
+
+Reuse a supplied compatible registration and import a newly created receipt,
+including its Application ID URI. Preserve tenant/app restrictions and consumed
+attempts. No dummy Teams app for FCC; Windows shared-profile effects and
+AnyApp compatibility require their own existing review. None leaves everything
+unchanged and can return later without deployment or proof replay.
+For FCC provide the new local HTML setup guide. For plugin provide the
+agentConnector manifest starter and observed tools; leave only unfinished
+branding/app/legal metadata as placeholders. WIQD owns the remaining plugin
+project/package lifecycle. Directory settings, endpoint compatibility, consent,
+publication and actual consumer validation remain separately reviewed.
+
 Read `docs/federated-connectors.md` and `mcp-fcc-schema --json`. Use
 `mcp-fcc-plan --workspace-root ABS --config FILE --output NEW.json --json --summary`
 for a local onboarding draft. Review all metadata for private export and each

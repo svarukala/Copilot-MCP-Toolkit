@@ -9,6 +9,72 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### Consumer selection continuation
+
+Corrected the completion-menu dead end: selecting FCC or Plugin now enters
+the existing reviewed terminal journey; it does not merely return a command.
+JSON next steps and skill guidance explicitly direct the app agent to collect
+missing inputs and present the next exact registration/export review. Selection
+is intent, not execution approval. This is agent-driven app continuation, not
+a native app event hook or automatic resumption of a stopped conversation.
+Incomplete selected onboarding is distinct from successful MCP execution;
+a missing plugin manifest remains blocked even when HTML was exported.
+Twenty offline consumer tests and three targeted execution regressions passed,
+including actual synthetic registration-to-starter output, declined review/None,
+noninteractive JSON behavior and unchanged proof consumption. Asset inventory,
+syntax and public-type checks passed. These do not qualify live app-agent
+continuation or Teams Developer Portal registration.
+No live registration, deployment, discovery, proof or publication was performed.
+
+### Post-creation consumer onboarding
+
+Implemented a separate prepared-input terminal journey with FCC / plugin / None
+choices, existing-reference reuse, guarded existing auth-executor phases and
+resumable immutable local state. Completed execution JSON exposes next-step
+choices without prompting unattended callers. FCC and plugin export share the
+existing FCC metadata/auth/capture validation and offline HTML styling.
+Plugin output uses standalone v1.28 agentConnectors and observed tool schemas,
+not fabricated auth references or an automatically published WIQD package.
+Registration, endpoint configuration, local artifacts and consumer testing remain
+distinct; this implementation does not qualify Windows live registration or
+WeatherAPI consumer acceptance. See [consumer onboarding](consumer-onboarding.md).
+Offline consumer, FCC, execution, auth, handover and guided regressions passed,
+along with asset, syntax and public-type checks. A synthetic manifest was also
+checked against the official v1.28 schema; HTML tabs/copy controls were exercised
+locally. These checks involved no live registration or provider proof.
+
+### WeatherAPI two-stage live validation
+
+A fresh direct-ACA WeatherAPI REST-to-MCP execution completed with the existing
+reusable runner on baseline `3806ba4`, not a new runner or recovery of an old
+attempt. One exact grant covered generation through one fixed forecast proof.
+Hosting paused cleanly before runtime sign-in with zero provider calls; the
+same grant subsequently finished without another build or deployment.
+
+| Surface | Observed result |
+| --- | --- |
+| Pinned Node slim build / image integrity / nonroot smoke / upload | Passed |
+| App readback / revision readiness / health | Passed |
+| Vulnerability scan / SBOM | Not run under the explicitly approved disabled policy |
+| Expected-user Entra sign-in / authenticated discovery | Passed |
+| `get_event_forecast({q: "Seattle", days: 3})` | Exactly one dispatch; `protocol-success` at `2026-10-28T05:29:45.347Z` |
+| Discovery-to-dispatch pacing | 74.776 seconds |
+| Retained capture / dispatch / proof | One each; receipt hashes and cross-receipt/source/argument bindings checked |
+| Runner consumption | Seven steps, 45 logical Azure commands, one provider call across two invocations |
+| Three returned forecast dates / business correctness / negative authorization / consumer acceptance | Not verified |
+| Cost closeout | App retained and billable; no cleanup authorized |
+
+The missing secret-reader permission was separately approved, created only at
+the selected secret scope, and read back before the execution grant. It was not
+an SDK host role operation. The key remained a versioned Key Vault reference,
+not a tool argument or locally read credential. Query-log protection and shared
+service entitlement were owner-reviewed, not independently certified.
+Both runner processes exited; current execution/host locks were released.
+This is successful two-stage same-grant protocol validation, not a single
+uninterrupted process or general readiness. All real configuration, identities,
+secret references, generated projects and live receipts remain outside the
+public repository. Earlier failed/consumed runs were not modified or replayed.
+
 ### Opt-in vulnerability scanning
 
 At the user's direction, new host and recovered-image plans default to

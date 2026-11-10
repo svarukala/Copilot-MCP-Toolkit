@@ -198,10 +198,8 @@ const limitations = [
   'Configuration, authentication, result quality and actual Microsoft 365 execution remain unverified by this operation.',
   'OAuth is form/reference preparation only: no provider login, token exchange, discovery or capture import. Write tools, token-store automation and tenant lifecycle automation are outside this module.',
 ];
-async function prepare(options) {
-  requireFcc(typeof options.config === 'string' && typeof options.output === 'string',
-    'INPUT', 'FCC plan/bundle requires --config and a new --output JSON file.');
-  const configFile = await assertProjectPath(path.resolve(options.config));
+export async function prepareFccInput(config) {
+  const configFile = await assertProjectPath(path.resolve(config));
   const input = checkedInput(await readJson(configFile));
   const inputDigest = digest(input);
   const descriptorFile = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.descriptorFile));
@@ -309,18 +307,25 @@ async function prepare(options) {
     limitations,
   });
   const bundle = clean({ ...content, contentDigest: digest(content) });
+  const binding = { configFile, descriptorFile, captureFile: captureFile ?? null,
+    authenticationBundleFile: authenticationBundleFile ?? null,
+    authenticationBundleDigest: authenticationBundle?.contentDigest ?? null,
+    inputDigest, descriptorDigest: digest(descriptor),
+    captureDigest: capture ? digest(capture) : null, contentDigest: bundle.contentDigest };
+  return { bundle, binding, authenticationBundle };
+}
+async function prepare(options) {
+  requireFcc(typeof options.config === 'string' && typeof options.output === 'string',
+    'INPUT', 'FCC plan/bundle requires --config and a new --output JSON file.');
+  const prepared = await prepareFccInput(options.config);
   const outputPath = await assertProjectPath(path.resolve(options.output));
   requireFcc(path.extname(outputPath).toLowerCase() === '.json', 'OUTPUT', 'FCC output must be a new .json file.');
   requireFcc((await lstat(path.dirname(outputPath))).isDirectory(), 'OUTPUT', 'FCC output parent must already exist.');
   try { await lstat(outputPath); requireFcc(false, 'OUTPUT_EXISTS', 'FCC destination exists. Choose a new file; no overwrite is supported.'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
-  const binding = { configFile, descriptorFile, captureFile: captureFile ?? null, outputPath,
-    authenticationBundleFile: authenticationBundleFile ?? null,
-    authenticationBundleDigest: authenticationBundle?.contentDigest ?? null,
-    inputDigest, descriptorDigest: digest(descriptor),
-    captureDigest: capture ? digest(capture) : null, contentDigest: bundle.contentDigest };
+  const binding = { ...prepared.binding, outputPath };
   return { action: 'mcp-fcc-onboarding-write', status: 'planned', outputPath,
-    approvalToken: `mcp-fcc/${digest(binding)}`, bundle };
+    approvalToken: `mcp-fcc/${digest(binding)}`, bundle: prepared.bundle };
 }
 async function inWorkspace(options, action) {
   requireFcc(typeof options.workspaceRoot === 'string', 'WORKSPACE',

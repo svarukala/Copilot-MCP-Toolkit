@@ -1,5 +1,9 @@
 # Custom federated connectors
 
+For the post-creation FCC / plugin / None menu and copyable FCC HTML guide, see
+[consumer onboarding](consumer-onboarding.md). It reuses the JSON/auth/capture
+contracts below and never submits the FCC or renews a consumed proof.
+
 The FCC module prepares a private, local onboarding JSON draft for Microsoft 365
 custom federated connectors. It does not register a connector, deploy a server,
 change authentication, or claim Microsoft 365 compatibility.
