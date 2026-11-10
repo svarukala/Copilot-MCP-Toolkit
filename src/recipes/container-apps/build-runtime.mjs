@@ -30,7 +30,7 @@ export async function buildRuntime(directory = fileURLToPath(new URL('.', import
     const resolved = await realpath(path.resolve(root, name)), relative = path.relative(root, resolved).split(path.sep).join('/');
     requireBundle(relative && !relative.startsWith('../') && !path.isAbsolute(relative),
       'Bundle input is outside the installed source project.');
-    if (relative === 'runtime.js') continue;
+    if (['runtime.js', 'backend-auth.js', 'auth-portal.js'].includes(relative)) continue;
     const segments = relative.split('/'), index = segments.lastIndexOf('node_modules');
     requireBundle(index >= 0 && segments[index + 1], 'Unrecognized runtime bundle input.');
     const packageName = segments.slice(index + 1, index + (segments[index + 1].startsWith('@') ? 3 : 2)).join('/');

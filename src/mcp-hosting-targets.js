@@ -1,9 +1,15 @@
 import { backendCredentialEnvironment } from './recipes/container-apps/runtime.js';
+import { authEnvironment, portalEnvironment } from './recipes/container-apps/backend-auth.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
 export const backendSecretName = 'mcp-backend-api-key';
-export const backendIdentity = input => input.backend.apiKey ? { [input.backend.apiKey.identityResourceId]: {} } : {};
+export const backendSecretBindings = input => input.backend.apiKey
+  ? [{ name: backendSecretName, environment: backendCredentialEnvironment, reference: input.backend.apiKey }]
+  : Object.entries(input.backend.credentialReferences ?? {}).map(([key, reference]) => ({
+    name: key === 'backend' ? 'mcp-backend-client' : 'mcp-portal-client',
+    environment: key === 'backend' ? authEnvironment : portalEnvironment, reference }));
+export const backendIdentity = input => Object.fromEntries(backendSecretBindings(input).map(b => [b.reference.identityResourceId, {}]));
 const backendReference = input => input.backend.apiKey ? { keyVaultReferenceIdentity: input.backend.apiKey.identityResourceId } : {};
 const backendSettings = input => input.backend.apiKey ? {
   [backendCredentialEnvironment]: `@Microsoft.KeyVault(SecretUri=${input.backend.apiKey.secretIdentifier})`,
@@ -22,6 +28,8 @@ export function hostingSchemas(base) {
   });
   gateway.properties.azure.required.push('gateway');
   const appService = structuredClone(base);
+  appService.properties.backend.oneOf = appService.properties.backend.oneOf
+    .filter(profile => ['anonymous', 'api-key'].includes(profile.properties.auth.const));
   appService.properties.recipe = { const: 'app-service-container-v1' };
   const azure = appService.properties.azure;
   delete azure.properties.environmentResourceId;
@@ -64,12 +72,13 @@ const xml = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt
 
 export function gatewayInfrastructure(input, appTemplate) {
   const gateway = input.azure.gateway, a = input.authentication;
+  const portal = input.backend.oauth?.portal;
   const claim = (name, values, extra = '') => `<claim name="${name}" match="any"${extra}>${values.map(v => `<value>${xml(v)}</value>`).join('')}</claim>`;
   const policy = `<policies>
   <inbound>
     <base />
     <choose>
-      <when condition="@(context.Request.Method == &quot;POST&quot;)">
+      <when condition="${portal ? '@(context.Operation.Id == &quot;mcp-post&quot;)' : '@(context.Request.Method == &quot;POST&quot;)'}">
         <validate-jwt header-name="Authorization" require-scheme="Bearer" failed-validation-httpcode="401">
           <openid-config url="https://login.microsoftonline.com/${a.tenantId}/v2.0/.well-known/openid-configuration" />
           <audiences><audience>${a.audience}</audience></audiences>
@@ -80,6 +89,10 @@ export function gatewayInfrastructure(input, appTemplate) {
         <set-header name="X-Copilot-MCP-Gateway-Authorization" exists-action="override"><value>@("Bearer " + (string)context.Variables["copilotGatewayToken"])</value></set-header>
       </when>
     </choose>
+    ${portal ? `<choose><when condition="@(context.Operation.Id.StartsWith(&quot;auth-&quot;))">
+      <authentication-managed-identity resource="${xml(gateway.applicationIdUri)}" output-token-variable-name="copilotPortalGatewayToken" ignore-error="false" />
+      <set-header name="X-Copilot-MCP-Gateway-Authorization" exists-action="override"><value>@("Bearer " + (string)context.Variables["copilotPortalGatewayToken"])</value></set-header>
+    </when></choose>` : ''}
   </inbound>
   <backend><base /></backend>
   <outbound><base /></outbound>
@@ -98,7 +111,14 @@ export function gatewayInfrastructure(input, appTemplate) {
         subscriptionRequired: false, type: 'http', serviceUrl: "[parameters('backendOrigin')]" },
       resources: [
         ...[{ name: 'mcp-post', method: 'POST', urlTemplate: '/mcp' },
-          { name: 'resource-metadata', method: 'GET', urlTemplate: '/.well-known/oauth-protected-resource' }].map(op => ({
+          { name: 'resource-metadata', method: 'GET', urlTemplate: '/.well-known/oauth-protected-resource' },
+          ...(portal ? [
+            { name: 'auth-page', method: 'GET', urlTemplate: '/auth' },
+            { name: 'auth-login', method: 'GET', urlTemplate: '/auth/login' },
+            { name: 'auth-entra', method: 'GET', urlTemplate: '/auth/entra/callback' },
+            { name: 'auth-provider', method: 'GET', urlTemplate: '/auth/provider/callback' },
+            { name: 'auth-action', method: 'POST', urlTemplate: '/auth/action' },
+          ] : [])].map(op => ({
           type: 'operations', apiVersion: '2024-05-01', name: op.name,
           dependsOn: [`[resourceId('Microsoft.ApiManagement/service/apis', '${gateway.serviceName}', '${gateway.apiName}')]`],
           properties: { displayName: op.name, method: op.method, urlTemplate: op.urlTemplate, responses: [] },

@@ -1,9 +1,17 @@
 # Session handoff
 
-Last updated: 2026-10-28. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-09. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Integration review:** the OAuth/OBO candidate preserves parameterized
+  anonymous/API-key GETs, bundled images, current scan policy and consumed
+  evidence. OAuth pilots remain parameter-free and outside bounded host
+  execution. Portal routing now verifies gateway identity before dispatch and
+  also reaches the portal on direct hosting. Synthetic regression coverage
+  verifies invalid/unavailable gateway rejection, direct-host routing and
+  bundled OAuth dispatch. This does not qualify any live provider or consumer.
 
 - **Consumer selection continuation:** the terminal completion menu now enters
   the existing reviewed onboarding journey instead of only returning a command.
@@ -497,6 +505,22 @@ It contains public engineering context only, not credentials or execution author
   24-hour scan/database, nonroot smoke and source-binding requirements remain.
   This does not change Functions, automatically select a digest, authorize
   deployment or declare the ongoing live validation complete.
+- OAuth/OBO backend increment on the isolated authentication branch:
+  direct ACA and ACA+APIM generation/runtime now have explicit application
+  client-credentials, hosted per-user code+PKCE and same-tenant OBO profiles.
+  Key Vault secret/certificate client authentication, memory-only bounded
+  connections, independent gateway auth routes and v3 reusable validation
+  are wired. Basic/password exchange remain design-only. See
+  [backend contracts](backend-oauth.md). The frozen full offline gate passed
+  **969/969** tests with zero failures, skips or cancellations, including the
+  fresh packed consumer. Subsequent case-insensitive portal-app/credential
+  separation and closed auth-origin metadata checks passed **21/21** OAuth
+  tests and the full synthetic v3 journey; inventory, recursive syntax and
+  public types also passed afterward. The full suite was not rerun after
+  those fixes or these result-recording documentation edits. All 163 local
+  README/guide links passed. No named-provider or live
+  compatibility, deployment, publication or merge is claimed. The older v2
+  boundary described below remains the v2 contract, not a v3 capability claim.
 
 - Current priority is reusable **fresh creation** validation for direct ACA,
   ACA behind APIM, native APIM REST and existing MCP/proxies. V2 is implemented

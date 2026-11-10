@@ -154,9 +154,15 @@ reviewed operations with owner evidence checkpoints. Release/reference requests
 select actual image/account/endpoint inputs, not invented successful values.
 Use v2 --phase handover for a frozen SDK snapshot or --phase archive for private
 MCP evidence; keep the run/report separately. Neither export authorizes replay.
-Third-party OAuth REST, OBO token exchange and username/password profiles are the
-next priority after these runners, not implemented by this workflow. Distinguish
-Basic authentication, password exchange and ROPC; never assume the last is wanted.
+For third-party OAuth REST or same-tenant OBO on direct/gateway ACA, read
+`docs/backend-oauth.md` and use the explicit v3 schema, not a relaxed v2 profile.
+Both application client credentials and hosted per-user PKCE are bounded
+runtime pilots. Select Key Vault secret/certificate references and exact
+issuer/endpoints/scopes explicitly. Browser linking, registration/consent and
+deployment are separate owner operations; memory-only user sessions require
+one process/replica and reconnect on restart. No named-provider/live
+compatibility is implied. Username/password remains design-only: distinguish
+Basic, provider-specific exchange and ROPC; do not enable the last implicitly.
 
 When the user requests hosting without APIM, or needs server-owned tool
 annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
@@ -237,7 +243,8 @@ handover into permission to deploy, install, sign in or replay a consumed call.
 
 Explain the current boundary in plain language: Entra sign-in for callers,
 anonymous or Key Vault API-key JSON backend, selected fixed-path GETs with optional
-declared bounded query arguments, and existing
+declared bounded query arguments (or parameter-free fixed GETs for an explicitly
+selected OAuth/OBO pilot on direct/gateway ACA), and existing
 host prerequisites from the guide. Ask for actual resource
 choices and IDs, not fabricated placeholders. Require explicit read-only review;
 do not claim annotations independently prove backend behavior. Use the plan's

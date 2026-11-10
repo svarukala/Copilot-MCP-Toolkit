@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { TOOLKIT_ROOT, withCliWorkspace } from '../src/config.js';
 import { planHostingRecipe, writeHostingRecipe } from '../src/mcp-container-apps.js';
 import { readRecipeProject, planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
-import { planHostExecution, runHostExecution, hostExecutionSchema, describeHostExecution } from '../src/mcp-execution-host.js';
+import { planHostExecution, runHostExecution, hostExecutionSchema, describeHostExecution,
+  buildFiles, buildImageEvidenceDigest } from '../src/mcp-execution-host.js';
+import { digest } from '../src/mcp-validation.js';
 import { executionDockerRequest, executionTar, executionTarFile, executionJson,
   executionImageBinding } from '../src/mcp-execution-docker.js';
 import { sealRecipeFiles } from '../src/mcp-recipe-artifacts.js';
@@ -22,6 +24,26 @@ const socket = String.raw`\\.\pipe\docker_engine`;
 const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value)) });
 const flags = { allowLocal: true, allowCloud: true, allowNetwork: true };
 const secret = 'synthetic-registry-token-never-persist';
+
+test('build evidence keeps pre-OAuth archive hashes and includes both new runtime modules', () => {
+  const originalNames = buildFiles.filter(name => !['backend-auth.js', 'auth-portal.js'].includes(name));
+  const source = { files: Object.fromEntries(originalNames.map(name => [name, Buffer.from(`synthetic ${name}`)])),
+    manifest: { contentDigest: `sha256:${'c'.repeat(64)}` }, input: { imageBuild: { platform: 'linux/amd64' } } };
+  const context = executionTar(source.files);
+  const expected = digest({ contextDigest: `sha256:${createHash('sha256').update(context).digest('hex')}`,
+    imageId, sourceManifestDigest: source.manifest.contentDigest, build: source.input.imageBuild });
+  assert.equal(buildImageEvidenceDigest(source, imageId), expected);
+  source.files['backend-auth.js'] = Buffer.from('synthetic authorization');
+  source.files['auth-portal.js'] = Buffer.from('synthetic portal');
+  const current = buildImageEvidenceDigest(source, imageId);
+  assert.notEqual(current, expected);
+  for (const name of ['backend-auth.js', 'auth-portal.js']) {
+    const saved = source.files[name];
+    source.files[name] = Buffer.from('changed');
+    assert.notEqual(buildImageEvidenceDigest(source, imageId), current);
+    source.files[name] = saved;
+  }
+});
 async function fixture(t, { gateway = false, key = false, login = false, oci = false, nodeSlim = false } = {}) {
   const root = path.join(TOOLKIT_ROOT, '.test-output', `host-execution-${randomUUID()}`);
   await mkdir(root, { recursive: true });

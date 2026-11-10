@@ -207,10 +207,26 @@ syncBuiltinESMExports();
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { validateRuntimeConfig, toolDefinitions, createProtocolServer } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'dist', 'runtime.js')).href)};
+import { createBackendAuthorization } from ${JSON.stringify(pathToFileURL(path.join(containerOutput, 'backend-auth.js')).href)};
 const config = validateRuntimeConfig(JSON.parse(await readFile(${JSON.stringify(path.join(containerOutput, 'runtime-config.json'))})));
 assert.equal(toolDefinitions(config)[0].annotations.readOnlyHint, true);
 const server = createProtocolServer(config);
 await server.close();
+const settings = JSON.parse(await readFile(${JSON.stringify(path.join(installed, 'examples', 'mcp', 'container-apps-direct-oauth.json'))})).backend.oauth;
+const oauth = validateRuntimeConfig({ ...config, schemaVersion: 2,
+  backendAuthentication: { type: 'oauth-client-credentials-v1', settings } });
+let exchanges = 0;
+const backend = createBackendAuthorization(oauth, {
+  env: { MCP_BACKEND_CLIENT_CREDENTIAL: 'synthetic-packed-client-credential' },
+  request: async (_, request) => {
+    exchanges++;
+    assert.equal(new URLSearchParams(request.body).get('grant_type'), 'client_credentials');
+    return Response.json({ access_token: 'synthetic.packed.token', token_type: 'Bearer', expires_in: 3600 });
+  },
+});
+assert.equal(await backend.authorize(), 'synthetic.packed.token');
+assert.equal(await backend.authorize(), 'synthetic.packed.token');
+assert.equal(exchanges, 1);
 `);
   const smoke = spawnSync(process.execPath, ['--require', preload, runtimeSmoke],
     { cwd: consumer, encoding: 'utf8', timeout: 30000 });

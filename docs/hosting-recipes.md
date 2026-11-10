@@ -1,5 +1,12 @@
 # MCP hosting recipes
 
+Direct ACA and ACA behind APIM additionally support explicit
+[OAuth/OBO backend pilots](backend-oauth.md): application client credentials,
+hosted per-user PKCE connections and same-tenant OBO. These do not enable OAuth
+on App Service/Functions or change native APIM/proxy profiles. Username/password
+profiles remain design-only. The reusable auth runner uses version 3; older
+versions retain their existing gates.
+
 For an **already deployed direct Container Apps** source/reference, use the
 [reusable validation runner](reusable-validation.md) to retain progress across
 sessions, automate approved protocol checks and pause for sign-in or owner
@@ -556,8 +563,9 @@ endpoint-reference creation**. Cloud deployment remains an operator workflow;
 real host behavior and Copilot Read-only labels are not yet qualified.
 All support Entra delegated callers and one anonymous or **Key Vault API-key**
 JSON backend with explicitly reviewed, fixed-path GETs and bounded declared query
-arguments. They do not add backend OAuth, username/password, arbitrary routing
-or write tools.
+arguments. Only direct/gateway ACA additionally admit the explicit
+[OAuth/OBO pilots](backend-oauth.md), limited to parameter-free fixed GETs.
+Username/password, arbitrary routing and write tools remain unsupported.
 
 ## Query arguments and date ranges
 

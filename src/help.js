@@ -125,6 +125,11 @@ SDK builds/deployment, secret resolution, negative tests and FCC remain owner ga
 V2 request --config is a checkpoint or release/reference file selector.
 V2 --phase handover exports SDK snapshots; --phase archive preserves MCP evidence.
 Caller Entra is not backend Entra/OBO. Unsupported profiles stop, not pass.
+V3 adds only direct/gateway ACA OAuth client credentials, hosted user PKCE and
+same-tenant OBO backend pilots; use separate discovery/proof and v3 checkpoints.
+Client secrets/certificate assertions use Key Vault references. User connections
+are memory-only, one process/replica. See docs/backend-oauth.md; passwords remain
+design-only and no named provider or live compatibility is claimed.
 See docs/reusable-validation.md; no blanket execution approval or automatic retry.
 Host operations: schema/plan/run for local engine or reviewed host/container npm
 diagnostics and digest-only private ACR pull. Explicit local Docker socket,
@@ -170,6 +175,7 @@ mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed
 fixed-path GETs with bounded inline scalar query arguments and optional date-range rules.
 No dynamic paths, bodies or automatic pagination. No APIM, cloud deployment, image build/push or automatic sign-in.
+Explicit OAuth/OBO pilots on direct/gateway ACA remain parameter-free fixed GETs.
 mcp-hosting-schema/plan/create additionally support Container Apps behind APIM,
 App Service containers and Functions SDK custom handlers (preview, Linux FC1).
 All four accept a dedicated header or query API key via native Key Vault references

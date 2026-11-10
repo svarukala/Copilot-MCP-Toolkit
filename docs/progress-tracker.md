@@ -16,8 +16,23 @@ All four full offline CI jobs passed on Windows/Linux with Node 22/24.
 The local Node 26 run passed 1,248/1,254 tests: three creation cases passed
 when rerun without suite contention; three prompt-output assertions needed
 stream-safe test capture. Actual rejection messages were emitted correctly.
-Native REST authoring is being integrated separately, retaining both histories.
+Native REST authoring was integrated through PR #10, retaining both histories;
+all four Windows/Linux Node 22/24 CI jobs passed. The stream-safe prompt test
+capture also passed on local Node 26.
 No live execution, publication, credential transfer or proof replay is implied.
+
+The OAuth/OBO integration candidate corrects portal dispatch ordering: signed
+gateway verification precedes every gateway portal route, while direct hosting
+can reach its own connection page without weakening MCP caller authentication.
+It preserves minimal bundling and includes both auth modules in sealed build
+inputs. Historical pre-OAuth build hashes remain inspectable without restoring
+execution authority. Anonymous/API-key query support is retained; OAuth remains
+parameter-free, and bounded host execution rejects the pilot before effects.
+Combined OAuth/query/bundle regressions passed **47/47** with synthetic transports.
+The broader hosting, build/recovery, handover and fresh packed-consumer run
+passed **162/162**; combined v2 execution/v2-v3 validation regressions passed
+**53/53**. Syntax, public types and asset inventory passed. These are targeted
+offline runs, not a local full-suite or live OAuth qualification claim.
 
 ### Consumer selection continuation
 
@@ -774,6 +789,31 @@ checks, including Debian 13 generation/review for all three container recipes,
 unchanged Debian 12 admission, source/build mismatch and high-finding rejection.
 Asset inventory and strict public types passed. No full-suite or live result is
 claimed for this increment.
+### OAuth/OBO backend pilots
+
+On the isolated authentication branch, direct ACA and ACA+APIM now have
+explicit application OAuth, hosted per-user PKCE and same-tenant Entra OBO
+runtime profiles. Client secrets and certificate assertions use dedicated
+versioned Key Vault references. Per-user sessions are memory-only, bounded
+and single-process; no provider token is exported or persisted. V3 validation
+adds owner auth gates and explicit proof effects without changing v1/v2
+profile admission. Generation, source/release/reference binding and handover
+include the new runtime assets. See [the contract](backend-oauth.md).
+
+The frozen `npm run validate` gate passed **969/969** offline tests with no
+failures, skips or cancellations, including expanded auth cases, the v3 full
+creation/discovery/proof/status/handover journey, retained v1/v2 contracts and
+the fresh packed consumer. Final case-insensitive portal-app/credential
+separation and closed auth-origin metadata checks then passed **21/21**
+focused OAuth tests and the full synthetic v3 journey, plus inventory,
+recursive syntax and strict public types. The full suite was not rerun after
+those fixes or these result-recording documentation edits. All 163
+local README/guide links passed. One earlier full run was intentionally stopped
+to finish callback/revocation refinements; it is not counted as a completed gate.
+
+Username/password profiles are design-only pending a selected
+backend; ROPC is excluded. No live login, provider/cloud call, deployment,
+publication, integration/merge or consumer qualification has been performed.
 
 ### Priority: reusable fresh-creation runners
 

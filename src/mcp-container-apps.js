@@ -11,9 +11,10 @@ import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
 import { imageBuildSchema, runtimeNodePath } from './mcp-image-review.js';
 import { npmRegistryUrlSchema, resolveNpmRegistryUrl, mapRuntimeLock } from './npm-registry.js';
 import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
-  backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
+  backendIdentity, backendSecretBindings } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions, apiKeyPlacementProperties, apiKeyPlacementChoice,
   validateApiKeyPlacement, backendCredentialEnvironment, normalizeQueryParameters } from './recipes/container-apps/runtime.js';
+import { oauthProfiles, oauthSettingsSchema, validateOAuthSettings } from './recipes/container-apps/backend-auth.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
@@ -36,6 +37,19 @@ const backendSchema = { oneOf: [
       allOf: [{ if: { required: ['queryParameterName'] }, then: { required: ['queryExposureReviewed'] } }] },
   }),
 ] };
+const credentialReferenceSchema = object({
+  tenantId: uuid, keyVaultResourceId: resourceId('Microsoft.KeyVault/vaults'),
+  identityResourceId: resourceId('Microsoft.ManagedIdentity/userAssignedIdentities'),
+  secretIdentifier: { type: 'string', maxLength: 256,
+    pattern: '^https://[a-z][a-z0-9-]{1,22}[a-z0-9]\\.vault\\.azure\\.net/secrets/[A-Za-z0-9-]{1,127}/[a-fA-F0-9]{32}$' },
+});
+for (const profile of oauthProfiles) {
+  const references = object({ backend: credentialReferenceSchema, portal: credentialReferenceSchema });
+  references.required = profile === 'oauth-authorization-code-v1' ? ['backend', 'portal'] : ['backend'];
+  if (profile !== 'oauth-authorization-code-v1') delete references.properties.portal;
+  backendSchema.oneOf.push(object({ origin: runtimeSchema.properties.backendOrigin, auth: { const: profile },
+    oauth: oauthSettingsSchema, credentialReferences: references }));
+}
 export const containerAppsSchema = object({
   schemaVersion: { const: 1 }, recipe: { const: 'container-apps-direct-v1' },
   name: runtimeSchema.properties.name,
@@ -83,17 +97,34 @@ function compile(value, hosting) {
     'scaleProfile applies only to Container Apps; other hosts retain their own scaling contracts.');
   requireRecipe(input.authentication.tenantId.toLowerCase() === input.azure.tenantId.toLowerCase(), 'Deployment and caller tenants must match.');
   const key = input.backend.apiKey;
-  if (key) {
-    validateApiKeyPlacement(key);
-    requireRecipe(key.tenantId.toLowerCase() === input.azure.tenantId.toLowerCase(), 'Key Vault identity and deployment tenants must match.');
-    const vault = key.keyVaultResourceId.split('/').at(-1);
+  const oauth = oauthProfiles.includes(input.backend.auth);
+  if (oauth) {
+    requireRecipe(['container-apps-direct-v1', 'container-apps-apim-v1'].includes(input.recipe),
+      'OAuth/OBO backend profiles are limited to direct Container Apps and Container Apps behind APIM.');
+    validateOAuthSettings(input.backend.auth, input.backend.oauth, input.authentication);
+    if (input.backend.oauth.portal) {
+      requireRecipe(input.scaleProfile !== 'scale-to-zero', 'Memory-only user connections require the always-warm single-replica pilot.');
+      if (input.azure.gateway) requireRecipe(`${input.backend.oauth.portal.publicBaseUrl}/mcp` === gatewaySettings(input).publicUrl,
+        'Portal callbacks must use the exact public gateway route, not the private host.');
+      else requireRecipe(new URL(input.backend.oauth.portal.publicBaseUrl).origin === input.backend.oauth.portal.publicBaseUrl,
+        'Direct-host portal base must be the exact public HTTPS origin without an API path.');
+    }
+  }
+  if (key) validateApiKeyPlacement(key);
+  for (const { reference: ref } of backendSecretBindings(input)) {
+    requireRecipe(ref.tenantId.toLowerCase() === input.azure.tenantId.toLowerCase(), 'Key Vault identity and deployment tenants must match.');
+    const vault = ref.keyVaultResourceId.split('/').at(-1);
     requireRecipe(/^[a-z][a-z0-9-]{1,22}[a-z0-9]$/.test(vault) && !vault.includes('--')
-      && new URL(key.secretIdentifier).hostname === `${vault}.vault.azure.net`,
+      && new URL(ref.secretIdentifier).hostname === `${vault}.vault.azure.net`,
     'The Key Vault secret reference must match the explicit selected vault resource.');
     requireRecipe(![input.azure.registry?.pullIdentityResourceId, input.azure.storage?.identityResourceId]
-      .some(id => id?.toLowerCase() === key.identityResourceId.toLowerCase()),
+      .some(id => id?.toLowerCase() === ref.identityResourceId.toLowerCase()),
     'Use a separate dedicated Key Vault identity, not the image-pull or Functions storage identity.');
   }
+  if (input.backend.credentialReferences?.portal) requireRecipe(
+    input.backend.credentialReferences.portal.secretIdentifier.toLowerCase()
+      !== input.backend.credentialReferences.backend.secretIdentifier.toLowerCase(),
+    'Use separate portal and provider confidential-client credentials.');
   if (input.azure.storage) requireRecipe(/\/[a-z0-9]{3,24}$/.test(input.azure.storage.accountResourceId),
     'Use a valid lowercase 3-24 character storage account name in the resource ID.');
   if (input.azure.gateway) {
@@ -106,7 +137,7 @@ function compile(value, hosting) {
   }
   for (const id of [input.azure.environmentResourceId, input.azure.planResourceId, input.azure.registry?.pullIdentityResourceId,
     input.azure.storage?.accountResourceId, input.azure.storage?.identityResourceId,
-    key?.keyVaultResourceId, key?.identityResourceId].filter(Boolean)) {
+    ...backendSecretBindings(input).flatMap(({ reference: ref }) => [ref.keyVaultResourceId, ref.identityResourceId])].filter(Boolean)) {
     requireRecipe(id.startsWith(`/subscriptions/${input.azure.subscriptionId}/`), 'Existing resources must be in the selected subscription.');
   }
   requireRecipe(JSON.stringify([...input.operationIds].sort()) === JSON.stringify([...input.review.readOnlyOperationIds].sort()),
@@ -119,6 +150,28 @@ function compile(value, hosting) {
   'Only a matching fixed backend origin is supported.');
   const validateSecurity = security => {
     if (security === undefined) return;
+    if (oauth) {
+      requireRecipe(Array.isArray(security) && security.length === 1 && security[0]
+        && typeof security[0] === 'object' && Object.keys(security[0]).length === 1,
+      'OAuth requires exactly one matching security scheme, without optional or alternative access.');
+      const [name, scopes] = Object.entries(security[0])[0], settings = input.backend.oauth;
+      const scheme = document.components?.securitySchemes?.[name];
+      const flowName = input.backend.auth === 'oauth-client-credentials-v1' ? 'clientCredentials' : 'authorizationCode';
+      const flow = scheme?.flows?.[flowName];
+      requireRecipe(scheme?.type === 'oauth2' && Object.keys(scheme).every(k => ['type', 'description', 'flows'].includes(k))
+        && Object.keys(scheme.flows).length === 1 && flow
+        && Object.keys(flow).every(k => ['tokenUrl', 'authorizationUrl', 'scopes'].includes(k))
+        && flow.tokenUrl === settings.tokenEndpoint
+        && (flowName === 'clientCredentials' ? flow.authorizationUrl === undefined
+          : flow.authorizationUrl === (settings.authorizationEndpoint
+            ?? `https://login.microsoftonline.com/${input.authentication.tenantId}/oauth2/v2.0/authorize`))
+        && flow.scopes && typeof flow.scopes === 'object' && !Array.isArray(flow.scopes)
+        && Array.isArray(scopes) && new Set(scopes).size === scopes.length
+        && JSON.stringify([...scopes].sort()) === JSON.stringify([...settings.scopes].sort())
+        && scopes.every(s => Object.hasOwn(flow.scopes, s) && typeof flow.scopes[s] === 'string'),
+      'OpenAPI OAuth grant, endpoints and exact scopes must match the reviewed backend profile.');
+      return;
+    }
     if (!key) {
       requireRecipe(Array.isArray(security) && !security.length, 'Anonymous backend cannot satisfy OpenAPI security requirements.');
       return;
@@ -145,17 +198,24 @@ function compile(value, hosting) {
         'security', 'tags', 'deprecated', 'externalDocs', 'x-mcp-date-range'].includes(key)),
     'SDK hosting recipes support fixed GETs with inline scalar query parameters only: no path/header parameters, bodies, callbacks, references, alternate servers or mappings.');
     validateSecurity(operation.security);
+    if (oauth) {
+      requireRecipe(operation.security !== undefined || document.security !== undefined, 'OAuth operations require explicit matching OpenAPI security.');
+      validateSecurity(operation.security ?? document.security);
+      requireRecipe(!(operation.parameters?.length) && operation['x-mcp-date-range'] === undefined,
+        'OAuth/OBO pilot operations remain parameter-free fixed GETs.');
+    }
     const queryParameters = normalizeQueryParameters(operation.parameters ?? []);
     return { name: id, description: operation.description ?? operation.summary ?? id, path: op.path, readOnlyReviewed: true,
       ...(queryParameters.length ? { queryParameters } : {}),
       ...(operation['x-mcp-date-range'] === undefined ? {} : { dateRange: operation['x-mcp-date-range'] }) };
   });
   const runtime = validateRuntimeConfig({
-    schemaVersion: 1, name: input.name, authentication: input.authentication,
+    schemaVersion: oauth ? 2 : 1, name: input.name, authentication: input.authentication,
     backendOrigin: input.backend.origin, requestsPerMinute: input.requestsPerMinute, tools,
     ...(input.azure.gateway ? { gateway: gatewaySettings(input) } : {}),
     ...(key ? { backendAuthentication: { type: 'api-key',
       ...(key.headerName ? { headerName: key.headerName } : { queryParameterName: key.queryParameterName }) } } : {}),
+    ...(oauth ? { backendAuthentication: { type: input.backend.auth, settings: input.backend.oauth } } : {}),
   });
   return { input, runtime };
 }
@@ -181,14 +241,14 @@ function infrastructure(input) {
           activeRevisionsMode: 'Single',
           ingress: { external: true, targetPort: 3000, transport: 'http', allowInsecure: false },
           registries: [{ server: a.registry.server, identity: a.registry.pullIdentityResourceId }],
-          ...(input.backend.apiKey ? { secrets: [{ name: backendSecretName,
-            keyVaultUrl: input.backend.apiKey.secretIdentifier, identity: input.backend.apiKey.identityResourceId }] } : {}),
+          ...(backendSecretBindings(input).length ? { secrets: backendSecretBindings(input).map(({ name, reference }) => ({
+            name, keyVaultUrl: reference.secretIdentifier, identity: reference.identityResourceId })) } : {}),
         },
         template: {
           containers: [{ name: 'mcp', image: "[parameters('containerImage')]",
             resources: { cpu: 0.25, memory: '0.5Gi' },
             env: [{ name: 'PORT', value: '3000' }, { name: 'PUBLIC_MCP_URL', value: endpoint },
-              ...(input.backend.apiKey ? [{ name: backendCredentialEnvironment, secretRef: backendSecretName }] : [])],
+              ...backendSecretBindings(input).map(({ name, environment }) => ({ name: environment, secretRef: name }))],
             probes: ['Liveness', 'Readiness'].map(type => ({
               type, httpGet: { path: '/health', port: 3000, scheme: 'HTTP' },
               initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 2, failureThreshold: 3,
@@ -207,7 +267,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 COPY package.json package-lock.json .npmrc ./
 RUN mkdir /tmp/mcp-npm && touch /tmp/mcp-npm/user.npmrc /tmp/mcp-npm/global.npmrc && env -i PATH="$PATH" HOME=/tmp/mcp-npm npm ci --userconfig=/tmp/mcp-npm/user.npmrc --globalconfig=/tmp/mcp-npm/global.npmrc --cache=/tmp/mcp-npm/cache --registry=${registryUrl} --replace-registry-host=never --strict-ssl=true --fetch-retries=0 --include=dev --ignore-scripts --no-audit --fund=false
-COPY server.js runtime.js build-runtime.mjs runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
+COPY server.js runtime.js backend-auth.js auth-portal.js build-runtime.mjs runtime-config.json LICENSE THIRD-PARTY-NOTICES.md ./
 RUN env -i PATH="$PATH" HOME=/tmp/mcp-npm node build-runtime.mjs
 FROM --platform=${build.platform} ${build.runtimeImage}
 WORKDIR /app
@@ -231,7 +291,7 @@ async function prepare(options, hosting = false) {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   const producer = await getLibraryInfo();
   const files = {};
-  for (const file of ['runtime.js', 'server.js', 'package.json', 'package-lock.json', 'build-runtime.mjs']) {
+  for (const file of ['runtime.js', 'backend-auth.js', 'auth-portal.js', 'server.js', 'package.json', 'package-lock.json', 'build-runtime.mjs']) {
     files[file] = await readFile(path.join(TOOLKIT_ROOT, 'src', 'recipes', 'container-apps', file), 'utf8');
   }
   const npmRegistryUrl = resolveNpmRegistryUrl(input.npmRegistryUrl);
@@ -248,7 +308,7 @@ async function prepare(options, hosting = false) {
   files['package-lock.json'] = savedJson(lock);
   files['.npmrc'] = `registry=${npmRegistryUrl}\nreplace-registry-host=never\nstrict-ssl=true\nfetch-retries=0\n`;
   files['.gitignore'] = 'node_modules/\ndist/\n.env\n.env.*\n*.log\n';
-  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!.npmrc\n!server.js\n!runtime.js\n!build-runtime.mjs\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
+  files['.dockerignore'] = '**\n!package.json\n!package-lock.json\n!.npmrc\n!server.js\n!runtime.js\n!backend-auth.js\n!auth-portal.js\n!build-runtime.mjs\n!runtime-config.json\n!LICENSE\n!THIRD-PARTY-NOTICES.md\n';
   if (input.imageBuild) files['Dockerfile'] = dockerfile(input.imageBuild, npmRegistryUrl);
   files['runtime-config.json'] = savedJson(runtime);
   files['recipe-definition.json'] = savedJson(input);
@@ -259,6 +319,7 @@ async function prepare(options, hosting = false) {
     { ...input, authentication: runtime.authentication }, infrastructure(input)));
   files['README.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'container-apps-recipe.md'), 'utf8');
   files['hosting-recipes.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'), 'utf8');
+  files['backend-oauth.md'] = await readFile(path.join(TOOLKIT_ROOT, 'docs', 'backend-oauth.md'), 'utf8');
   files['deployment-handover.md'] = (await readFile(path.join(TOOLKIT_ROOT, 'docs', 'deployment-handover.md'), 'utf8'))
     .replace('../examples/mcp/deployment-handover.json', 'deployment-handover.example.json');
   files['deployment-handover.example.json'] = await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'deployment-handover.json'), 'utf8');
@@ -318,7 +379,12 @@ This notice is not a complete dependency license audit or a service-content lice
       'Local generation only; no install, image build/push, cloud operation, token acquisition or backend call.',
       'The npm registry is explicit source configuration, not connectivity or install evidence. No ambient npm configuration, credentials or authenticated-feed support; network/build approval remains separate.',
       'Entra v2 delegated tokens only. Exact tenant, audience, scope and allowed client application are checked in the server.',
-      'Anonymous or Key Vault API-key JSON backend, fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
+      'Fixed parameter-free GETs only. Read-only is an owner declaration, not verified backend semantics.',
+      ...(input.backend.oauth ? [
+        'Versioned OAuth/OBO pilot: Key Vault client credentials, explicit scopes and no automatic retry or backend replay. No named-provider compatibility claim.',
+        'Secret/certificate registration, access, consent, rotation, expiry and revocation require separate owner operations and live qualification.',
+        'Per-user connections, when selected, are memory-only, single-process and expire within 15 minutes. Restart requires reconnect; no durable token service.',
+      ] : ['Anonymous or Key Vault API-key JSON backend.']),
       ...(input.backend.apiKey ? [
         'Dedicated pre-existing Key Vault identity/access and network reachability require separate inspection. No secret resolution or role grants during generation.',
         'All allowed callers share the backend key entitlement. No per-user source filtering; review licensing and data access.',
