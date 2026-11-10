@@ -578,6 +578,12 @@ This is local preparation, not login or registration.
 For separately requested registration execution, read the auth runbook first.
 Use `mcp-auth-execution-plan` and `mcp-auth-execute` for independent
 initialize/login/register/close approvals, never the preparation token.
+Windows additionally permits a separately reviewed `verify` phase instead of
+`login` to inspect existing sign-in. It requires `--allow-provider --allow-network`
+without `--interactive`; it may refresh credentials and is not a passive read.
+Failed verification consumes the identity attempt; never fall back to login.
+Windows registration rechecks identity after dispatch; mismatch/unavailability
+leaves the target consumed and unverified, never eligible for retry.
 Offer native Windows for secretless Entra SSO using explicit
 `authenticationMode: "windows-user-managed"` and `sharedProfileReviewed: true`.
 Explain that ATK uses its normal profile, Credential Manager and possibly the
@@ -594,7 +600,7 @@ Do not retain login URLs. In Linux mode ATK may launch the Windows default brows
 the toolkit does not isolate browser cookies/history or select the browser account.
 The browser must reach the Linux loopback callback. A Windows browser may use separately verified WSL localhost forwarding;
 do not assume that forwarding or browser authentication works from WSL presence.
-Show the ancillary experimentation-service request in login/register approval
+Show the ancillary experimentation-service request in login/verify/register approval
 summaries: ATK's `--telemetry false` does not suppress it. No provider-code patch
 or hidden network bypass is authorized to remove that disclosure.
 Public account/selected-tenant metadata is not token attestation: obtain the

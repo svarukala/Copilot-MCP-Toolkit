@@ -89,8 +89,8 @@ The opaque reference is preserved, including leading punctuation and padding.
 It is not the Entra app client ID or the Teams app ID.
 
 For a new registration, prepare the existing `mcp-auth-execution-schema` config
-and a new auth-project path. The command drives **initialize, login, register,
-close**, each through the existing exact plan and explicit approval. It displays
+and a new auth-project path. The command drives **initialize, login (or explicit
+Windows verification), register, close**, each through the existing exact plan and explicit approval. It displays
 the actual account/tenant evidence before register, uses the existing one-shot
 target reservation and imports the bound result automatically. No custom
 provider, browser automation, duplicate registration or cache copying is added.
@@ -103,6 +103,13 @@ isolation**; sign-in may replace the current ATK account, caches persist, and
 close does not log out or delete them. Linux isolation uses the existing
 tmpfs provider mode. These modes are not interchangeable within a session.
 Windows live qualification remains separate from offline tests.
+
+For an initialized Windows session, the terminal journey explicitly offers
+**verify existing sign-in**, **sign in**, or **pause** before the phase review.
+Verification does not explicitly log in/out, but may refresh credentials or
+require reauthentication and needs its own network approval. Failed/unknown
+verification never falls back to login. Registration checks the shared identity
+again after dispatch; uncertainty remains consumed and cannot be retried.
 
 FCC creates no dummy Teams app. For HomeTenant/AnyApp with no app ID, the existing
 ATK validation compatibility opt-in must be explicitly reviewed in the executor

@@ -160,11 +160,12 @@ authWiqdHandoff: {
     },
 authRegistrationExecution: {
       contractVersion: 1, commands: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
-      phases: ['initialize', 'login', 'register', 'close'], platform: 'explicit-linux-isolated-or-windows-user-managed',
+      phases: ['initialize', 'login', 'verify', 'register', 'close'], platform: 'explicit-linux-isolated-or-windows-user-managed',
       modes: {
         'linux-isolated': { default: true, platform: 'linux', projectIsolatedCredentials: true },
         'windows-user-managed': { optIn: true, platform: 'win32', sharedProfileReviewRequired: true,
-          authentication: ['entra-sso'], projectIsolatedCredentials: false, closeLogsOut: false },
+          authentication: ['entra-sso'], projectIsolatedCredentials: false, closeLogsOut: false,
+          verifyExistingSignIn: true, postRegistrationIdentityCheck: true },
       },
       provider: '@microsoft/m365agentstoolkit-cli', version: '1.1.17', publicCliOnly: true,
       identity: 'explicit-account-output-selected-tenant-plus-human-confirmation-not-token-attestation',

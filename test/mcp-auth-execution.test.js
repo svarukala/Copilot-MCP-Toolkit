@@ -79,7 +79,7 @@ async function fixture(t, type = 'entra-sso', windows = false) {
     const selected = { ...options, phase, ...extra };
     const plan = await planAuthExecution(selected, deps);
     return executeAuthPhase({ ...selected, approval: plan.approvalToken, allowProvider: true,
-      ...(['login', 'register'].includes(phase) ? { allowNetwork: true } : {}),
+      ...(['login', 'verify', 'register'].includes(phase) ? { allowNetwork: true } : {}),
       ...(phase === 'login' ? { interactive: true } : {}),
       ...(phase === 'register' ? { confirmIdentity: true } : {}),
     }, deps);
@@ -103,6 +103,7 @@ for (const windows of [false, true]) for (const compatibility of [false, true]) 
   const originalInput = await readFile(path.join(f.root, 'registration.json'), 'utf8');
   const init = await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps);
   assert.equal(init.status, 'planned'); assert.deepEqual(f.calls, []);
+  assert.equal(init.resourceClientId, client);
   assert.ok(!init.effects.some(effect => effect.includes('default.exp-tas.com')));
   await f.run('initialize');
   const loginPlan = await planAuthExecution({ ...f.options, phase: 'login' }, f.deps);
@@ -174,6 +175,100 @@ for (const windows of [false, true]) for (const compatibility of [false, true]) 
   assert.equal(plan.bundle.authentication.registrationId, registrationId);
   assert.equal(plan.bundle.evidence.consumerExecution, 'not-verified');
 });
+
+test('Windows verification uses the shared lock and existing account without login or registration', async t => {
+  const f = await fixture(t, 'entra-sso', true);
+  await f.run('initialize');
+  const selected = { ...f.options, phase: 'verify' };
+  const plan = await planAuthExecution(selected, f.deps);
+  assert.equal(plan.status, 'planned');
+  assert.ok(plan.effects.some(effect => effect.includes('without explicitly invoking login or logout')));
+  assert.ok(plan.effects.some(effect => effect.includes('refresh credentials')));
+  assert.deepEqual(f.calls, ['initialize']);
+  for (const flags of [{}, { allowProvider: true }, { allowProvider: true, allowNetwork: true, interactive: true }]) {
+    await assert.rejects(executeAuthPhase({ ...selected, approval: plan.approvalToken, ...flags }, f.deps),
+      { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
+  }
+  assert.deepEqual(f.calls, ['initialize']);
+  await f.run('verify');
+  assert.deepEqual(f.calls, ['initialize', 'profile-lock', 'account', 'profile-release']);
+  const status = await readAuthExecutionStatus(f.options);
+  assert.equal(status.status, 'signed-in-requires-identity-confirmation');
+  assert.equal(status.identityPhase, 'verify');
+  assert.equal(status.targetReservation, 'not-observed');
+  assert.equal(JSON.parse(await readFile(path.join(f.options.project, 'login-attempt.json'))).phase, 'verify');
+  for (const phase of ['login', 'verify']) await assert.rejects(f.run(phase), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  await f.run('register');
+  assert.equal(f.calls.filter(call => typeof call === 'object').length, 1);
+  assert.equal(f.calls.filter(call => call === 'account').length, 3);
+  assert.equal(f.calls.includes('login'), false);
+  await f.run('close');
+});
+
+test('existing-account verification is Windows-only and cannot replace a consumed login', async t => {
+  const linux = await fixture(t);
+  await assert.rejects(planAuthExecution({ ...linux.options, phase: 'verify' }, linux.deps), { code: 'MCP_AUTH_EXECUTION_PHASE' });
+  assert.deepEqual(linux.calls, []);
+  const windows = await fixture(t, 'entra-sso', true);
+  await windows.signedIn();
+  await assert.rejects(windows.run('verify'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  assert.equal((await readAuthExecutionStatus(windows.options)).identityPhase, undefined);
+});
+
+for (const outcome of ['wrong-account', 'unavailable', 'termination-unknown']) {
+  test(`failed Windows verification remains consumed without login fallback: ${outcome}`, async t => {
+    const f = await fixture(t, 'entra-sso', true);
+    await f.run('initialize');
+    f.provider.account = async () => {
+      f.calls.push('account');
+      if (outcome === 'wrong-account') return { accountName: 'wrong@example.com', tenantId: tenant };
+      throw Object.assign(new Error('synthetic failure'), outcome === 'termination-unknown'
+        ? { code: 'ATK_TERMINATION_UNCONFIRMED', pid: 12345 } : { code: 'ATK_PROCESS' });
+    };
+    await assert.rejects(f.run('verify'), error => {
+      assert.equal(error.code, outcome === 'termination-unknown' ? 'ATK_TERMINATION_UNCONFIRMED' : 'MCP_AUTH_EXECUTION_FAILED');
+      if (outcome === 'unavailable') assert.match(error.message, /\(ATK_PROCESS\)/);
+      assert.doesNotMatch(error.message, /synthetic failure/);
+      return true;
+    });
+    assert.equal((await readAuthExecutionStatus(f.options)).status, 'verification-unknown');
+    assert.equal(f.calls.includes('login'), false);
+    assert.equal(f.calls.filter(call => call === 'account').length, 1);
+    assert.equal(f.calls.filter(call => call === 'profile-release').length, outcome === 'termination-unknown' ? 0 : 1);
+    for (const phase of ['login', 'verify', 'register']) {
+      await assert.rejects(f.run(phase), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+    }
+    if (outcome === 'termination-unknown') {
+      const lock = JSON.parse(await readFile(path.join(f.options.project, '.auth-operation.lock')));
+      assert.equal(lock.providerProcessId, 12345);
+      assert.equal(lock.status, 'termination-unconfirmed');
+    }
+  });
+}
+
+for (const outcome of ['changed', 'unavailable']) {
+  test(`post-registration Windows identity ${outcome} leaves one consumed dispatch and no success receipt`, async t => {
+    const f = await fixture(t, 'entra-sso', true);
+    await f.signedIn();
+    const account = f.provider.account;
+    f.provider.account = async (...args) => {
+      if (!f.calls.some(call => typeof call === 'object')) return account(...args);
+      if (outcome === 'unavailable') throw Object.assign(new Error('synthetic account error'), { code: 'ATK_PROCESS' });
+      return { ...await account(...args), accountName: 'changed@example.com' };
+    };
+    const plan = await planAuthExecution({ ...f.options, phase: 'register' }, f.deps);
+    assert.ok(plan.effects.some(effect => effect.includes('before and after registration')));
+    await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_FAILED' });
+    assert.equal((await readAuthExecutionStatus(f.options)).status, 'registration-unknown-consumed');
+    assert.equal(f.calls.filter(call => typeof call === 'object').length, 1);
+    await assert.rejects(readFile(path.join(f.options.project, 'result.json')), { code: 'ENOENT' });
+    await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+    await f.run('close');
+    f.options.project = path.join(f.root, 'new-session');
+    await f.signedIn();
+    await assert.rejects(f.run('register'), { code: 'MCP_AUTH_EXECUTION_CONSUMED' });
+  });
+}
 
 test('generic OAuth PKCE invokes only the public register action and retains its opaque ID', async t => {
   const f = await fixture(t, 'oauth'); await f.signedIn();
@@ -266,6 +361,7 @@ test('native Windows mode requires explicit shared-profile review, Windows and s
   assert.deepEqual((await planAuthExecution({ ...f.options, phase: 'initialize' }, f.deps)).gaps, ['WINDOWS_REQUIRED']);
   assert.deepEqual(f.calls, []);
   const oauth = await fixture(t, 'oauth', true);
+  assert.equal((await planAuthExecution({ ...oauth.options, phase: 'initialize' }, oauth.deps)).resourceClientId, null);
   assert.deepEqual((await planAuthExecution({ ...oauth.options, phase: 'initialize' }, oauth.deps)).gaps, ['WINDOWS_SSO_ONLY']);
   await assert.rejects(oauth.run('initialize'), { code: 'MCP_AUTH_EXECUTION_APPROVAL' });
   oauth.execution.secretIdentityProject = 'azure'; await oauth.save();

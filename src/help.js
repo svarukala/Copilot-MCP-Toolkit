@@ -243,7 +243,7 @@ These preparation commands perform no secret resolution, ATK invocation or
 provider OAuth exchange. FCC can select the
 output via source.authenticationBundleFile; imported references remain unverified.
 Auth execution: separate mcp-auth-execution-plan / mcp-auth-execute --phase
-initialize | login | register | close, with --workspace-root, --project and --config
+initialize | login | verify | register | close, with --workspace-root, --project and --config
 (config not needed for close). Requires reviewed ATK 1.1.17 and either Linux
 owner-only tmpfs (default) or explicit windows-user-managed authenticationMode
 with sharedProfileReviewed: true (secretless Entra SSO only). Windows uses the
@@ -257,6 +257,9 @@ Execution config may opt into allowAnyAppValidationPlaceholder for Entra SSO
 with explicit HomeTenant / AnyApp and no supplied app ID. The unused ATK validation
 placeholder is disclosed in initialize/login/register plans; it creates no app. SpecificApp still
 requires a real intended app ID. Windows requires its separate explicit mode/review.
+Windows-only verify inspects existing ATK sign-in under separate --allow-provider
+and --allow-network approval, without explicit login/logout or automatic fallback.
+It may refresh credentials; registration rechecks identity before and after dispatch.
 Use mcp-auth-execution-status for local retained state. A created-unverified result
 can feed preparation through source.registrationResultFile; settings still need review.
 See docs/cli-contract.md and docs/scenarios.md for input shapes and limits.

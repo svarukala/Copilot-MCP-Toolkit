@@ -100,13 +100,21 @@ async function continueOnboarding(p, options, session, dependencies) {
     const phases = { 'not-initialized': 'initialize', 'initialized-not-signed-in': 'login',
       'signed-in-requires-identity-confirmation': 'register' };
     while (!status.registration) {
-      const phase = phases[status.status];
+      let phase = phases[status.status];
       if (!phase) return paused(project, `Authentication is ${status.status}; preserve consumed/unknown operations. No retry.`, { authentication: status });
+      if (phase === 'login' && status.authenticationMode === 'windows-user-managed') {
+        phase = await p.choose('How should the reviewed Windows ATK account be confirmed?', [
+          { value: 'verify', label: 'Verify existing sign-in (may refresh credentials; no explicit login/logout)' },
+          { value: 'login', label: 'Sign in explicitly (may replace the previous ATK sign-in)' },
+          { value: 'pause', label: 'Pause without accessing the provider' },
+        ]);
+        if (phase === 'pause') return paused(project, 'Stopped before Windows account verification or login.');
+      }
       const plan = await planAuthExecution({ ...auth, phase }, dependencies);
       if (plan.status !== 'planned') return paused(project, 'Authentication prerequisites are blocked; no provider operation started.', { authenticationPlan: plan });
       if (!await approve(p, plan)) return paused(project, `Stopped before authentication ${phase}.`);
       await executeAuthPhase({ ...auth, phase, approval: plan.approvalToken, allowProvider: true,
-        ...(['login', 'register'].includes(phase) ? { allowNetwork: true } : {}),
+        ...(['login', 'verify', 'register'].includes(phase) ? { allowNetwork: true } : {}),
         ...(phase === 'login' ? { interactive: true } : {}),
         ...(phase === 'register' ? { confirmIdentity: true } : {}),
       }, dependencies);

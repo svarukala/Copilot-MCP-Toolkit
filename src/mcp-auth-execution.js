@@ -85,7 +85,8 @@ async function stateAt(project) {
   }
   const loginAttempt = records['login-attempt'], login = records.login, attempt = records['register-attempt'];
   if (loginAttempt !== null) requireExecution(records.initialized
-    && recordShape(loginAttempt, ['startedAt', 'approvalDigest'])
+    && (loginAttempt.phase === undefined || windows && loginAttempt.phase === 'verify')
+    && recordShape(loginAttempt, ['startedAt', 'approvalDigest', ...(loginAttempt.phase === undefined ? [] : ['phase'])])
     && isTimestamp(loginAttempt.startedAt) && isDigest(loginAttempt.approvalDigest), 'STATE', 'Malformed login attempt.');
   if (login !== null) requireExecution(loginAttempt && recordShape(login, ['completedAt', 'identity'])
     && isTimestamp(login.completedAt)
@@ -109,7 +110,8 @@ function statusOf(state) {
   if (!state) return 'not-initialized';
   const r = state.records;
   return r.closed ? 'closed' : r.result ? 'created-unverified' : r['register-attempt'] ? 'registration-unknown-consumed'
-    : r.login ? 'signed-in-requires-identity-confirmation' : r['login-attempt'] ? 'login-unknown'
+    : r.login ? 'signed-in-requires-identity-confirmation' : r['login-attempt']
+      ? r['login-attempt'].phase === 'verify' ? 'verification-unknown' : 'login-unknown'
       : r.initialized ? 'initialized-not-signed-in' : 'initialization-unknown';
 }
 function checkedResult(value) {
@@ -177,8 +179,8 @@ async function context(options, provider) {
 }
 async function prepare(options, provider) {
   const phase = options.phase;
-  requireExecution(['initialize', 'login', 'register', 'close'].includes(phase), 'PHASE',
-    'Select initialize, login, register or close. Each phase has a separate approval.');
+  requireExecution(['initialize', 'login', 'verify', 'register', 'close'].includes(phase), 'PHASE',
+    'Select initialize, login, verify (Windows only), register or close. Each phase has a separate approval.');
   if (phase === 'close') {
     const project = await assertProjectPath(path.resolve(options.project));
     const state = await stateAt(project);
@@ -192,6 +194,8 @@ async function prepare(options, provider) {
   }
   const c = await context(options, provider), gaps = [];
   const windows = c.authenticationMode === 'windows-user-managed';
+  requireExecution(phase !== 'verify' || windows, 'PHASE',
+    'Verify-existing-account is available only in explicitly reviewed Windows user-managed mode.');
   if (windows) {
     if (provider.platform() !== 'win32') gaps.push('WINDOWS_REQUIRED');
     if (c.request.registration.type !== 'entra-sso') gaps.push('WINDOWS_SSO_ONLY');
@@ -206,8 +210,8 @@ async function prepare(options, provider) {
     requireExecution(c.state?.records.initialized && !c.state.records.closed, 'STATE', 'Initialize the selected provider session first.');
     requireExecution(c.state.session.inputDigest === c.inputDigest
       && hash(c.state.session.provider) === hash(c.installation), 'CHANGED', 'Registration inputs or selected provider installation changed. No existing session can execute them.');
-    if (phase === 'login') requireExecution(!c.state.records['login-attempt'] && !c.state.records['register-attempt'],
-      'CONSUMED', 'This session login was already attempted; preserve it and review a new private session.');
+    if (['login', 'verify'].includes(phase)) requireExecution(!c.state.records['login-attempt'] && !c.state.records['register-attempt'],
+      'CONSUMED', 'This session identity phase was already attempted; preserve it and review a new session.');
     if (phase === 'register') {
       requireExecution(c.state.records.login && !c.state.records['register-attempt'] && !c.consumed, 'CONSUMED',
         'Registration requires a signed-in session and a never-attempted target. Failed/unknown attempts cannot be replayed.');
@@ -221,6 +225,7 @@ async function prepare(options, provider) {
     status: gaps.length ? 'blocked' : 'planned', gaps, inputDigest: c.inputDigest,
     producerBuild: (await getLibraryInfo()).contentDigest, provider: c.installation,
     operator: c.selected.input.operator, endpoint: c.selected.descriptor.endpoint,
+    resourceClientId: c.request.registration.type === 'entra-sso' ? c.selected.descriptor.inbound.clientId : null,
     request: c.request, targetDigest: c.targetDigest, stateDigest: c.state ? hash(c.state) : null,
     ...(c.compatibility ? { providerCompatibility: c.compatibility } : {}),
     consumedDigest: c.consumed ? hash(c.consumed) : null,
@@ -230,6 +235,10 @@ async function prepare(options, provider) {
       ? windows
         ? [windowsProfileNotice, 'Create a session-owned disk-backed Windows job directory in the selected private workspace. It inherits workspace ACLs; this is not credential isolation. No provider login or cloud mutation.']
         : ['Create one owner-only Linux tmpfs runtime and private session metadata. No provider login or cloud mutation.']
+      : phase === 'verify'
+        ? [providerStartupNotice, windowsProfileNotice,
+          'Inspect the existing ATK account and selected-tenant metadata without explicitly invoking login or logout. Account inspection can refresh credentials, access the network or require reauthentication; it is not a passive cache read or token-issuer attestation.',
+          'Hold the per-user toolkit operation lock. External ATK activity is not controlled. Failed or unknown verification consumes this session identity attempt; no automatic login fallback or retry.']
       : phase === 'login'
         ? windows
           ? [providerStartupNotice, windowsProfileNotice,
@@ -241,7 +250,7 @@ async function prepare(options, provider) {
           'The toolkit does not retain authentication URLs. If opening the displayed URL manually, use a browser with access to the Linux loopback callback, including separately verified Windows-to-WSL forwarding.',
           'Check the public ATK account output and selected-tenant metadata. This is not token-issuer attestation or consent to registration.']
         : [providerStartupNotice, ...(windows ? [windowsProfileNotice,
-          'Hold the per-user toolkit operation lock while rechecking identity and registering. This does not prevent external ATK profile changes.'] : []),
+          'Hold the per-user toolkit operation lock while rechecking identity before and after registration. This does not prevent external ATK profile changes. A changed or unavailable post-registration identity leaves the target consumed and the outcome unknown; reconcile rather than retry.'] : []),
           'Recheck the exact signed-in account and selected tenant; --confirm-identity confirms your manual review of the displayed organization and expected tenant.',
           ...(c.confidential ? ['Read only the exact versioned Key Vault secret with the separately selected private Azure identity; pass it in a child-only environment. Provider files/logs stay on owner-only tmpfs.'] : []),
           'Reserve this target durably BEFORE one public ATK oauth/register dispatch. Any failed, cancelled or unknown dispatch stays consumed.',
@@ -300,6 +309,7 @@ export async function readAuthExecutionStatus(options) {
       targetReservation: reservation ? 'consumed' : 'not-observed',
       authenticationMode: state?.session.kind === 'mcp-auth-user-managed-session' ? 'windows-user-managed'
         : state ? 'linux-isolated' : null,
+      ...(state?.records['login-attempt']?.phase === 'verify' ? { identityPhase: 'verify' } : {}),
       registration: state?.records.result?.registration ?? null, executionReadiness: false,
       replayAuthorized: false, runtimeAvailability: 'not-assessed' };
   });
@@ -338,9 +348,9 @@ export async function executeAuthPhase(options, { provider: override, runAzure =
     const plan = await prepare(options, provider);
     requireExecution(plan.status === 'planned' && options.approval === plan.approvalToken, 'APPROVAL',
       'Exact current phase approval and no blocking gaps are required.');
-    const network = ['login', 'register'].includes(options.phase);
+    const network = ['login', 'verify', 'register'].includes(options.phase);
     requireExecution(options.allowProvider === true && (network ? options.allowNetwork === true : options.allowNetwork === undefined),
-      'APPROVAL', 'Provider effects require --allow-provider; only login/register additionally require --allow-network.');
+      'APPROVAL', 'Provider effects require --allow-provider; only login/verify/register additionally require --allow-network.');
     requireExecution(options.phase === 'login' ? options.interactive === true : options.interactive === undefined,
       'APPROVAL', 'Only login requires --interactive.');
     requireExecution(options.phase === 'register' ? options.confirmIdentity === true : options.confirmIdentity === undefined,
@@ -378,10 +388,12 @@ export async function executeAuthPhase(options, { provider: override, runAzure =
         if (options.phase === 'close') {
           await provider.close(session.runtime, session.owner);
           await journal(project, 'closed', { completedAt: new Date().toISOString() });
-        } else if (options.phase === 'login') {
+        } else if (['login', 'verify'].includes(options.phase)) {
           await provider.validate(session.runtime, session.owner);
-          await journal(project, 'login-attempt', { startedAt: new Date().toISOString(), approvalDigest: hash(plan) });
-          const identity = await provider.login(plan.provider, session.runtime, session.owner, plan.operator, options);
+          await journal(project, 'login-attempt', { startedAt: new Date().toISOString(), approvalDigest: hash(plan),
+            ...(options.phase === 'verify' ? { phase: 'verify' } : {}) });
+          const identity = await provider[options.phase === 'verify' ? 'account' : 'login'](
+            plan.provider, session.runtime, session.owner, plan.operator, options);
           requireExecution(identity.accountName?.toLowerCase() === plan.operator.accountName.toLowerCase()
             && identity.tenantId?.toLowerCase() === plan.operator.tenantId.toLowerCase(), 'IDENTITY', 'Provider identity differs from the selected operator/tenant.');
           await journal(project, 'login', { completedAt: new Date().toISOString(), identity });
@@ -420,6 +432,11 @@ export async function executeAuthPhase(options, { provider: override, runAzure =
               action, c.request.registration.type,
               { signal: options.signal, secret });
             checkReference(registration, c.request.registration.type);
+            if (plan.authenticationMode === 'windows-user-managed') {
+              const after = await provider.account(plan.provider, session.runtime, session.owner, plan.operator, options);
+              requireExecution(hash(after) === hash(identity), 'IDENTITY',
+                'Shared ATK identity changed during registration. Preserve the consumed attempt and reconcile the result.');
+            }
             const content = { schemaVersion: 1, kind: 'mcp-auth-registration-result', status: 'created-unverified',
               request: c.request, descriptorDigest: c.selected.descriptor.descriptorDigest, endpoint: c.selected.descriptor.endpoint,
               ...(c.compatibility ? { providerCompatibility: c.compatibility } : {}),
@@ -447,7 +464,8 @@ export async function executeAuthPhase(options, { provider: override, runAzure =
         ? 'Provider termination is unconfirmed. Preserve the lock/runtime and reconcile the owned process; no retry or cleanup is authorized.'
         : ['ATK_IDENTITY', 'MCP_AUTH_EXECUTION_IDENTITY'].includes(error.code)
           ? 'Account or selected-tenant verification failed. Browser sign-in success alone is not verified identity. Preserve this attempt; registration dispatches remain consumed.'
-          : 'Authentication phase failed. Read local status and preserve attempts; provider output and secrets are not logged. Registration dispatches remain consumed.'),
+          : `Authentication phase failed${['ATK_PROFILE', 'ATK_RUNTIME', 'ATK_TERMINAL', 'ATK_PROCESS',
+            'ATK_OUTPUT', 'ATK_OUTPUT_LIMIT', 'ATK_TIMEOUT', 'ATK_ABORTED'].includes(error.code) ? ` (${error.code})` : ''}. Read local status and preserve attempts; provider output and secrets are not logged. Registration dispatches remain consumed.`),
       { code: retainLock ? error.code : 'MCP_AUTH_EXECUTION_FAILED' });
     } finally {
       await lock.close();

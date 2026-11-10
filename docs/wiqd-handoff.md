@@ -4,6 +4,16 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+2026-11-10 consolidation: the tracker now preserves historical WeatherAPI
+standalone v1.29 WIQD package/provisioning and earlier v1.28 starter reports.
+They do not resolve the registration URI/resource or token-store allowed-client
+gaps and do not establish consumer acceptance. The retained Windows spike's
+narrow registration/cleanup report is separate from mainline qualification.
+Mainline adds separately approved existing-sign-in verification and a
+post-registration identity check within its existing `windows-user-managed`
+contract; it does not adopt the spike's alternate session format or transfer
+credentials. H1/H3 and the broader WIQD compatibility gates remain open.
+
 2026-10-28 update: [consumer onboarding](consumer-onboarding.md) now provides
 a narrow standalone v1.28 agentConnector starter, observed tool-description
 file and HTML guide after shared guarded SSO registration/reuse. This is not a
