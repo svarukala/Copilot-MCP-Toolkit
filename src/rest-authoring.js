@@ -5,6 +5,10 @@ import { graphOrganizationOperation } from './mcp-graph-organization.js';
 export const restAuthoringVersion = 1;
 const xml = value => String(value).replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
 const own = (value, key) => Object.hasOwn(value, key);
+const backendPathPattern = '^/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)*(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*)?$';
+const backendPathRegex = new RegExp(backendPathPattern);
+export const isLiteralBackendPath = value => typeof value === 'string'
+  && backendPathRegex.test(value) && isPolicyLiteralRepresentable(value);
 export function isPolicyLiteralRepresentable(value) {
   if (typeof value !== 'string') return false;
   for (let index = 0; index < value.length; index++) {
@@ -135,7 +139,7 @@ export function backendMappingPolicy(c, method, op, pathItem, id) {
     && /^[A-Za-z0-9_.-]{1,100}$/.test(String(value));
   if (!plain(mapping) || method !== 'get' || op.requestBody || pathItem.parameters
     || Object.keys(mapping).some(key => !['path', 'query', 'parameterNames'].includes(key))
-    || typeof mapping.path !== 'string' || !/^\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]*$/.test(mapping.path)
+    || !isLiteralBackendPath(mapping.path)
     || !plain(mapping.query) || !plain(mapping.parameterNames ?? {})) invalid();
   const parameters = op.parameters ?? [];
   if (!Array.isArray(parameters)) invalid();
@@ -194,11 +198,15 @@ const schema = object({
   apiKeyQueryParameter: { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9_.-]{0,99}$' },
   tools: { type: 'array', minItems: 1, maxItems: 100, items: object({
     name, description: text(1000),
-    backendPath: { type: 'string', maxLength: 1024, pattern: '^/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]*$' },
+    backendPath: { type: 'string', maxLength: 1024, pattern: backendPathPattern },
     fixedQuery: { type: 'object', maxProperties: 20, propertyNames: name, additionalProperties: scalar },
     arguments: { type: 'array', maxItems: 30, items: object({
       name, description: text(1000), type: { enum: ['string', 'integer'] },
       required: { type: 'boolean' }, default: scalar, backendName: name,
+      minLength: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+      maxLength: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+      minimum: { type: 'integer', minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER },
+      maximum: { type: 'integer', minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER },
     }, ['name', 'description', 'type', 'required']) },
   }) },
 }, ['title', 'tools']);
@@ -221,8 +229,21 @@ export function prepareRestToolDocument(input) {
       if (argument.default !== undefined && (argument.type === 'integer' ? !Number.isSafeInteger(argument.default) : typeof argument.default !== 'string')) {
         throw new Error('Argument defaults must match the declared string or integer type.');
       }
+      const scalarSchema = { type: argument.type,
+        ...(argument.default !== undefined ? { default: argument.default } : {}),
+        ...Object.fromEntries(['minLength', 'maxLength', 'minimum', 'maximum']
+          .filter(key => own(argument, key)).map(key => [key, argument[key]])) };
+      if (!enforcedScalarSchema(scalarSchema)) throw new Error('Argument bounds must match the scalar type and have an ordered range.');
+      if (argument.default !== undefined) {
+        const value = argument.type === 'string' ? argument.default.length : argument.default;
+        const minimum = argument.type === 'string' ? argument.minLength : argument.minimum;
+        const maximum = argument.type === 'string' ? argument.maxLength : argument.maximum;
+        if ((minimum !== undefined && value < minimum) || (maximum !== undefined && value > maximum)) {
+          throw new Error('Argument defaults must satisfy the declared bounds.');
+        }
+      }
       return { name: argument.name, in: 'query', description: argument.description, required: argument.required,
-        schema: { type: argument.type, ...(argument.default !== undefined ? { default: argument.default } : {}) } };
+        schema: scalarSchema };
     });
     const mapping = { path: tool.backendPath, query: tool.fixedQuery,
       parameterNames: Object.fromEntries(tool.arguments.map(a => [a.name, a.backendName ?? a.name])) };

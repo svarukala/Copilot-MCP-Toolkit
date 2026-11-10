@@ -107,9 +107,9 @@ export async function resolveWorkspaceRoot(value) {
 export async function assertProjectPath(target, { allowRoot = false, workspaceRoot } = {}) {
   workspaceRoot ??= cliWorkspace.getStore();
   const resolved = path.resolve(target);
+  assertUnambiguousWorkspacePath(resolved);
   if (workspaceRoot !== undefined) {
     const root = await resolveWorkspaceRoot(workspaceRoot);
-    assertUnambiguousWorkspacePath(resolved);
     if (!isWithin(root, resolved) || (!allowRoot && path.relative(root, resolved) === '')) {
       throw new Error('Path must be inside --workspace-root, not the workspace root itself.');
     }
@@ -120,6 +120,7 @@ export async function assertProjectPath(target, { allowRoot = false, workspaceRo
   if (!isWithin(root, resolved) || (!allowRoot && path.relative(root, resolved) === '')) {
     throw new Error(`Project output must be inside ${TOOLKIT_ROOT}, not the toolkit root itself.`);
   }
+  await assertSafeLocation(root, resolved);
   // Resolve the nearest existing ancestor to reject junction/symlink escapes.
   let ancestor = resolved;
   while (true) {

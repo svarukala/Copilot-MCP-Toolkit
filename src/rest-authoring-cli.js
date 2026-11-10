@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { lstat, readFile, mkdir, open, link, unlink } from 'node:fs/promises';
 import path from 'node:path';
-import { TOOLKIT_ROOT, assertProjectPath } from './config.js';
-import { prepareRestToolDocument } from './rest-authoring.js';
+import { assertProjectPath } from './config.js';
+import { isLiteralBackendPath, prepareRestToolDocument } from './rest-authoring.js';
 
 const json = value => `${JSON.stringify(value, null, 2)}\n`;
 const digest = value => createHash('sha256').update(value).digest('hex');
 async function confined(value) {
-  return assertProjectPath(path.resolve(value), { workspaceRoot: TOOLKIT_ROOT });
+  return assertProjectPath(path.resolve(value));
 }
 async function prepare(options) {
   if ((options.definition === undefined) === (options.definitionFile === undefined)) throw new Error('Supply one nonsecret definition or definition file.');
@@ -68,7 +68,7 @@ async function collectTool(p, apiKeyQueryParameter) {
   const description = await p.ask('What does this tool do? Describe when to use it', { check: textCheck });
   const backendPath = await p.ask('Documented backend path relative to the connector base URL, e.g. / or /v1/search (GET only)', {
     check: value => {
-      if (value.length > 1024 || !/^\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]*$/.test(value)) throw new Error('Use a literal slash-prefixed backend path up to 1024 characters; no URL, query, placeholders or expressions.');
+      if (value.length > 1024 || !isLiteralBackendPath(value)) throw new Error('Use a literal slash-prefixed backend path up to 1024 characters; no URL, query, dot-leading segments, placeholders or expressions.');
     },
   });
   const fixedQuery = {}, args = [];
@@ -99,6 +99,19 @@ async function collectTool(p, apiKeyQueryParameter) {
     } });
     if (value !== undefined) argument.default = argument.type === 'integer' ? Number(value) : value;
     argument.backendName = await p.ask('Backend query name for this argument, e.g. id for bill_id', { defaultValue: argument.name, check: nameCheck });
+    if (await p.yes(argument.type === 'string' ? 'Constrain this argument length?' : 'Constrain this integer range?')) {
+      const keys = argument.type === 'string' ? ['minLength', 'maxLength'] : ['minimum', 'maximum'];
+      for (const [index, key] of keys.entries()) {
+        const bound = await p.ask(`${key} (leave empty for none)`, { optional: true, check: value => {
+          if (!/^-?(?:0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(Number(value))
+            || argument.type === 'string' && Number(value) < 0
+            || index === 1 && argument[keys[0]] !== undefined && Number(value) < argument[keys[0]]) {
+            throw new Error('Use a safe integer with nonnegative lengths and an ordered range.');
+          }
+        } });
+        if (bound !== undefined) argument[key] = Number(bound);
+      }
+    }
     args.push(argument);
   }
   return { name, description, backendPath, fixedQuery, arguments: args };

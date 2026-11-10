@@ -67,6 +67,16 @@ Inputs outside the documented closed profiles fail; examples are synthetic and
 need review. Commands do not accept raw provider credentials or generic URLs for
 probes. Unsupported flags are not substitutes for a reviewed plan.
 
+`rest-tools-*` honors the explicit private `--workspace-root` for both input
+and output. Literal backend paths may include filenames such as `/v1/record.json`;
+dot-leading segments, traversal, encoded separators, alternate URLs and dynamic
+routes remain rejected. String arguments may specify `minLength`/`maxLength`;
+integer arguments may specify `minimum`/`maximum`. Bounds must be safe integers,
+lengths nonnegative, ranges ordered, and any default within its bounds. The
+OpenAPI and generated APIM query guards retain these constraints. A bounded
+date-shaped string is not date-format validation, and local generation is not
+provider entitlement, observed schema fidelity or native proof qualification.
+
 Container Apps has a separate versioned recipe contract, not an extension to the
 historical APIM input/descriptor. It requires Entra v2 delegated callers and
 explicitly reviewed fixed-path GETs against one anonymous or Key Vault API-key JSON

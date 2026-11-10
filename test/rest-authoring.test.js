@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 
 import { randomUUID } from 'node:crypto';
 
-import { mkdir, readFile, readdir, rm, writeFile, symlink } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile, symlink } from 'node:fs/promises';
+
+import { tmpdir } from 'node:os';
 
 import { spawnSync } from 'node:child_process';
 
@@ -14,7 +16,7 @@ import { prepareRestToolDocument, restAuthoringVersion } from 'copilot-mcp-toolk
 
 import { planRestToolWrite, writeRestTools, promptRestToolAuthoring } from '../src/rest-authoring-cli.js';
 
-import { prepareRestToolDocument as prepareInternal } from '../src/rest-authoring.js';
+import { prepareRestToolDocument as prepareInternal, backendMappingPolicy } from '../src/rest-authoring.js';
 
 import { TOOLKIT_ROOT, readOpenApi } from '../src/config.js';
 
@@ -46,6 +48,70 @@ test('three documented tools compile without mutating inputs or inventing tools/
   assert.ok(!Object.hasOwn(authored, 'capturedAt'));
   input.tools[0].name = 'changed';
   assert.equal(authored.operationIds[0], 'search_bills');
+});
+
+test('literal dotted paths and typed bounds survive authoring and produce enforced mapping guards', () => {
+  const names = ['search_locations', 'get_current_weather', 'get_forecast', 'get_astronomy', 'get_timezone'];
+  const paths = ['search', 'current', 'forecast', 'astronomy', 'timezone'];
+  const input = { title: 'Synthetic weather tools', apiKeyQueryParameter: 'key', tools: names.map((name, index) => ({
+    name, description: 'Read synthetic weather data.', backendPath: `/v1/${paths[index]}.json`, fixedQuery: {},
+    arguments: [{ name: 'q', description: 'Explicit location.', type: 'string', required: true, minLength: 1, maxLength: 256 },
+      ...(name === 'get_forecast' ? [{ name: 'days', description: 'Days including today.', type: 'integer',
+        required: true, minimum: 1, maximum: 3 }] : [])],
+  })) };
+  const before = JSON.stringify(input);
+  const authored = prepareRestToolDocument(input);
+  assert.equal(JSON.stringify(input), before);
+  assert.equal(authored.document.openapi, '3.0.3');
+  assert.deepEqual(authored.operationIds, names);
+  for (const [index, operation] of authored.operations.entries()) {
+    assert.equal(operation.backendMapping.path, `/v1/${paths[index]}.json`);
+    assert.deepEqual(operation.parameters[0].schema, { type: 'string', minLength: 1, maxLength: 256 });
+    const policy = backendMappingPolicy({ apiKey: { queryParameterName: 'key' } }, 'get',
+      authored.document.paths[operation.path].get, {}, operation.operationId);
+    assert.match(policy, new RegExp(`template="/v1/${paths[index]}\\.json"`));
+    assert.match(policy, /copy-unmatched-params="false"/);
+    assert.match(policy, /Length &lt; 1/);
+    assert.match(policy, /Length &gt; 256/);
+    assert.match(policy, /code="400" reason="Invalid operation parameters"/);
+    if (operation.operationId === 'get_forecast') {
+      assert.deepEqual(operation.parameters[1].schema, { type: 'integer', minimum: 1, maximum: 3 });
+      assert.match(policy, /ToInt64.+ &lt; 1/);
+      assert.match(policy, /ToInt64.+ &gt; 3/);
+    }
+  }
+});
+
+test('dotted paths never admit traversal, alternate origins, encoded separators or dynamic routing', () => {
+  for (const backendPath of ['/./current.json', '/../current.json', '/v1/../current.json',
+    '/v1/./current.json', '/v1//current.json', '//example.com/current.json', '/v1/%2e%2e/current.json',
+    '/v1/current.json?q=other', '/v1/current.json#fragment', '/v1\\current.json',
+    '/v1/{operation}.json', '/v1/.hidden/current.json', 'https://example.com/current.json',
+    '/v1/current.json\n', '/v1/current.json\r', '/v1/current.json\r\n']) {
+    const input = { title: 'Synthetic path review', tools: [{ name: 'read_record', description: 'Read a record.',
+      backendPath, fixedQuery: {}, arguments: [] }] };
+    assert.throws(() => prepareRestToolDocument(input), { code: 'INVALID_CONFIG' }, backendPath);
+    assert.throws(() => backendMappingPolicy({}, 'get',
+      { 'x-cowork-backend': { path: backendPath, query: {} } }, {}, 'read_record'), /invalid x-cowork-backend/);
+  }
+});
+
+test('authoring rejects wrong-type, unordered and unsafe bounds and out-of-range defaults', () => {
+  for (const argument of [
+    { type: 'string', minimum: 1 }, { type: 'integer', maxLength: 3 },
+    { type: 'string', minLength: -1 }, { type: 'string', maxLength: 1.5 },
+    { type: 'integer', maximum: Number.MAX_SAFE_INTEGER + 1 },
+    { type: 'integer', minimum: 4, maximum: 3 }, { type: 'string', minLength: 3, maxLength: 2 },
+    { type: 'integer', minimum: 1, maximum: 3, default: 4 },
+    { type: 'integer', minimum: 1, default: 0 },
+    { type: 'string', minLength: 3, default: 'ab' },
+    { type: 'string', maxLength: 2, default: 'abc' },
+  ]) {
+    assert.throws(() => prepareRestToolDocument({ title: 'Synthetic bounds', tools: [{
+      name: 'read_record', description: 'Read a record.', backendPath: '/v1/record.json', fixedQuery: {},
+      arguments: [{ name: 'value', description: 'Bounded selector.', required: true, ...argument }],
+    }] }), { code: 'INVALID_CONFIG' });
+  }
 });
 
 test('unsupported authoring, collisions, mismatched defaults and credential-like content fail closed', async () => {
@@ -142,7 +208,7 @@ test('declined interactive authoring saves nothing and reports exact mappings ra
   const f = await fixture(t);
   const answers = ['get_record', 'Get a record by ID.', '/', 'op', 'getRecord', 'record_id',
     'An ID from search.', undefined, 'id', f.outputPath];
-  const yes = [true, false, true, true, false, false, false];
+  const yes = [true, false, true, true, false, false, false, false];
   const output = [];
   const result = await promptRestToolAuthoring({
     output: { write: s => output.push(s) },
@@ -161,6 +227,30 @@ test('declined interactive authoring saves nothing and reports exact mappings ra
   assert.match(output.join(''), /No tools\/list capture/);
 });
 
+test('interactive authoring collects bounded string arguments for dotted paths without implicit writes', async t => {
+  const f = await fixture(t);
+  const answers = ['read_record', 'Read a synthetic record.', '/v1/record.json', 'q',
+    'Explicit selector.', undefined, 'q', '1', '256', f.outputPath];
+  const yes = [false, true, true, true, false, false, false];
+  const output = [];
+  const result = await promptRestToolAuthoring({
+    output: { write: s => output.push(s) },
+    ask: async (_label, options = {}) => {
+      const value = answers.shift();
+      if (value !== undefined && options.check) await options.check(value);
+      return value;
+    },
+    choose: async () => 'string',
+    yes: async () => yes.shift(),
+  }, { title: 'Synthetic bounded records', outputPath: f.outputPath });
+  assert.equal(result, null);
+  assert.equal(answers.length + yes.length, 0);
+  assert.deepEqual(await readdir(f.root), []);
+  assert.match(output.join(''), /"minLength": 1/);
+  assert.match(output.join(''), /"maxLength": 256/);
+  assert.match(output.join(''), /"path": "\/v1\/record.json"/);
+});
+
 test('structured CLI plans and writes exact reviewed authoring without cloud operations', async t => {
   const f = await fixture(t);
   const source = path.join(TOOLKIT_ROOT, 'examples', 'rest-tools-legislation.json');
@@ -174,6 +264,34 @@ test('structured CLI plans and writes exact reviewed authoring without cloud ope
   assert.equal(written.status, 0, written.stdout + written.stderr);
   assert.equal(JSON.parse(written.stdout).status, 'written');
   assert.deepEqual(JSON.parse(await readFile(f.outputPath)), parsed.document);
+});
+
+test('REST CLI uses the explicit private workspace and rejects escapes and stale approvals', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'copilot-rest-private-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = path.join(root, 'definition.json'), outputPath = path.join(root, 'authored.json');
+  await writeFile(source, JSON.stringify({ title: 'Synthetic private tools', tools: [{
+    name: 'read_record', description: 'Read one synthetic record.', backendPath: '/v1/record.json', fixedQuery: {},
+    arguments: [{ name: 'q', description: 'Bounded query.', type: 'string', required: true, minLength: 1, maxLength: 256 }],
+  }] }));
+  const run = (command, output = outputPath, args = [], input = source) => spawnSync(process.execPath, [
+    path.join(TOOLKIT_ROOT, 'bin', 'copilot-mcp.js'), command, '--workspace-root', root,
+    '--config', input, '--output', output, '--json', ...args,
+  ], { encoding: 'utf8', timeout: 15000 });
+  const planned = run('rest-tools-plan');
+  assert.equal(planned.status, 0, planned.stdout + planned.stderr);
+  const review = JSON.parse(planned.stdout);
+  assert.equal(run('rest-tools-write').status, 1);
+  assert.equal(run('rest-tools-plan', path.join(root, '..', 'escape.json')).status, 1);
+  assert.equal(run('rest-tools-plan', path.join(TOOLKIT_ROOT, 'escape.json')).status, 1);
+  assert.equal(run('rest-tools-plan', outputPath, [],
+    path.join(TOOLKIT_ROOT, 'examples', 'rest-tools-legislation.json')).status, 1);
+  assert.equal(run('rest-tools-write', path.join(root, 'other.json'), ['--approve', review.approvalToken]).status, 1);
+  const written = run('rest-tools-write', outputPath, ['--approve', review.approvalToken]);
+  assert.equal(written.status, 0, written.stdout + written.stderr);
+  assert.deepEqual(JSON.parse(await readFile(outputPath, 'utf8')), review.document);
+  assert.equal(run('rest-tools-write', outputPath, ['--approve', review.approvalToken]).status, 1);
+  assert.deepEqual((await readdir(root)).sort(), ['authored.json', 'definition.json']);
 });
 
 test('a destination appearing after the prompt check offers recovery rather than exiting the wizard', async t => {

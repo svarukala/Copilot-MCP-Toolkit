@@ -5,6 +5,14 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { guidedArguments, createPrompter } from '../src/guided.js';
 
+function captureOutput() {
+  const output = new PassThrough();
+  let text = '';
+  output.setEncoding('utf8');
+  output.on('data', chunk => { text += chunk; });
+  return { output, read: () => { const value = text; text = ''; return value; } };
+}
+
 test('guided review welcomes the user once before its safety notice and menu', async () => {
   let output = '';
   const prompt = {
@@ -150,35 +158,35 @@ test('review menus reject incompatible config and project inputs rather than ign
 });
 
 test('each numbered menu starts at one and rejects a number from a previous menu', async () => {
-  const input = new PassThrough(), output = new PassThrough();
+  const input = new PassThrough(), { output, read } = captureOutput();
   const p = createPrompter(input, output);
   const first = p.choose('First menu', [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]);
   input.write('2\n');
   assert.equal(await first, 'two');
-  assert.match(output.read().toString(), /1\. One\n2\. Two/);
+  assert.match(read(), /1\. One\n2\. Two/);
   const second = p.choose('Second menu', [{ value: 'cancel', label: 'Cancel' }]);
   input.write('3\n');
   await new Promise(resolve => setImmediate(resolve));
-  assert.match(output.read().toString(), /Second menu\n1\. Cancel\nChoice: The value is outside/);
+  assert.match(read(), /Second menu\n1\. Cancel\nChoice: The value is outside/);
   input.write('1\n');
   assert.equal(await second, 'cancel');
   p.close();
 });
 
 test('guided prompting rejects credentials and explains invalid field input without echoing it', async () => {
-  const input = new PassThrough(), output = new PassThrough();
+  const input = new PassThrough(), { output, read } = captureOutput();
   const p = createPrompter(input, output);
   const answer = p.ask('Identifier', { check: value => {
     if (value !== 'valid') throw new Error('PRIVATE_VALIDATION_DETAIL');
   }, hint: 'Enter a valid identifier.' });
   input.write('api_key=PRIVATE_VALUE\n');
   await new Promise(resolve => setImmediate(resolve));
-  const rejected = output.read().toString();
+  const rejected = read();
   assert.match(rejected, /Possible credential rejected/);
   assert.doesNotMatch(rejected, /PRIVATE_VALUE/);
   input.write('invalid\n');
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(output.read().toString(), 'Enter a valid identifier.\nIdentifier: ');
+  assert.equal(read(), 'Enter a valid identifier.\nIdentifier: ');
   input.write('valid\n');
   assert.equal(await answer, 'valid');
   p.close();
@@ -186,12 +194,12 @@ test('guided prompting rejects credentials and explains invalid field input with
 });
 
 test('guided prompting refuses control characters and closed prompts cancel rather than fabricate a choice', async () => {
-  const input = new PassThrough(), output = new PassThrough();
+  const input = new PassThrough(), { output, read } = captureOutput();
   const p = createPrompter(input, output);
   const answer = p.ask('Choice');
   input.write('\tunsafe\x1b[31m\n');
   await new Promise(resolve => setImmediate(resolve));
-  assert.match(output.read().toString(), /Control characters are not accepted/);
+  assert.match(read(), /Control characters are not accepted/);
   input.write('safe-value\n');
   assert.equal(await answer, 'safe-value');
   p.close();
