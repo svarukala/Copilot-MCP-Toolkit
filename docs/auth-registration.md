@@ -177,10 +177,11 @@ unsupported; a registration reference cannot remove that gap.
 ### Native Windows SSO: user-managed profile
 
 Select this mode when the operator accepts normal Windows ATK authentication,
-rather than requiring project-isolated credentials. The 2026-10-22 spike
+rather than requiring project-isolated credentials. The initial 2026-10-22 spike
 established owner-reported account selection and continued Teams operation.
 It did not complete an SSO registration or establish private Credential Manager/
-broker storage. The implementation below is separate from that sign-in experiment.
+broker storage. Later historical reports are preserved below with their scope;
+the implementation below is separate from that initial sign-in experiment.
 
 Use Node.js 22+, an existing reviewed ATK **1.1.17** installation, a real Windows
 terminal and a private workspace with appropriate Windows ACLs. No WSL, Docker,
@@ -229,14 +230,30 @@ copilot-mcp mcp-auth-execution-plan --workspace-root C:\private\demo --project C
 copilot-mcp mcp-auth-execute --workspace-root C:\private\demo --project C:\private\demo\windows-sso --config C:\private\demo\execution.json --phase initialize --approve "EXACT_CURRENT_PHASE_TOKEN" --allow-provider --json
 ```
 
-Use the same four phases and effect flags in the table below, each with a new
-plan and separate approval. `login` uses the normal Windows browser/broker and
+Use the phase/effect-flag table below, each with a new plan and separate approval.
+After `initialize`, choose either `login` or Windows-only `verify`; neither
+automatically falls back to the other. `verify` inspects an existing sign-in
+without explicitly invoking login/logout, but account inspection can refresh
+credentials, access the network or require reauthentication. It requires both
+`--allow-provider` and `--allow-network`, not `--interactive`. Stop on unexpected
+account, tenant, consent or device-enrollment UI; never automate that choice.
+`login` uses the normal Windows browser/broker and
 requires a real terminal. The account check reads public `atk auth list m365`
 output and only `.fx/account/tenantId.cache.appStudio` selected-tenant metadata;
 it does not attest the token issuer. Registration requires `--confirm-identity`
-after human review, rechecks the same account/tenant, and reserves the same
+after human review, rechecks the same account/tenant before and after dispatch,
+and reserves the same
 cross-mode target before one dispatch. Switching OS/mode, output, session or
 app-validation options cannot reopen a consumed registration.
+
+Both identity choices share the historical `login-attempt.json`/`login.json`
+one-shot gate and 15-minute review window. A verification attempt additionally
+records `phase: verify`, surfaced as `identityPhase: verify` in local status.
+A failed/unknown verification reports `verification-unknown`; it never silently
+logs in or retries. Existing login journals keep their original shape. If the
+post-registration identity changes or cannot be checked, no success receipt is
+written and the dispatched target remains `registration-unknown-consumed`.
+Reconcile service state rather than attempting registration again.
 
 Windows process invocation uses the selected Node executable and public CLI
 entry directly, without a `.cmd` shell, POSIX signals or detached process group.
@@ -248,12 +265,55 @@ Normal exit does not kill a possibly reused PID.
 
 A per-user coordination file at
 `%LOCALAPPDATA%\CopilotMcpToolkit\atk-windows-operation.lock` prevents concurrent
-toolkit login/register phases using the same profile. It contains only ownership/
+toolkit login/verify/register phases using the same profile. It contains only ownership/
 process metadata, not credentials. It is released after confirmed completion,
 but stale/unconfirmed locks are not automatically removed. External ATK commands
 are outside this lock: do not run them concurrently. Closing a session removes
 only that session's owned job directory and retains evidence/reservations;
 **it does not sign the user out or reset shared authentication**.
+
+#### Historical Windows spike and residual review
+
+The retained Windows spike reports a separately approved 2026-10-22
+verify/register/close journey using an alternate executor: existing-account
+verification, one HomeTenant/AnyApp SSO registration, matching post-dispatch
+identity, a `created-unverified` receipt, repeat-plan refusal and owned-job cleanup.
+The owner reported continued Teams use without another sign-in. Service-side
+restrictions, endpoint configuration, other applications, restart behavior and
+consumer execution were not verified. These are historical source-worktree
+reports, **not revalidated during the 2026-11-10 consolidation** and not live
+qualification of the current integrated executor.
+
+The spike's initial verification stopped before provider dispatch because its
+nested owner metadata comparison was key-order-sensitive. Its report records
+a structural-comparison correction and fresh approval before proceeding, not
+a registration retry. The alternate `executionMode: windows-user` session
+format is not the mainline contract: do not rewrite old receipts or adopt their
+credentials into a new session. Mainline retains `authenticationMode:
+windows-user-managed`, `sharedProfileReviewed`, its original session kind,
+per-user lock and confirmed process-tree termination rules.
+
+The source investigation used ATK 1.1.17 package metadata and source-map code,
+not credential-store contents. Its reusable findings and unresolved questions:
+
+| Shipped source-map location | Historical source observation | Remaining qualification |
+| --- | --- | --- |
+| `src/commands/models/accountLoginM365.ts:24-27` | Login calls `M365TokenProvider.signout()` first | Effects on other existing sessions |
+| `src/commonlib/codeFlowLogin.ts:392-413` | Broker/nonbroker signout paths clear ATK account/cache selection | Cross-client broker propagation |
+| `src/commonlib/m365Login.ts:56-66` | Windows attempts `NativeBrokerPlugin` configuration | Whether a particular login actually uses the broker |
+| `src/commonlib/cacheAccess.ts:20-21,79-99` | Fixed Credential Manager service `Microsoft 365 Agents Toolkit` | Folder redirection is not a private namespace |
+| `src/commonlib/common/constant.ts:55` | M365 cache name `appStudio` | Sharing with a specific extension/version |
+
+For any separately approved disruption study, record before/immediately-after/
+ordinary-restart observations for ATK/its extension, VS Code Microsoft sign-in,
+Azure CLI cached selection, and browser M365/Teams/Office read-only operations.
+Missing baselines or untested surfaces remain unknown. Cached Azure selection
+does not attest working tokens; an Azure access check needs its own review.
+Do not use `atk auth list` as a passive baseline, force sign-outs, clear caches,
+or copy credentials as experimental cleanup. Account replacement is an effect,
+not by itself credential corruption. Report "no disruption observed in the tested
+surfaces," never universal safety or isolation. Real identities, raw logs,
+challenges and private receipts stay outside this repository.
 
 ### User-managed WIQD Windows handoff
 
@@ -541,6 +601,7 @@ its `status` must be `planned`, not `blocked`.
 | --- | --- | --- |
 | `initialize` | `--allow-provider` | Create an owner-only tmpfs runtime and durable nonsecret session metadata; no login |
 | `login` | `--allow-provider --allow-network --interactive` | Public ATK sign-in to the explicit tenant; may launch the Windows default browser under WSL, or the operator can open its displayed URL with verified access to the Linux callback |
+| Windows-only `verify` | `--allow-provider --allow-network` | Inspect an existing normal-profile sign-in instead of `login`; may refresh credentials; no explicit login/logout or automatic fallback |
 | `register` | `--allow-provider --allow-network --confirm-identity` | Recheck identity, durably reserve the target, invoke one public `oauth/register` action |
 | Confidential `register` | All registration flags plus `--allow-cloud` | Use the selected private Azure identity to retrieve the exact versioned Key Vault secret |
 | `close` | `--allow-provider` | Remove only the owned runtime; retain durable receipts, attempts and reservations; config is unnecessary |
@@ -562,7 +623,7 @@ errors. Previous failed login journals stay consumed and cannot be promoted to
 success by editing a cache or receipt. A fresh reviewed session is necessary;
 the correction alone is not live sign-in or registration qualification.
 
-After login, review the displayed account and organization against the selected
+After login (or Windows verification), review the displayed account and organization against the selected
 tenant. The public account output and ATK tenant-selection file are **not token
 issuer attestation**. `--confirm-identity` is the operator's separate confirmation,
 not an automatically inferred flag. Login review expires after 15 minutes; an

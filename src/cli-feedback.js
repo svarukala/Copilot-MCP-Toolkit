@@ -182,7 +182,7 @@ export function cliPlanSummary(plan) {
     return;
   }
   if (plan.action === 'mcp-auth-execution') {
-    writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
+    writeFeedback(state, `[auth execution summary]\nPhase: ${safe(plan.phase)}\nSession: ${safe(plan.project)}\nStatus: ${safe(plan.status)}\n${plan.operator ? `Expected account: ${safe(plan.operator.accountName)}\nTenant: ${safe(plan.operator.tenantId)}\nEndpoint: ${safe(plan.endpoint)}\n` : ''}${plan.resourceClientId ? `Entra resource client ID: ${safe(plan.resourceClientId)}\n` : ''}${plan.effects.map(safe).join('\n')}\nEXACT approvalToken: ${safe(plan.approvalToken)}\nReview the full plan; this approval authorizes only this phase.\n`);
     return;
   }
   if (plan.action === 'mcp-auth-wiqd-handoff-write') {

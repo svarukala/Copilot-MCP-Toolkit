@@ -119,9 +119,11 @@ See [shared auth preparation](auth-registration.md). FCC may select its output
 via `source.authenticationBundleFile`; this is an integrity/descriptor-bound
 reference import, not a consumer-readiness assertion or execution receipt.
 
-Auth execution phases are `initialize`, `login`, `register`, `close`, each with
+Auth execution phases are `initialize`, `login`, Windows-only `verify`, `register`, `close`, each with
 its own plan/token. All executions require `--allow-provider`; login also needs
-`--allow-network --interactive`, registration needs
+`--allow-network --interactive`, `verify` needs `--allow-network` without
+`--interactive` and inspects existing ATK sign-in instead of calling login/logout.
+Verification may refresh credentials and never falls back to login. Registration needs
 `--allow-network --confirm-identity`, and confidential registration additionally
 needs `--allow-cloud` with an explicit private Key Vault identity. Close needs
 no config and preserves consumed attempts. No other phase accepts those effect
@@ -132,6 +134,8 @@ mode-specific prerequisites, terminal-only login and unknown-attempt reconciliat
 Native Windows SSO uses the normal ATK profile with explicit shared-profile
 review, not a copied/redirected credential cache. Plans disclose login replacement,
 provider-owned persistent caches/logs, and a per-user toolkit operation lock.
+Windows registration rechecks identity after dispatch as well as before it;
+a mismatch or unavailable check leaves a consumed unknown outcome, not a receipt.
 Close removes only owned Windows job files, never shared credentials or logouts.
 Custom OAuth execution still requires Linux. Historical Linux sessions stay
 Linux-isolated; changing configuration cannot adopt them into Windows mode.

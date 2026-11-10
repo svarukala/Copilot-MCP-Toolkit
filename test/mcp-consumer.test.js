@@ -70,7 +70,7 @@ async function fixture(t, { fresh = false, capture = true } = {}) {
     async register() { calls.push('register'); return reference; },
     async close(runtime) { calls.push('close'); await rm(runtime, { recursive: true }); },
   };
-  return { root, fcc, registration, onboarding, consumer, save, provider, calls,
+  return { root, fcc, registration, onboarding, consumer, execution, save, provider, calls,
     options: { workspaceRoot: root, config: path.join(root, 'consumer.json'), output: path.join(root, 'export') },
     guided: { workspaceRoot: root, config: path.join(root, 'onboarding.json'), output: path.join(root, 'onboarding') } };
 }
@@ -197,6 +197,32 @@ for (const consumer of ['fcc', 'plugin']) test(`${consumer} creates one shared r
   await guidedOnboarding(prompt(consumer), { workspaceRoot: f.root, project: f.guided.output }, { provider: f.provider });
   assert.equal(f.calls.filter(value => value === 'register').length, 1);
 });
+for (const choice of ['verify', 'login', 'pause']) test(`Windows onboarding explicitly selects ${choice} without automatic login fallback`, async t => {
+  const f = await fixture(t, { fresh: true });
+  Object.assign(f.execution, { authenticationMode: 'windows-user-managed', sharedProfileReviewed: true });
+  f.provider.platform = () => 'win32';
+  f.provider.acquireProfileLease = async () => {
+    f.calls.push('profile-lock');
+    return async () => { f.calls.push('profile-release'); };
+  };
+  await f.save();
+  const p = prompt('plugin'), select = p.choose;
+  p.choose = (question, choices) => question.startsWith('How should the reviewed Windows')
+    ? choice : select(question, choices);
+  const result = await guidedOnboarding(p, f.guided, { provider: f.provider });
+  if (choice === 'pause') {
+    assert.equal(result.status, 'onboarding-paused');
+    assert.deepEqual(f.calls, ['initialize']);
+    return;
+  }
+  assert.equal(result.status, 'consumer-draft-written-not-published');
+  assert.deepEqual(f.calls, ['initialize', 'profile-lock', choice === 'verify' ? 'account' : 'login',
+    'profile-release', 'profile-lock', 'account', 'register', 'account', 'profile-release', 'close']);
+  if (choice === 'verify') assert.match(p.text, /without explicitly invoking login or logout/);
+  await guidedOnboarding(prompt('plugin'), { workspaceRoot: f.root, project: f.guided.output }, { provider: f.provider });
+  assert.equal(f.calls.filter(value => value === 'register').length, 1);
+});
+
 test('stopping after registration resumes its receipt, never dispatching twice', async t => {
   const f = await fixture(t, { fresh: true });
   const first = await guidedOnboarding(prompt('fcc', 5), f.guided, { provider: f.provider });

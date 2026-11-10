@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-11-09.
+Last updated: 2026-11-10.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -21,7 +21,8 @@ all four Windows/Linux Node 22/24 CI jobs passed. The stream-safe prompt test
 capture also passed on local Node 26.
 No live execution, publication, credential transfer or proof replay is implied.
 
-The OAuth/OBO integration candidate corrects portal dispatch ordering: signed
+The OAuth/OBO integration merged through PR #11 after all four full offline
+Windows/Linux Node 22/24 CI jobs passed. It corrects portal dispatch ordering: signed
 gateway verification precedes every gateway portal route, while direct hosting
 can reach its own connection page without weakening MCP caller authentication.
 It preserves minimal bundling and includes both auth modules in sealed build
@@ -33,6 +34,108 @@ The broader hosting, build/recovery, handover and fresh packed-consumer run
 passed **162/162**; combined v2 execution/v2-v3 validation regressions passed
 **53/53**. Syntax, public types and asset inventory passed. These are targeted
 offline runs, not a local full-suite or live OAuth qualification claim.
+
+### Residual worktree review
+
+The 2026-11-10 review compared retained uncommitted changes with integrated
+main, rather than replacing newer files with stale branch copies.
+
+| Retained branch | Useful work retained | Superseded or intentionally not adopted |
+| --- | --- | --- |
+| `svarukala-power-platform-mcp-feasibility` | Public-source feasibility study, routes, auth/schema risks and acceptance gates under B6 below | Its B2 identifier collided with the already shipped direct-ACA recipe. No connector implementation or live platform access is implied |
+| `svarukala-weatherapi-secure-mcp-347` | Historical independent five-tool deployment, consumer starter and WIQD package reports below | No private artifacts, identities, registration references or new consumer-readiness claim |
+| `svarukala-windows-atk-spike` | Existing-account verification, post-registration identity recheck, explicit resource-client display and bounded diagnostic codes adapted to current main; historical source investigation and observation scope in the auth runbook | Alternate `windows-user` config/session/provider replacement, removed profile-review gate/lock and blanket capability qualification. Current `windows-user-managed` contract and stronger process/lock safeguards remain |
+
+The Windows additions retain separate exact phase/network approvals, shared
+profile review, historical session/target identifiers and no-replay reservations.
+`mcp-onboard` offers verify/login/pause explicitly on Windows. Failed verification
+cannot trigger login; failed post-registration identity checking leaves one
+consumed dispatch, not a successful receipt. Linux behavior remains separate.
+Historical journals are not rewritten. Source worktrees are preserved unchanged;
+their obsolete dirty snapshots are not additional functionality to merge.
+
+Local residual validation passed **141/141** offline checks across executor,
+Windows provider, shared auth preparation, onboarding, CLI feedback and fresh
+packed consumption. Coverage includes verify/login/pause selection, independent
+effect approvals, verification failures without fallback, retained termination
+locks, post-dispatch identity drift/unavailability, unchanged Linux behavior,
+cross-session consumption and repeat-free completed onboarding. Asset inventory,
+syntax and public types passed. No provider/cloud operation or private evidence
+replay was performed for this review.
+
+### WeatherAPI standalone WIQD plugin package (historical report)
+
+The retained consumer worktree reports a separately requested private WIQD
+project that reused the secured WeatherAPI endpoint and exact OAuthPluginVault
+reference while preserving the original consumer handover. Its standalone
+manifest v1.29 package contained two root skills, `Outdoor Offsite Planner` and
+`Day-of Weather Briefing`, unchanged observed five-tool JSON, original icons,
+and confirmed publisher/legal metadata. No declarative agent or mail/calendar
+capability was added.
+
+Separately approved package-only Developer Portal provisioning assigned an app
+ID after account/tenant and lifecycle review. The selected lifecycle omitted
+personal M365 publishing/acquisition. Supported WIQD packaging, static checks
+and deep package validation reportedly passed with zero errors/warnings and six
+expected ZIP entries; skills/icons/tools/auth remained unchanged and no
+credentials/environment files were included.
+
+This report was preserved during consolidation, not independently revalidated.
+Packaging/provisioning does not establish Cowork execution or SSO compatibility.
+The registration URI/resource mismatch and missing token-store allowed-client
+gates remain unresolved. No sideload, catalog publication, sharing, auth
+re-registration, redeployment, discovery, consumer call or proof replay was
+reported for packaging. Real app IDs, identities, projects, ZIPs and receipts
+remain private. This later package report supersedes only the unfinished
+branding/app-ID packaging tasks in the earlier starter report below.
+
+### WeatherAPI Cowork starter continuation (historical report)
+
+The retained worktree reports reuse of the saved endpoint and five-tool
+observation without redeployment, discovery or proof replay. Separate native
+Windows ATK initialization, real-terminal sign-in, identity confirmation, one
+secretless SSO registration and owned-job cleanup were approved. The owner
+selected HomeTenant/AnyApp and reviewed normal-profile effects plus the pinned
+provider's validation compatibility option. The reference/Application ID URI
+remained `created-unverified`, not service-settings verified.
+
+Separately approved local export produced the authentication handoff, v1.28
+plugin starter, five observed tool descriptions/schemas and HTML with the actual
+reference/URI. The generated registration URI differed from the saved endpoint
+URI; the endpoint also lacked the Microsoft Enterprise token-store allowed
+client. Both remained configuration prerequisites. Branding/legal metadata,
+icons and app ID were unfinished at this checkpoint; the later package report
+above addresses packaging only, not auth compatibility or consumer acceptance.
+No endpoint/app changes, publication or consumer calls were reported here.
+This narrow historical observation was not rerun or used to live-qualify the
+integrated executor. References, identities and receipts remain private.
+
+### WeatherAPI independent five-tool deployment (historical report)
+
+The retained worktree reports a separately owner-declared independent direct-ACA
+deployment through the existing reusable runner. Tools covered location search,
+current weather, forecasts, astronomy and time zones; locations remained global
+and Free-plan forecast `days` was constrained to integer 1-3. Entra delegated
+callers and a versioned Key Vault reference remained separate from provider quota.
+
+Initial runtime token acquisition failed. Its reserved one-call budget remained
+consumed, with retained evidence reporting no tool dispatch. A separately
+approved same-reference session discovered all five tools but declined proof
+after an incorrect digest, without a call. A further separately approved session
+reported exactly one `get_current_weather({q: "Tokyo"})` dispatch with
+`protocol-success` at `2026-10-28T23:29:00.531Z`; discovery-to-dispatch was
+133.060 seconds. No rebuild/redeploy or earlier forecast-proof replay occurred.
+
+A separately approved source-matched HTML handover included deployment and
+recreation tabs, sealed source/release files, editable architecture, bounded
+historical proof evidence and pending gates. Scanning/SBOM were not run under
+the approved policy. Negative auth, rotation, business correctness and consumer
+acceptance remained unverified. No FCC/plugin was created in that deployment;
+the separate starter/package continuations are recorded above.
+Resources were retained and billable, with no cleanup authorized; scale-to-zero
+was not zero total cost. This is an attributed historical report, not a fresh
+check of service state. Real configuration, identities, resource names,
+handovers and live evidence remain outside this public repository.
 
 ### Consumer selection continuation
 
@@ -1500,6 +1603,102 @@ separately approved. B1's priority and first provider profile remain unset.
 | B3 | Recipe 2: APIM gateway in front of the Container Apps MCP server | Local proxy/server/release/reference implemented; offline checked | Independent signed gateway identity plus caller token; inherited HTTP proxy policies, no native tool generation. Live token issuance, policy behavior and consumer labels remain; SSE is not supported by this JSON-only profile |
 | B4 | Recipe 3: MCP server hosted on Azure App Service | Local generation/runtime/release implemented; offline checked | Existing Linux Basic-or-higher plan; managed-identity image pull and actual platform hostname. Live image pull, routing, authentication and consumer checks remain |
 | B5 | Recipe 4: MCP server hosted on Azure Functions | Local SDK custom-handler generation and source release implemented | Public preview, Linux Flex Consumption, stateless JSON, identity-based blob/deployment storage; actual Functions host, remote build and live consumer validation remain |
+| B6 | Power Platform custom connector / Copilot Studio MCP integration | Historical feasibility review 2026-10-21; not implemented | Review local connector export for an existing toolkit MCP endpoint first; connector-hosted MCP and Connector Namespace eligibility remain separate investigations |
+
+### B6: Power Platform custom connector / Copilot Studio MCP integration
+
+This preserves the 2026-10-21 public-source/local-code study from the retained
+feasibility worktree. Sources were **not freshly revalidated** during integration.
+Its original B2 label conflicted with direct ACA hosting; B1-B5 keep their
+existing identifiers. This is a feasible proposed consumer-specific export,
+not an approved implementation, installed plugin or qualified platform runtime.
+
+The study reviewed `github/awesome-copilot` at
+[`613efc8`](https://github.com/github/awesome-copilot/tree/613efc8c21d9b3ce642dff361d17006cd9967e28):
+the [development plugin](https://github.com/github/awesome-copilot/blob/613efc8c21d9b3ce642dff361d17006cd9967e28/plugins/power-platform-mcp-connector-development/README.md),
+[connector suite](https://github.com/github/awesome-copilot/blob/613efc8c21d9b3ce642dff361d17006cd9967e28/skills/power-platform-mcp-connector-suite/SKILL.md),
+[server generator](https://github.com/github/awesome-copilot/blob/613efc8c21d9b3ce642dff361d17006cd9967e28/skills/mcp-copilot-studio-server-generator/SKILL.md)
+and [development instructions](https://github.com/github/awesome-copilot/blob/613efc8c21d9b3ce642dff361d17006cd9967e28/instructions/power-platform-mcp-development.instructions.md).
+These describe Swagger 2.0, `apiDefinition.swagger.json`, `apiProperties.json`,
+optional `script.csx`, validation and human setup. They are authoring guidance,
+not a tested runtime dependency. No upstream code/skill/plugin was installed or
+copied. Review applicable MIT notices before any later source incorporation.
+
+| Route | Historical assessment | Boundary |
+| --- | --- | --- |
+| Copilot Studio -> custom connector -> existing toolkit MCP endpoint -> REST backend | Recommended first increment; moderate export scope | Reuse existing descriptors/hosts; no new server runtime |
+| Copilot Studio -> connector `script.csx` implementing MCP -> REST backend | Conditional runtime/compiler research | Must qualify lifecycle/transport, routing, auth and consumer compatibility; a Swagger extension alone is not an MCP server |
+| Azure Connector Namespace -> connector actions exposed as hosted MCP tools | Separate platform alternative | Reviewed preview guidance described prebuilt connectors and one connector per server; arbitrary Power Platform custom-connector import was not established |
+
+The reviewed [existing MCP connection guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/mcp-add-existing-server-to-agent)
+used Swagger 2.0 POST with `x-ms-agentic-protocol: mcp-streamable-1.0` as an
+**operation extension**, not an HTTP header. Preserve actual paths, APIM
+prefixes and trailing slashes rather than forcing `/mcp`; pass-through needs no
+C# shim. The built-in wizard remains suitable for one-off connections. The
+toolkit's proposed value is repeatable artifacts, auth gaps and evidence
+preservation. Legacy standalone SSE is not a Streamable HTTP fallback, distinct
+from SSE responses within that transport.
+
+The reviewed [custom-code contract](https://learn.microsoft.com/en-us/connectors/custom-connectors/write-code)
+specified `Script : ScriptBase`, restricted .NET Standard 2.0, one script up to
+1 MB and two-minute execution for new/updated connectors. It recommended
+`Context.SendAsync`; on-premises gateway custom code and VNet-private access
+through that send path were unsupported. Recheck these constraints before
+prototyping long-lived sessions/streaming, libraries or private backends.
+The separate [Connector Namespace preview](https://learn.microsoft.com/en-us/azure/connector-namespace/create-mcp-server-connectors)
+described public Azure regions and default exposure of all connector actions.
+Review tool selection and connection identity; do not implicitly expose write
+actions or treat a release-plan promise as availability/custom-connector proof.
+
+**Proposed bounded increment:** offline schema/plan/bundle commands (names
+unreviewed) accepting a validated descriptor, explicit destination/metadata and
+optional matching observed capture. Produce Swagger 2.0, nonsecret
+`apiProperties.json` and a human import/auth checklist in a new private output.
+Configuration-only drafts must retain missing/stale evidence gaps. Do not invent
+tools from maps or imply a local subset filters the server.
+
+Reuse `src/mcp-server.js` descriptor and capture/freshness helpers, `src/mcp-fcc.js`
+plan/readiness patterns and `src/mcp-bundle-write.js` approval binding. The last
+writer publishes one JSON file: multi-file atomic/no-overwrite publication needs
+its own design. REST authoring/APIM remain producers, not a new Swagger 2 input
+compiler; REST import remains OpenAPI 3.0.x JSON.
+Future commands must cover CLI, capabilities, help, stderr summaries and shipped
+skill while keeping JSON stdout and the public API bounded. FCC/ATK registration,
+WIQD packaging and Power Platform connection auth are different contracts;
+never reuse a token-store reference as a connection ID. B6 does not require or
+replace H1/H3.
+
+**Acceptance gates:**
+
+- Auth: qualify a declared public/read-only endpoint first. Protected endpoints
+  remain blocked until a matching profile is reviewed. The
+  [remote-MCP example](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/how-to/deploy-remote-mcp-server-copilot-studio)
+  described Entra managed identity/federated credentials as a secretless option;
+  verify tenant, connector client, audience, scopes, redirect, consent and
+  gateway allowlist. No automatic downgrade, generic OAuth/DCR promise or
+  credential export. Backend keys remain Key Vault references; connector
+  secret profiles need a separate storage/provisioning design.
+- Schema: qualify consumer restrictions without silently flattening unions/
+  references or weakening enums/constraints. Preserve captures, annotations
+  and hashes; export cannot repair native APIM annotation limitations.
+- Platform: review entitlement, environment, DLP, region, connection sharing and
+  audience. No `pac`/`paconn` login, upload, validation-service calls, updates,
+  certification or publication in offline export. Automation needs reviewed
+  identity/resource-preserving lifecycle controls; never switch a shared profile.
+- Offline: deterministic synthetic artifacts; exact endpoint round-trip,
+  extension placement, auth mismatch/unsupported-schema rejection, capture
+  binding/freshness, secret exclusion, traversal/symlink/overwrite/partial-write
+  defenses, stable approvals and a fresh packed-consumer rehearsal with network
+  and subprocesses denied. Proposed commands must not be documented as shipped.
+- Live: independently approve environment/identity, import, connection/consent,
+  discovery and one bounded read-only call. Record artifact validation,
+  connector creation, discovery and attributed Copilot Studio execution
+  separately. Consumed proofs stay consumed; protocol success is not business
+  correctness or other-consumer qualification.
+
+Recommended sequence: contract/auth review, offline export, then separately
+approved consumer qualification. Connector-hosted MCP and Connector Namespace
+eligibility remain separate investigations, neither rejected nor implementation-ready.
 
 ### B2-B5: Alternative MCP hosting recipes
 

@@ -86,11 +86,13 @@ test('CLI summary selects only the exact top-level approval and screens untruste
   await withCliFeedback(async () => {
     configureCliFeedback('mcp-auth-execution-plan', { summary: true });
     cliPlanSummary({ action: 'mcp-auth-execution', phase: 'login', project: 'synthetic-session', status: 'planned',
+      resourceClientId: '11111111-1111-4111-8111-111111111111',
       effects: ['ATK startup requests https://default.exp-tas.com/vscode/ab; --telemetry false does not disable it.'],
       approvalToken: token });
     return 0;
   });
   assert.match(output.at(-1), /https:\/\/default\.exp-tas\.com\/vscode\/ab/);
+  assert.match(output.at(-1), /Entra resource client ID: 11111111-1111-4111-8111-111111111111/);
   assert.match(output.at(-1), /--telemetry false does not disable/);
   assert.ok(output.at(-1).includes(`EXACT approvalToken: ${token}`));
   for (const unsafe of ['api_key=SUPER_PRIVATE_VALUE', 'Bearer abcdefghijklmnop', 'unsafe\u009b31m', 'fake\u2028line']) {

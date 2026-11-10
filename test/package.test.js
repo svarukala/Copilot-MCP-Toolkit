@@ -442,7 +442,10 @@ if (await main(args) !== 2) throw Error('Expected a blocked local Resume report,
   assert.equal(cap.authRegistrationExecution.automaticRetry, false);
   assert.equal(cap.authRegistrationExecution.windowsExecution, true);
   assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].projectIsolatedCredentials, false);
-  assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'register', 'close']);
+  assert.deepEqual(cap.authRegistrationExecution.phases, ['initialize', 'login', 'verify', 'register', 'close']);
+  assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].sharedProfileReviewRequired, true);
+  assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].verifyExistingSignIn, true);
+  assert.equal(cap.authRegistrationExecution.modes['windows-user-managed'].postRegistrationIdentityCheck, true);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.schemaVersion.const, 1);
   assert.equal(invoke(['mcp-auth-execution-schema']).result.properties.allowAnyAppValidationPlaceholder.type, 'boolean');
   assert.equal(cap.authRegistrationExecution.anyAppCompatibility.targetAudience, 'HomeTenant');

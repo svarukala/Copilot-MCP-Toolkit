@@ -1,11 +1,26 @@
 # Session handoff
 
-Last updated: 2026-11-09. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-10. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
 
-- **Integration review:** the OAuth/OBO candidate preserves parameterized
+- **Residual worktree consolidation:** the retained Power Platform study is now
+  [B6](progress-tracker.md#b6-power-platform-custom-connector--copilot-studio-mcp-integration),
+  avoiding the existing B2 hosting-recipe identifier. Historical WeatherAPI
+  deployment/starter/package reports and the Windows ATK spike are retained
+  with their original limitations, not freshly revalidated. Useful Windows
+  additions are adapted to the current contract: separately approved existing
+  sign-in verification, displayed resource client ID and post-registration
+  identity recheck. The terminal onboarding journey offers verify/login/pause.
+  The current shared-profile review gate, session identifiers, per-user lock,
+  process-tree termination rules and consumed-target hashes remain intact.
+  The alternate Windows module/config format is superseded, not a second
+  supported implementation. See [the review ledger](progress-tracker.md#residual-worktree-review).
+  No live operation, publication, credential transfer or evidence rewrite is
+  authorized by consolidation; original source worktrees remain untouched.
+
+- **Integrated through PR #11:** the OAuth/OBO implementation preserves parameterized
   anonymous/API-key GETs, bundled images, current scan policy and consumed
   evidence. OAuth pilots remain parameter-free and outside bounded host
   execution. Portal routing now verifies gateway identity before dispatch and
@@ -27,7 +42,8 @@ It contains public engineering context only, not credentials or execution author
   v1.28 agentConnector starter plus observed tools, with metadata placeholders.
   No directory/endpoint change, consumer publication or proof replay is implied.
   See [consumer onboarding](consumer-onboarding.md). WeatherAPI consumer
-  registration and actual FCC/plugin acceptance are still unverified.
+  settings and actual FCC/plugin acceptance are still unverified. Narrow
+  historical registration/package observations are recorded separately in the tracker.
 
 - **WeatherAPI REST-to-MCP live validation passed:** a fresh direct-ACA
   execution on baseline `3806ba4` used the existing reusable runner in two
