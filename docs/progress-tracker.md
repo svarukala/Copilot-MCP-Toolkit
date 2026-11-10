@@ -27,7 +27,10 @@ inputs. Historical pre-OAuth build hashes remain inspectable without restoring
 execution authority. Anonymous/API-key query support is retained; OAuth remains
 parameter-free, and bounded host execution rejects the pilot before effects.
 Combined OAuth/query/bundle regressions passed **47/47** with synthetic transports.
-No live OAuth qualification is claimed.
+The broader hosting, build/recovery, handover and fresh packed-consumer run
+passed **162/162**; combined v2 execution/v2-v3 validation regressions passed
+**53/53**. Syntax, public types and asset inventory passed. These are targeted
+offline runs, not a local full-suite or live OAuth qualification claim.
 
 ### Consumer selection continuation
 
