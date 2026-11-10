@@ -71,6 +71,32 @@ test('minimal image inputs and all qualification receipts bind to a newly sealed
   f.qualification.scan.high = 1; await f.save();
   await assert.rejects(planRecipeReview({ ...f.options, output: path.join(f.root, 'failed.json') }), /zero critical\/high/);
 });
+
+test('unscanned review requires explicit versioned not-run evidence and preserves smoke, identity and freshness checks', async t => {
+  const f = await fixture(t);
+  const project = { input: f.input, manifest: f.manifest, files: f.generated.files };
+  const q = { ...f.qualification, schemaVersion: 2, scanGate: false, reviewedAt: new Date().toISOString(),
+    scan: { image: f.qualification.image, status: 'not-run' },
+    sbom: { image: f.qualification.image, status: 'not-run' } };
+  assert.equal(reviewImage(project, q).policy.scanGate, false);
+  for (const mutate of [
+    v => { delete v.scanGate; },
+    v => { v.scanGate = true; },
+    v => { v.scan.critical = 0; },
+    v => { v.sbom.reportDigest = hash; },
+    v => { v.smoke.status = 'failed'; },
+    v => { v.smoke.nonroot = false; },
+    v => { v.scan.image = `other.azurecr.io/mcp@${hash}`; },
+    v => { v.reviewedAt = new Date(Date.now() - 86400001).toISOString(); },
+    v => { v.reviewedAt = new Date(Date.now() + 3600000).toISOString(); },
+  ]) {
+    const changed = structuredClone(q); mutate(changed);
+    assert.throws(() => reviewImage(project, changed), { code: 'MCP_IMAGE_QUALIFICATION' });
+  }
+  const old = structuredClone(f.qualification);
+  old.scan.high = 1;
+  assert.throws(() => reviewImage(project, old), /zero critical\/high/);
+});
 for (const recipe of ['container-apps-direct-api-key', 'container-apps-apim-api-key', 'app-service-container-api-key']) {
   test(`${recipe}: Debian 13 binds generation and qualification without changing the Debian 12 profile`, async t => {
     const imageBuild = { ...build, runtimeImage: build.runtimeImage.replace('debian12', 'debian13') };

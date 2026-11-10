@@ -38,29 +38,103 @@ candidate. A copied skill is not updated when Git changes or a package is
 reinstalled. Review a mismatched copy rather than silently replacing it; use
 [the candidate checklist](validation-readiness.md#freeze-the-candidate).
 
+## Conversational API discovery and setup
+
+For conversational API discovery instead of manual recipe editing, use the
+[documentation-first skill flow](../skills/copilot-mcp/references/api-discovery.md).
+Start Copilot in an existing private workspace outside this repository and
+identify the explicit toolkit path (or load its installed matching skill):
+
+```text
+Read skills\copilot-mcp\SKILL.md from my specified toolkit installation.
+Assess the API described in my local OpenAPI file for my stated use case.
+Read documentation only; do not probe the API.
+Check the current toolkit's compatibility, explain gaps, and help prepare
+the configuration for review rather than asking me to edit a template.
+Do not sign in, access secrets, build, deploy or call the API.
+```
+
+Supply the actual toolkit path, documentation URL/file and desired outcome.
+The agent asks for missing decisions one at a time, distinguishes full support
+from a narrower alternative, and prepares private input files with local-write
+approval. Generation still uses the exact reviewed toolkit plan. An optional
+handoff prompt carries facts and open questions, never execution authority.
+This is shipped guidance, not a new API-discovery CLI command or proof of live
+provider compatibility. Hosting supports bounded declared query arguments, not
+arbitrary operations or new backend authentication. Copy the entire skill directory, including
+`references`, when installing; existing installed copies are not auto-updated.
+
 ## Interactive New / Resume setup
 
 For a human-operated terminal, run `node .\bin\copilot-mcp.js` or append `init`.
-No pre-authored toolkit configuration is required for **New**.
+No pre-authored toolkit configuration is required for the APIM or existing-server
+choices under **New**. Hosting source choices require a prepared private recipe
+JSON file.
 
 ```text
 1. Start a new MCP setup
-2. Resume an existing setup (review only)
-3. Advanced: review an existing definition or resource choices
-4. Exit without changes
+2. Review an existing setup or test run (no actions)
+3. Review a configuration file (advanced)
+4. Show all CLI commands
+5. Exit without changes
 ```
 
-New separates **source type** from **source authentication**:
+The new-setup menu lists all supported hosting families:
 
-This wizard generates native APIM bundles and existing-MCP references.
-Container Apps, App Service and Functions SDK source generation use the
-`mcp-hosting-*` commands or the skill's [hosting journey](hosting-recipes.md),
-not this wizard. SDK source/release folders cannot be passed to APIM Resume.
+```text
+1. REST API -> MCP with Azure API Management (no server code)
+2. Connect to an existing MCP server (directly or through APIM)
+3. REST API -> MCP on Azure Container Apps (recipe file)
+4. REST API -> MCP on Container Apps behind APIM (recipe file)
+5. REST API -> MCP on Azure App Service (recipe file)
+6. REST API -> MCP on Azure Functions (preview; recipe file)
+7. Cancel without writing
+```
+
+Every menu starts numbering at 1. APIM and existing-server setup then ask about
+authentication separately:
 
 | Source | Guided choices |
 | --- | --- |
 | REST API | Anonymous, API key through Key Vault, same-resource Entra delegated passthrough, or existing APIM system-managed-identity application access |
 | Existing MCP server | Direct anonymous/Entra reference, API-key APIM proxy v2, or explicitly reference-only third-party OAuth |
+
+For hosting source, copy the matching synthetic recipe from `examples/mcp` to
+your private workspace and replace its example identities, resource choices
+and backend/tool settings **manually in a text editor**. The wizard does not
+copy/edit the file or look up Azure IDs. It prints the full source/destination
+paths, an optional non-overwriting PowerShell copy command, a host-specific field
+checklist and where to find the IDs. The no-auth and API-key template names and
+full source paths appear **before** the workspace-folder question; destination
+instructions follow once the workspace is known. Enter the full path of the saved, edited
+JSON file without surrounding quotes, not the workspace folder or a relative
+filename. See the [recipe preparation guide](hosting-recipes.md#preparing-a-recipe-for-the-terminal-wizard).
+The wizard points to the matching example and
+validates that the file matches your selected host. All four recipes support
+Entra caller sign-in and fixed-path, explicitly reviewed read-only GETs, with an
+anonymous or Key Vault API-key backend. They do not inherit APIM's broader
+authentication or operation choices. See [hosting recipes](hosting-recipes.md)
+for required existing infrastructure, permissions and container build pins.
+Declared inline query arguments and date-range rules can be supplied in the
+recipe; see [query arguments](hosting-recipes.md#query-arguments-and-date-ranges).
+The wizard still takes a prepared file rather than authoring these fields.
+No key value or authentication cache is imported.
+
+Before the setup choices, the wizard explains **REST API security separately
+from MCP caller sign-in**. Native APIM supports no auth, Key Vault API keys and
+limited Entra passthrough/managed-identity modes. The four generated hosting
+profiles support only no auth or API keys for the REST API, even when Container
+Apps sits behind APIM; their Entra settings protect the MCP endpoint itself.
+Third-party OAuth and Basic authentication for REST are unsupported.
+See the [security matrix](hosting-recipes.md#rest-api-security-versus-mcp-caller-sign-in).
+
+After you choose a new source directory, the wizard shows the full configuration,
+generated filenames, limitations and exact local-write approval token. Saving
+requires explicit confirmation, with Cancel first. It reuses
+`mcp-hosting-plan/create` and then shows `mcp-recipe-source-plan`; it does not
+install dependencies, build images, deploy, test or export an HTML report.
+A changed recipe or existing destination is rejected rather than silently
+adopted or overwritten. Functions is explicitly marked preview.
 
 Third-party OAuth for REST is labeled unsupported and exits without writing.
 Existing OAuth MCP references do not implement provider login, discovery or
@@ -96,7 +170,8 @@ Vault reference and header/query name, never a key value. Managed identity
 requires an existing APIM system principal and exact backend role metadata;
 the wizard does not grant that role.
 
-The final question is **"Save these setup files to the folder shown above?"**
+For APIM/reference setup, the final question is
+**"Save these setup files to the folder shown above?"**
 The review displays the full definition, files, destination, limitations and
 generation digest (the exact approval reference, not something to type into the
 answer). Cancel is the first choice. Explicit confirmation writes
@@ -107,7 +182,26 @@ bundle, which must be preserved and inspected, not overwritten or auto-retried.
 The CLI then shows the local Resume report; a blocked next step does not undo
 the local bundle or mean deployment succeeded.
 
-Resume and Advanced retain their review-only behavior. All sign-in, app changes,
+**Review an existing setup or test run** asks which type of folder to inspect:
+
+| Saved work | Identifying file | Local command |
+| --- | --- | --- |
+| APIM setup or existing-server connection | `mcp-server.json` | `mcp-resume` |
+| Hosting source project | `recipe-manifest.json` | `mcp-recipe-source-plan` |
+| End-to-end execution run | `execution.json` | `mcp-execution-status` |
+| Step-by-step validation run | `validation-run.json` | `mcp-validation-status` |
+
+Select the actual project/run folder, not its release archive. Reviewing does
+not resume execution or renew an expired/consumed approval.
+
+**Review a configuration file** offers APIM/reference definitions (including
+explicit experimental proxy profiles), hosting recipes, end-to-end execution
+plans, Container Apps infrastructure plans and APIM resource selection.
+Plans do not start runs or write their proposed output. **Show all CLI commands**
+opens help for operations not run by the menu, including sign-in, deployment,
+FCC/WIQD handoffs and HTML handover export.
+
+These review menus remain local-only. All sign-in, app changes,
 deployment, discovery, proof and optional FCC onboarding remain separately
 reviewed operations. The wizard does not submit an FCC or refresh consumed proof.
 

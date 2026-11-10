@@ -1,5 +1,10 @@
 # Shared authentication registration
 
+[Consumer onboarding](consumer-onboarding.md) now drives these same exact
+execution phases for FCC and plugin, reuses existing references, imports bound
+results and exports a local HTML guide. It adds no provider, cache strategy or
+registration retry and does not broaden the phase approvals below.
+
 The toolkit prepares **secretless Entra SSO** and **custom OAuth** registration
 metadata for FCC and plugin consumers. The preparation/handoff commands remain
 local-only: no network, provider CLI, secret resolution or account changes.

@@ -11,6 +11,7 @@ import { promptMcpResourceModes, promptMcpResourceSelection, prepareResourceSele
 import { managedIdentitySchema } from './apim-managed-identity.js';
 import { secretIssues } from './validation.js';
 import { publicInboundSchema } from './apim-public.js';
+import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from './mcp-container-apps.js';
 
 const ajv = new Ajv();
 addFormats(ajv);
@@ -20,6 +21,120 @@ const text = { type: 'string', minLength: 1, maxLength: 100 };
 const cancelled = { value: 'cancel', label: 'Cancel without writing' };
 const json = value => JSON.stringify(value, null, 2)
   .replace(/[\u007f-\u009f\u2028\u2029]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
+const hostingChoices = [
+  { value: 'container-apps-direct-v1', label: 'REST API -> MCP on Azure Container Apps (recipe file)', example: 'container-apps-direct.json' },
+  { value: 'container-apps-apim-v1', label: 'REST API -> MCP on Container Apps behind APIM (recipe file)', example: 'container-apps-apim.json' },
+  { value: 'app-service-container-v1', label: 'REST API -> MCP on Azure App Service (recipe file)', example: 'app-service-container.json' },
+  { value: 'functions-sdk-v1', label: 'REST API -> MCP on Azure Functions (preview; recipe file)', example: 'functions-sdk.json' },
+];
+
+const restSecurityGuidance = [
+  'REST API security means how this setup accesses YOUR REST API:',
+  '  - Native APIM (option 1): no authentication, API key from Key Vault, or supported Microsoft Entra access.',
+  '    Entra user access only passes the same resource/audience token through; it does not exchange tokens (no OBO).',
+  '    Entra app access uses an existing APIM system-managed identity with the exact backend application role.',
+  '  - Container Apps, App Service and Functions (options 3-6): no authentication or API key from Key Vault only.',
+  '    These hosting recipes do NOT support Entra-protected or other OAuth-protected REST backends, even behind APIM.',
+  '  - Third-party OAuth and username/password (Basic) REST backends are not supported by these setup paths.',
+  'This is separate from caller sign-in (the client accessing your MCP endpoint). Hosting recipes require Entra caller sign-in.',
+  'Existing MCP servers (option 2) have their own choices; third-party OAuth there saves a reference only, without sign-in or testing.',
+].join('\n');
+
+async function newProjectDirectory(p) {
+  return p.ask('NEW project directory inside the workspace (absolute path)', { check: async value => {
+    if (!path.isAbsolute(value)) throw new Error('Use an absolute path.');
+    const target = await assertProjectPath(value);
+    try { await lstat(target); }
+    catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    throw new Error('Destination already exists.');
+  }, hint: 'Choose a new absolute directory inside the private workspace. Existing files, directories and symlinks will not be overwritten.' });
+}
+
+function hostingInstructions(p, workspace, choice) {
+  const quote = value => `'${value.replaceAll("'", "''")}'`;
+  const hostFields = {
+    'container-apps-direct-v1': [
+      'azure.environmentResourceId: Resource ID of your existing Container Apps environment.',
+      'azure.registry.server: your Azure Container Registry login server (not a username or password).',
+      'azure.registry.pullIdentityResourceId: Resource ID of the existing managed identity allowed to pull images.',
+    ],
+    'container-apps-apim-v1': [
+      'azure.environmentResourceId and azure.registry: existing Container Apps environment, registry login server and image-pull identity Resource ID.',
+      'azure.gateway: existing APIM service name/group and managed-identity principal ID; choose a new API name and URL path.',
+      'azure.gateway.audience/applicationIdUri: the separate gateway resource app, not the user sign-in app. Keep role as Mcp.Gateway; its assignment needs separate review.',
+    ],
+    'app-service-container-v1': [
+      'azure.planResourceId: Resource ID of an existing Linux Basic-or-higher App Service plan. Keep planKind unchanged.',
+      'azure.registry: registry login server plus the image-pull managed identity Resource ID and client ID (these are different values).',
+    ],
+    'functions-sdk-v1': [
+      'azure.planResourceId: Resource ID of an existing Linux Flex Consumption plan. Keep planKind unchanged.',
+      'azure.storage: existing storage account Resource ID, deployment container name, and storage managed identity Resource ID/client ID.',
+      'azure.previewAccepted: true is your acceptance of the Functions preview, not a value to copy without review. No container registry or imageBuild settings apply.',
+    ],
+  }[choice.value];
+  p.output.write("\nPrepare your recipe file before answering the next question.\nThe wizard does NOT copy this file, fill in Azure IDs, or look up resources for you.\n\n1. Copy ONE matching template into your private workspace. Do not edit the toolkit's example.\n   Use the no-auth template OR the API-key template, depending on your REST API.\n   You can use your file manager or run the matching command in another PowerShell window.\n   Each copy command refuses to overwrite an existing file:\n");
+  for (const [label, filename] of [
+    ['No authentication', choice.example], ['API key', choice.example.replace('.json', '-api-key.json')],
+  ]) {
+    const source = path.join(TOOLKIT_ROOT, 'examples', 'mcp', filename);
+    const destination = path.join(workspace, filename);
+    p.output.write(`\n   ${label}:\n   Template: ${json(source)}\n   Your editable copy: ${json(destination)}\n   [System.IO.File]::Copy(${quote(source)}, ${quote(destination)})\n`);
+  }
+  p.output.write('\n2. Open YOUR COPY in a text editor and replace the example values manually.\n   The sample IDs, names and URLs are fictional. Valid JSON alone does not mean the Azure resources exist or that you have access.\n   Keep schemaVersion and recipe unchanged. Review these settings:\n');
+  for (const item of [
+    'name: a friendly name for your MCP server.',
+    'azure.tenantId: Microsoft Entra ID > Overview > Tenant ID. azure.subscriptionId: Azure > Subscriptions > Subscription ID.',
+    'azure.resourceGroup/location: the selected existing resource group and Azure region code (for example eastus). azure.appName: choose a new app name; do not target an existing app.',
+    ...hostFields,
+    'For Resource IDs, open the Azure resource > Properties > Resource ID. Use the full /subscriptions/... path, not just the resource name.',
+    'authentication.tenantId: the same tenant as azure.tenantId. authentication.audience: the MCP resource app Application (client) ID, not its object ID.',
+    'authentication.applicationIdUri and scope: the resource app > Expose an API. allowedClientIds: the Application (client) IDs of the apps allowed to call this MCP server, not user IDs.',
+    'backend.origin: the real REST API HTTPS origin. document.paths: its fixed GET paths, tool names and descriptions; responses must be JSON.',
+    'Optional query arguments: declare operation-level string/integer/boolean query parameters. Dates use format: date; x-mcp-date-range enforces ordering and an elapsed-day limit. See docs/hosting-recipes.md.',
+    'operationIds: select the tool operationId values from document. review.readOnlyOperationIds: include only those same operations after reviewing that they do not change data.',
+    'requestsPerMinute: choose a suitable request limit. This is not an Azure cost cap.',
+  ]) p.output.write(`   - ${item}\n`);
+  p.output.write('\n   For the API-key template, configure Key Vault/identity references and the header\n   or query parameter name; never put the key value in JSON. Review shared key\n   access and any query-log exposure. The no-auth template needs no backend key.\n   These hosting recipes do not support other backend sign-in methods.\n');
+  if (choice.value !== 'functions-sdk-v1') {
+    p.output.write('   Optional imageBuild settings need reviewed digest-pinned builder/runtime images before a container build; the example alone is not build-ready.\n');
+  }
+  p.output.write(`\n   If you do not know the required IDs or do not have the prerequisite resources,\n   press Ctrl+C and arrange the separate infrastructure/app-registration setup.\n   Do not invent IDs or leave fictional examples as your real configuration.\n   Field guide: ${json(path.join(TOOLKIT_ROOT, 'docs', 'hosting-recipes.md'))}\n\n3. Save your edited JSON file, then paste its FULL FILE PATH below without quotes.\n   Enter the JSON file path, not the workspace folder. No file has been copied or saved by this wizard yet.\n   Next you will choose a different, NEW folder for generated server code, review the exact files and confirm whether to save them.\n\n`);
+}
+
+async function createHostingSetup(p, options, choice) {
+  p.output.write(`\nWhich JSON file should you copy? Choose ONE for your REST API's security:\n\n  No authentication: ${choice.example}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example))}\n\n  API key: ${choice.example.replace('.json', '-api-key.json')}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example.replace('.json', '-api-key.json')))}\n\nCopy the matching file into your private workspace and edit that copy, not the toolkit example.\nIf the REST API requires Entra or another OAuth provider, neither template supports it.\n`);
+  p.output.write('This creates local server code and deployment files, not a running endpoint.\nThis is a file-based setup: you must copy an example recipe, edit its settings yourself, and supply the edited file.\nA recipe is a JSON file describing your API, authentication and Azure resources. The next instructions show exactly what to copy and change.\nREST API access (backend.auth): anonymous means no authentication; api-key uses a Key Vault reference. Entra and other OAuth REST backends are NOT supported here.\nMCP caller access (authentication): Microsoft Entra sign-in is required. This does not grant access to an Entra-protected REST backend.\nOnly fixed read-only GET operations are supported. Never enter credentials.\nChoose an existing private workspace folder outside the toolkit checkout. Create it in another terminal or your file manager first if needed.\nExisting host resources and permissions are required later; this setup does not create them. Container Apps infrastructure planning is available under configuration review.\n');
+  p.output.write('Fixed paths may accept declared query arguments, including validated date ranges. No dynamic paths, bodies or automatic pagination. See examples/mcp/container-apps-query-dates.json for a synthetic parameter example.\nThe next question asks for the WORKSPACE FOLDER only, not the JSON file.\nAfter you enter that folder, you will see copy/edit instructions with destination paths, then a separate question for your edited JSON file.\n');
+  const workspace = await resolveWorkspaceRoot(options['workspace-root']
+    ?? await p.ask('Existing absolute private workspace directory (outside the toolkit checkout)'));
+  if (isWithin(TOOLKIT_ROOT, workspace)) throw new Error('New setup output must be outside the toolkit checkout.');
+  return withCliWorkspace(workspace, async () => {
+    hostingInstructions(p, workspace, choice);
+    const config = await p.ask('Full path to your edited hosting recipe JSON file', { check: async value => {
+      if (!path.isAbsolute(value)) throw new Error('Use a full file path.');
+      const { input } = compileHostingRecipe(await readControl(path.resolve(value)));
+      if (input.recipe !== choice.value) throw new Error('Recipe does not match the selected host.');
+    }, hint: `Enter the full path, without quotes, to an existing edited ${choice.value} JSON file inside your workspace, not a folder. Check the field guide above; use nonsecret resource references, never credentials.` });
+    const output = await newProjectDirectory(p);
+    const selected = { workspaceRoot: workspace, config, output };
+    const plan = await planHostingRecipe(selected);
+    if (plan.review.recipe !== choice.value) throw new Error('The recipe changed to a different host. Start a new review; nothing was generated.');
+    p.output.write(`\nReady to save the hosting source files in ${json(plan.outputPath)}.\nThis only creates local files. It does not install packages, build an image, sign in, deploy to Azure or call a tool.\nFull configuration and approval reference:\n${json({
+      projectDir: plan.outputPath, definition: JSON.parse(plan.files['recipe-definition.json']),
+      review: plan.review, files: Object.keys(plan.files), approvalToken: plan.approvalToken,
+    })}\n`);
+    const approval = await p.choose('Save these hosting source files to the folder shown above?', [
+      cancelled, { value: 'create', label: 'Yes, save the files only' },
+    ]);
+    if (approval !== 'create') return;
+    if (p.signal?.aborted) throw Object.assign(new Error('Guided setup aborted before writing.'), { code: 'ABORTED' });
+    const result = await writeHostingRecipe({ ...selected, approval: plan.approvalToken, signal: p.signal });
+    p.output.write(`Hosting source files saved: ${json(result.outputPath)}\nNext: review the source report and generated README.md. Build, deployment, sign-in, validation and HTML handover export are separate operations. This is not an APIM connection project; review it as a hosting source project.\n`);
+    return ['mcp-recipe-source-plan', '--workspace-root', workspace, '--project', result.outputPath, '--json'];
+  });
+}
 
 async function field(p, label, schema, parse = value => value) {
   const validate = ajv.compile(schema);
@@ -160,17 +275,21 @@ async function azureTarget(p, input) {
 }
 
 export async function createGuidedSetup(p, options = {}) {
-  const source = await p.choose('What are you starting with?', [
-    { value: 'rest', label: 'REST API - expose selected operations through APIM as MCP tools' },
-    { value: 'mcp', label: 'Existing MCP server - reference it directly or proxy an API key through APIM' }, cancelled,
+  p.output.write(`${restSecurityGuidance}\n\n`);
+  const source = await p.choose('What would you like to set up?', [
+    { value: 'rest', label: 'REST API -> MCP with Azure API Management (no server code)' },
+    { value: 'mcp', label: 'Connect to an existing MCP server (directly or through APIM)' },
+    ...hostingChoices, cancelled,
   ]);
   if (source === 'cancel') return;
-  const auth = await p.choose(source === 'rest' ? 'How does the REST backend authenticate?' : 'How does the existing MCP server authenticate?', [
-    { value: 'anonymous', label: 'Anonymous / no authentication' },
-    { value: 'api-key', label: 'API key - Key Vault reference, never the secret value' },
-    { value: 'entra', label: source === 'rest' ? 'Entra delegated - same-resource token passthrough only (no OBO)' : 'Entra - existing resource and caller IDs' },
-    ...(source === 'rest' ? [{ value: 'managed-identity', label: 'Entra application access - existing APIM system identity and exact role' }] : []),
-    { value: 'oauth', label: source === 'rest' ? 'Third-party OAuth - unsupported for REST backends' : 'Third-party OAuth - reference only; no login, discovery or proof' },
+  const hosting = hostingChoices.find(choice => choice.value === source);
+  if (hosting) return createHostingSetup(p, options, hosting);
+  const auth = await p.choose(source === 'rest' ? 'How does the REST API check access?' : 'How does the existing MCP server check access?', [
+    { value: 'anonymous', label: 'No sign-in or API key required' },
+    { value: 'api-key', label: 'API key stored in Azure Key Vault (never paste the key)' },
+    { value: 'entra', label: source === 'rest' ? 'Microsoft Entra user sign-in (API must accept the same token)' : 'Microsoft Entra sign-in (use existing app IDs)' },
+    ...(source === 'rest' ? [{ value: 'managed-identity', label: 'Microsoft Entra app access (use an existing APIM managed identity)' }] : []),
+    { value: 'oauth', label: source === 'rest' ? 'Other OAuth provider (not supported for REST APIs)' : 'Other OAuth provider (save a reference only; no sign-in or testing)' },
     cancelled,
   ]);
   if (auth === 'cancel') return;
@@ -202,13 +321,7 @@ export async function createGuidedSetup(p, options = {}) {
     const resources = input.kind === 'existing-mcp' ? undefined : await azureTarget(p, input);
     if (input.kind !== 'existing-mcp' && !resources) return;
     const review = await prepareMcpServer(resources?.definition ?? input);
-    const output = await p.ask('NEW project directory inside the workspace (absolute path)', { check: async value => {
-      if (!path.isAbsolute(value)) throw new Error('Use an absolute path.');
-      const target = await assertProjectPath(value);
-      try { await lstat(target); }
-      catch (error) { if (error.code === 'ENOENT') return; throw error; }
-      throw new Error('Destination already exists.');
-    }, hint: 'Choose a new absolute directory inside the private workspace. Existing files, directories and symlinks will not be overwritten.' });
+    const output = await newProjectDirectory(p);
     const projectDir = await assertProjectPath(output);
     p.output.write(`\nReady to save the setup files in ${json(projectDir)}.\nThis only creates local files. It does not sign in, deploy to Azure, call the endpoint or register an FCC.\nFull configuration and approval reference:\n${json({ projectDir, definition: review.input,
       ...(resources ? { resources: resources.resources } : {}), files: Object.keys(review.files),

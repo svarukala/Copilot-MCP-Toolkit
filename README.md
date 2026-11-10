@@ -19,15 +19,56 @@ or investment advice.
 
 Use the guided terminal setup or work conversationally with **GitHub Copilot
 CLI**. This is an experimental developer toolkit, not a turnkey production
-product. The guided setup creates APIM deployment files. The separate Container
-Apps recipe generates a Node.js MCP server and deployment review files, with a
-narrower initial feature set. **Saving files does not deploy an endpoint or make it available in
+product. The guided setup creates APIM files or existing-server references from
+your answers. It can also generate Node.js MCP source for Container Apps, App
+Service or Functions from a prepared hosting recipe file, with a narrower
+read-only feature set. **Saving files does not deploy an endpoint or make it available in
 Microsoft 365 Copilot.**
 
 [Quick start](#quick-start) |
 [FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
 [What is supported](#what-is-supported) |
+[Optional image scanning](#optional-image-scanning) |
 [Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Optional image scanning
+
+**The vulnerability scan gate is off by default for new Container Apps host
+executions and recovered-image continuations.** This is a toolkit policy, not
+an MCP or Azure Container Apps requirement. With the gate off, the runner does
+not download Trivy or its databases, run vulnerability scanning, or generate a
+scanner SBOM. Evidence says `not-run`, never "clean" or vulnerability-qualified.
+
+To enable the blocking scan gate, add these fields to your host configuration
+(`host` inside an `mcp-execution` config), or your `mcp-recovered-image` config:
+
+```json
+{
+  "scanGate": true,
+  "scannerImage": "aquasec/trivy@sha256:<reviewed-64-character-sha256-digest>"
+}
+```
+
+Replace the placeholder with an independently reviewed Trivy digest before
+planning. Enabled scanning requires complete image-bound reports, a scan and
+database no older than 24 hours, zero critical/high findings, and no
+unknown-severity findings. Failures stop execution before smoke, push or
+deployment. Omit `scanGate` or set it to `false` to disable scanning;
+`scannerImage` alone does not enable it.
+
+Image/source integrity, digest pinning, nonroot network-disabled smoke,
+private Azure identity, create-only deployment checks and no-replay protections
+remain mandatory. Organization and subscription policies still apply.
+**Skipping the scan can deploy vulnerable components; use a scanning policy
+appropriate to your environment, especially for production.**
+
+Historical strict plans and receipts retain their original meaning. This default
+does not convert old failures into successes, release consumed claims, or
+authorize another deployment. The deployment-only verified-image continuation
+inherits its parent's scan policy and cannot turn an enabled gate off.
+Manual image review supports a version-2 `scanGate: false` record with explicit
+`not-run` scan/SBOM fields; version-1 scanned reviews remain strict.
+See [image review](docs/hosting-recipes.md#bundled-container-runtime).
 
 ## Disclaimer, AI-generated code and user responsibility
 
@@ -132,15 +173,29 @@ node .\bin\copilot-mcp.js
 
 | Menu option | Use it to |
 | --- | --- |
-| Start a new MCP setup | Choose a REST API or existing MCP server and its authentication method. |
-| Resume an existing setup | Review saved progress and the next required step; nothing runs automatically. |
-| Advanced | Review an existing toolkit definition or change proposed Azure resource choices. |
+| Start a new MCP setup | Set up APIM, connect to an existing MCP server, or generate Container Apps, App Service or Functions source from a recipe file. |
+| Review an existing setup or test run | Choose an APIM/reference project, hosting source project, end-to-end execution run or step-by-step validation run. Nothing continues automatically. |
+| Review a configuration file (advanced) | Review APIM/reference inputs, hosting recipes, end-to-end test plans or Container Apps infrastructure choices; select APIM resources. |
+| Show all CLI commands | Find the separate commands for sign-in, deployment, validation, HTML handover and other operations. |
 | Exit | Leave without making changes. |
 
 For APIM setups, choose existing or new APIM, Key Vault (only for API-key
 backends), and resource group before entering their details. Existing resources
 need full Resource IDs; new resources need names. Then review the files and
 choose whether to save them. **This step does not sign in or deploy to Azure.**
+
+The new-setup menu lists each hosting option separately, including Container
+Apps **with or without APIM**. Hosting source setup asks for a prepared private
+recipe JSON file, not field-by-field Azure answers: you copy the template and
+edit its IDs/settings yourself. The wizard prints copy instructions and a field
+checklist; it does not discover resources or populate IDs. See the
+[preparation guide](docs/hosting-recipes.md#preparing-a-recipe-for-the-terminal-wizard). Functions is
+a preview profile. These recipes require Entra caller authentication and fixed,
+read-only GETs; backend access can be anonymous or use a Key Vault API-key
+reference. Generation does not build, deploy or run a validation test.
+Entra sign-in to the MCP endpoint is **not** Entra access to the REST backend;
+see the [REST API security matrix](docs/hosting-recipes.md#rest-api-security-versus-mcp-caller-sign-in)
+for the different APIM and generated-host capabilities.
 
 **Option B: GitHub Copilot CLI**
 
@@ -155,6 +210,13 @@ From the same toolkit folder, start `copilot` and use a prompt like:
 You can also [install the included skill](docs/copilot-cli.md) for use from
 other folders. The skill guides the same CLI; it does not give Copilot extra
 permissions. Never paste passwords, API keys or tokens into prompts.
+
+For less manual preparation, supply an official API documentation URL or local
+OpenAPI file and the questions you want the MCP server to answer. The
+[API discovery skill guide](skills/copilot-mcp/references/api-discovery.md)
+directs Copilot to assess compatibility, explain gaps and prepare configuration
+for review in the same conversation. It can also produce a handoff prompt.
+Documentation discovery does not probe the API or authorize live operations.
 
 ### 5. Review the next step
 
@@ -252,7 +314,9 @@ Service and Functions still require separately performed deployment. Real
 hosting behavior and Copilot Read-only labels still need live validation.
 All four accept anonymous or [Key Vault API-key REST backends](docs/hosting-recipes.md#api-key-backends)
 with a dedicated header or reviewed query parameter and a separate secret-reading
-identity. Callers still require Entra; tools remain fixed, argument-free GETs.
+identity. Callers still require Entra; tools use fixed GET paths with bounded
+declared query arguments, including explicit calendar-date range rules.
+See [query arguments](docs/hosting-recipes.md#query-arguments-and-date-ranges).
 Use the [shared workflow](docs/hosting-recipes.md) to connect a separately
 deployed endpoint to the existing discovery and FCC steps.
 

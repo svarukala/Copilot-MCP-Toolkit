@@ -12,10 +12,10 @@ test('guided review welcomes the user once before its safety notice and menu', a
     choose: async () => {
       assert.equal(output.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
       assert.match(output, /REST APIs -> MCP tools -> Copilot/);
-      assert.match(output, /Local guided setup only\. Never enter credentials/);
-      assert.match(output, /This wizard covers native APIM and existing-MCP references/);
-      assert.match(output, /mcp-hosting-plan\/create/);
-      const banner = output.slice(0, output.indexOf('Local guided setup only.'));
+      assert.match(output, /Local setup and review only\. Never enter passwords, tokens or API keys/);
+      assert.match(output, /Container Apps, App Service or Functions/);
+      assert.match(output, /prepared recipe JSON file/);
+      const banner = output.slice(0, output.indexOf('Local setup and review only.'));
       assert.ok(banner.includes(' |  \\/  |/ ___|  _ \\'));
       assert.match(banner, /^[\x20-\x7e\n]+$/);
       assert.ok(banner.split('\n').every(line => line.length <= 60));
@@ -42,7 +42,16 @@ test('CLI welcome never appears in noninteractive, help, version or JSON output'
     assert.equal(result.status, status, result.stderr);
     assert.doesNotMatch(result.stdout + result.stderr, /Welcome to Copilot MCP Toolkit|REST APIs -> MCP tools/);
     if (args.includes('--json')) {
-      assert.equal(typeof JSON.parse(result.stdout), 'object');
+      const value = JSON.parse(result.stdout);
+      assert.equal(typeof value, 'object');
+      if (args[0] === 'capabilities') {
+        assert.equal(value.guidedSetup.hostingInput, 'prepared-private-recipe-json-not-field-by-field-authoring');
+        assert.ok(value.guidedSetup.sources.includes('container-apps-apim-v1'));
+        assert.deepEqual(value.guidedSetup.reviewCommands,
+          ['mcp-resume', 'mcp-recipe-source-plan', 'mcp-execution-status', 'mcp-validation-status']);
+        assert.equal(value.guidedSetup.networkCalls, false);
+        assert.equal(value.guidedSetup.cloudExecution, false);
+      }
       assert.equal(result.stderr, '');
     }
     if (status === 1) assert.match(result.stdout + result.stderr, /Guided review requires a terminal/);
@@ -56,7 +65,8 @@ test('guided review produces only local plan arguments and never forwards an app
     const prompt = {
       output: { write(value) { output += value; } },
       choose: async (label, choices) => {
-        const value = label === 'How would you like to start?' && action !== 'resume' ? 'advanced' : action;
+        const value = label === 'How would you like to start?' ? action === 'resume' ? 'resume' : 'advanced'
+          : action === 'resume' ? 'mcp-resume' : action;
         assert.ok(choices.some(choice => choice.value === value));
         return value;
       },
@@ -69,13 +79,90 @@ test('guided review produces only local plan arguments and never forwards an app
     assert.ok(!args.includes('--allow-network'));
     assert.equal(questions.length, 2);
     if (action === 'resume') {
-      assert.match(output, /not a sealed hosting source\/release folder/);
-      assert.match(output, /mcp-recipe-source-plan/);
+      assert.match(output, /not a release archive/);
+      assert.match(output, /does not continue a run, sign in or repeat a tool call/);
     }
   }
   const prompt = { output: { write() {} }, choose: async () => 'exit', ask: () => assert.fail('Exit must not ask for a path') };
   assert.equal(await guidedArguments(prompt), undefined);
   await assert.rejects(guidedArguments(prompt, { approve: 'never-forward' }), /never accepts execution approvals/);
+});
+
+test('guided review routes each saved project type without execution flags', async () => {
+  for (const command of ['mcp-resume', 'mcp-recipe-source-plan', 'mcp-execution-status', 'mcp-validation-status']) {
+    const choices = ['resume', command];
+    const prompt = {
+      output: { write() {} },
+      choose: async (label, items) => {
+        const value = choices.shift();
+        assert.ok(items.some(item => item.value === value));
+        return value;
+      },
+      ask: () => assert.fail('Explicit paths must be preserved'),
+    };
+    assert.deepEqual(await guidedArguments(prompt, { 'workspace-root': '/private', project: '/private/project' }),
+      [command, '--workspace-root', '/private', '--project', '/private/project', '--json',
+        ...(command === 'mcp-resume' ? ['--summary'] : [])]);
+    assert.equal(choices.length, 0);
+  }
+});
+
+test('advanced hosting, execution and infrastructure choices return plans only', async () => {
+  for (const [action, command] of [
+    ['hosting', 'mcp-hosting-plan'], ['execution', 'mcp-execution-plan'], ['bootstrap', 'mcp-bootstrap-plan'],
+  ]) {
+    const choices = ['advanced', action];
+    const prompt = {
+      output: { write() {} },
+      choose: async (label, items) => {
+        const value = choices.shift();
+        assert.ok(items.some(item => item.value === value));
+        return value;
+      },
+      ask: async label => {
+        assert.match(label, /not (created|written) during this review/);
+        return '/private/new-output';
+      },
+    };
+    assert.deepEqual(await guidedArguments(prompt, { 'workspace-root': '/private', config: '/private/input.json' }),
+      [command, '--workspace-root', '/private', '--config', '/private/input.json',
+        '--output', '/private/new-output', '--json', '--summary']);
+  }
+});
+
+test('command help and cancelled saved-work review need no paths or approvals', async () => {
+  for (const [values, expected] of [[['help'], ['--help']], [['resume', 'exit'], undefined]]) {
+    const prompt = { output: { write() {} }, choose: async (label, items) => {
+      const value = values.shift();
+      assert.ok(items.some(item => item.value === value));
+      return value;
+    }, ask: () => assert.fail('No path needed') };
+    assert.deepEqual(await guidedArguments(prompt), expected);
+    assert.equal(values.length, 0);
+  }
+});
+
+test('review menus reject incompatible config and project inputs rather than ignore them', async () => {
+  for (const [action, option] of [['resume', 'config'], ['advanced', 'project']]) {
+    const prompt = { output: { write() {} }, choose: async () => action, ask: () => assert.fail('No path needed') };
+    await assert.rejects(guidedArguments(prompt, { [option]: '/private/input' }), /accepts --.*not --/);
+  }
+});
+
+test('each numbered menu starts at one and rejects a number from a previous menu', async () => {
+  const input = new PassThrough(), output = new PassThrough();
+  const p = createPrompter(input, output);
+  const first = p.choose('First menu', [{ value: 'one', label: 'One' }, { value: 'two', label: 'Two' }]);
+  input.write('2\n');
+  assert.equal(await first, 'two');
+  assert.match(output.read().toString(), /1\. One\n2\. Two/);
+  const second = p.choose('Second menu', [{ value: 'cancel', label: 'Cancel' }]);
+  input.write('3\n');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(output.read().toString(), /Second menu\n1\. Cancel\nChoice: The value is outside/);
+  input.write('1\n');
+  assert.equal(await second, 'cancel');
+  p.close();
 });
 
 test('guided prompting rejects credentials and explains invalid field input without echoing it', async () => {

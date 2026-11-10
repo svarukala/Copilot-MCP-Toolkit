@@ -7,6 +7,95 @@ actions. It does not build, redeploy, resolve credentials or register a connecto
 
 ## Starting with no infrastructure
 
+### Preparing a recipe for the terminal wizard
+
+**Yes: the current hosting wizard expects you to copy and edit JSON manually.**
+It does not copy a template, discover Azure resources, fill in IDs, or create
+prerequisites. A *recipe* is the JSON configuration for your API, authentication
+and hosting resources. The wizard validates your edited recipe, shows the
+proposed local files and asks for confirmation before generating source.
+Immediately after you select a host, **before the workspace question**, it
+names both the no-auth and API-key templates and prints their full source paths.
+Choose the one matching your REST API. The workspace question asks for a folder;
+the edited JSON file is requested separately, after the copy/edit instructions.
+
+1. Create a private workspace outside the toolkit checkout, for example
+   `C:\McpRuns\demo`.
+2. Copy the matching file from `examples\mcp` into that workspace. Do not edit
+   the repository's example. The wizard prints the actual template path, a
+   suggested destination and a PowerShell copy command that fails if the
+   destination already exists. You can also copy it with your file manager.
+3. Open **your copy** in a text editor. Replace the fictional IDs, resource names,
+   API URL and operations using the checklist below. Keep `schemaVersion` and
+   `recipe` unchanged. Do not assume a syntactically valid example is a working
+   Azure configuration.
+4. Save the file. At the recipe prompt, enter its **full file path without
+   surrounding quotes**, such as `C:\McpRuns\demo\container-apps-direct.json`.
+   Do not enter only `C:\McpRuns\demo` or a filename relative to the toolkit.
+5. Choose a different, **new** output folder, for example
+   `C:\McpRuns\demo\source`. Review the configuration, file list and limitations,
+   then confirm local generation. This does not build or deploy the server.
+
+You may keep the wizard waiting while you copy/edit in another window, or press
+Ctrl+C and restart it later. If you do not know a required ID or the prerequisite
+does not exist, stop and arrange the separate infrastructure or app-registration
+setup. Do not invent IDs, copy another user's credentials, or substitute the
+example IDs.
+
+| Recipe settings | What to supply / where to find it |
+| --- | --- |
+| `name` | A friendly name for your MCP server |
+| `azure.tenantId`, `azure.subscriptionId` | Microsoft Entra ID > Overview > Tenant ID; Azure > Subscriptions > Subscription ID |
+| `azure.resourceGroup`, `azure.location`, `azure.appName` | Selected existing group, Azure region code and a **new** app name; do not target an existing app |
+| Container Apps: `azure.environmentResourceId`, `azure.registry` | Existing environment Resource ID, registry login server, image-pull managed identity Resource ID |
+| APIM gateway: `azure.gateway` | Existing APIM service/group and principal ID, separate gateway resource-app audience/URI, new API name/path; keep `Mcp.Gateway` role and separately review its assignment |
+| App Service: `azure.planResourceId`, `azure.registry` | Existing Linux Basic-or-higher plan Resource ID, registry login server, pull identity Resource ID **and client ID**; keep `planKind` |
+| Functions: `azure.planResourceId`, `azure.storage`, `previewAccepted` | Existing Flex plan, storage account/container and storage identity Resource ID/client ID; keep `planKind` and explicitly review preview acceptance |
+| `authentication.tenantId`, `authentication.audience` | Same tenant as deployment; MCP resource app's **Application (client) ID**, not its object ID |
+| `authentication.applicationIdUri`, `scope`, `allowedClientIds` | Resource app > Expose an API for URI/scope; caller apps' **Application (client) IDs**, not user IDs, for the allowlist |
+| `backend.origin`, `document.paths`, `operationIds` | Actual HTTPS API origin and fixed GET paths; choose matching operation IDs/names/descriptions; declare bounded inline query parameters if needed; responses must be JSON |
+| `review.readOnlyOperationIds` | The same selected operation IDs, only after reviewing that they do not change data; GET alone is not proof of safety |
+| `requestsPerMinute` | Reviewed request limit; not an Azure billing cap |
+| Optional `imageBuild` on container recipes | Reviewed digest-pinned builder/runtime images required before building; not applicable to Functions |
+
+For a full **Resource ID**, open that Azure resource's **Properties > Resource
+ID** and copy the `/subscriptions/...` value, not only its name. An identity's
+Resource ID, client ID and principal/object ID are different values; use the
+one the field requests. App registrations and consent must already be reviewed;
+the wizard does not create or discover them.
+
+### REST API security versus MCP caller sign-in
+
+There are two separate connections: **client -> MCP endpoint** and
+**MCP implementation -> your REST API**. Entra caller sign-in does not make
+Entra or arbitrary OAuth authentication to the REST API available.
+
+| REST API security | Native REST-to-MCP in APIM | Generated Container Apps / App Service / Functions |
+| --- | --- | --- |
+| No authentication | Supported | Supported: `backend.auth: "anonymous"` |
+| API key in a header or query parameter | Supported through a Key Vault reference | Supported: `backend.auth: "api-key"` with Key Vault and a dedicated managed identity |
+| Microsoft Entra user/delegated token | Limited same-resource/audience passthrough; no token exchange or on-behalf-of (OBO) flow | Not supported |
+| Microsoft Entra application access | Existing APIM system-assigned identity with the exact backend application-role assignment | Not supported |
+| Third-party OAuth | Not supported for REST backends | Not supported |
+| Username/password or Basic authentication | Not supported by this setup | Not supported |
+
+**All four generated hosting recipes require Entra caller sign-in**, configured
+in `authentication`. Their narrower REST backend options are in `backend`.
+Putting the generated Container Apps server behind APIM does **not** add Entra
+or OAuth backend support.
+
+The default examples use no backend authentication. For an API-key backend,
+start from the matching `*-api-key.json` example instead. Supply only the Key
+Vault secret URL, resource/identity references and header or query parameter
+**name**, never the key value. Review shared entitlement and query-log exposure;
+secret access/role changes are separate operations.
+
+An **existing MCP server** is a different path: third-party OAuth can be saved
+as an unverified reference, but the toolkit does not perform that provider's
+OAuth login, discovery or proof. See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+
+### Separate infrastructure planning
+
 Use `mcp-bootstrap-schema`, then `mcp-bootstrap-plan --workspace-root
 <private-root> --config <choices.json> --output <new-review.json> --json`.
 Write with `mcp-bootstrap-bundle` and the exact plan approval token.
@@ -95,11 +184,16 @@ Docker must already be running and support Linux/amd64 and Engine API **1.44**
 `\\.\pipe\docker_engine`, `\\.\pipe\dockerDesktopLinuxEngine`,
 `/var/run/docker.sock`, or `/run/user/<numeric-uid>/docker.sock`.
 TCP/SSH endpoints and ambient `DOCKER_HOST`/Docker CLI context are not used.
+
+The container npm probe accepts the approved Node tag-plus-digest or its
+canonical digest-only reference in `RepoDigests`, with or without the explicit
+`docker.io/library/` prefix. It still requires the exact digest and Linux/amd64;
+a tag alone, another repository or another tagged version does not qualify.
 `localEngineTrusted: true` is the owner's review of this privileged local
 daemon and its administration/logging boundary, not toolkit attestation.
 No Docker CLI installation, context change, engine start or implicit image
 download is performed. The container probe requires an already-present
-`node:22-bookworm-slim@sha256:...` image; it has no credentials, mounts, writable
+`node:22-bookworm-slim@sha256:...` or `node:22-trixie-slim@sha256:...` image; it has no credentials, mounts, writable
 root filesystem or retained logs, drops capabilities, runs as nonroot and has
 bounded CPU/memory/process/time limits.
 
@@ -301,18 +395,35 @@ these placeholders are not accepted inputs):
 }
 ```
 
-The runtime may explicitly select either `nodejs22-debian12:nonroot` or
-`nodejs22-debian13:nonroot` from `gcr.io/distroless`, with a reviewed digest.
-Debian 12 inputs remain supported and unchanged; there is no automatic runtime
-upgrade. Switching distributions requires a new source project and fresh
-source-matched image qualification. A newer distribution or a previously
-successful deployment is not evidence that the selected image passes today's
-scan. The builder remains the pinned Node 22 bookworm-slim profile.
+The supported families are deliberately bounded, but Distroless is optional:
+
+| Role | Supported digest-pinned references |
+| --- | --- |
+| Builder | `node:22-bookworm-slim@sha256:...`, `node:22-trixie-slim@sha256:...` |
+| Runtime | Either builder family above, or `gcr.io/distroless/nodejs22-debian12:nonroot@sha256:...` / `nodejs22-debian13:nonroot@sha256:...` |
+
+Every generated runtime is forced to user/group `65532:65532`, including official
+Node images that otherwise default to root. Generation and the runner's
+network-disabled smoke use `/usr/local/bin/node` for Node slim and
+`/nodejs/bin/node` for Distroless. Existing Distroless Dockerfile bytes remain
+unchanged. Arbitrary registries/images, Alpine/musl, mutable tags, other Node
+majors and arbitrary entrypoint overrides are not supported.
+
+Node slim includes a shell, npm and more base-image packages than Distroless;
+those packages remain visible to the same scanner. Choosing a supported image
+does not establish vulnerability qualification. New host executions default
+to scanning off; opt in with `scanGate: true` and a pinned `scannerImage`.
+Enabled scans retain zero critical/high findings, unknown-severity rejection
+and fresh database requirements. Nonroot smoke and exact digest binding are
+always required. Switching families/distributions requires a new
+source project and fresh source-matched qualification. No automatic runtime
+upgrade, lookup, build or replay is performed.
 
 New container projects use the multistage Dockerfile to install locked dependencies
 including build-only `esbuild 0.25.10`, with lifecycle scripts disabled. The sealed
-`build-runtime.mjs` bundles the runtime and the final distroless nonroot image
-copies only `dist/`, not the installed dependency tree, build tool or npm cache.
+`build-runtime.mjs` bundles the runtime and the final nonroot image copies only
+`dist/`, not the builder's installed dependency tree, build tool or npm cache.
+This does not remove tools or packages already present in the selected base image.
 The container recipes accept only `linux/amd64`;
 [Container Apps requires this architecture](https://learn.microsoft.com/en-us/azure/container-apps/containers#limitations),
 and the App Service recipe uses the same bounded image profile. ARM64 and
@@ -341,9 +452,10 @@ never modify sealed source or reuse partial output to bypass these checks.
 
 This is not a dependency upgrade: source/build installations retain the complete
 SDK dependency tree, which can still include affected packages. Only the new
-final image omits unused components, and a **fresh image scan** must establish
-its findings. Zero-critical/high policy and scanner completeness requirements
-are unchanged. Functions remains source-only without the bundler/dev entries.
+final image omits unused components. Only a **fresh image scan** can establish
+its findings; disabled scanning makes no such claim. When enabled, zero-critical/high
+policy and scanner completeness requirements remain unchanged.
+Functions remains source-only without the bundler/dev entries.
 Historical generated projects and consumed execution grants are not upgraded;
 regenerate and review new source/build/download pins before a new live run.
 
@@ -353,7 +465,17 @@ project, config, new output JSON and exact write approval). It binds the source,
 base digests/platform, builder-run evidence, SBOM, scan and network-disabled
 nonroot actual-image smoke metadata to the same final image. The initial policy
 requires zero critical/high findings and scan/database age no greater than 24
-hours. Other findings remain visible; no exception is silently granted.
+hours. This version-1 scanned review remains strict, including for historical
+evidence. Other findings remain visible; no exception is silently granted.
+
+For a review without vulnerability scanning, use `schemaVersion: 2`,
+`scanGate: false`, and a current `reviewedAt` timestamp instead. Retain the same
+image, source, build, builder and successful smoke fields, but use
+`scan: { "image": "<same digest-pinned image>", "status": "not-run" }` and
+the same shape for `sbom`. Do not supply zero finding counts or fabricated report
+digests. The result is `passed-image-review-without-vulnerability-scan`, with a
+24-hour review expiry, not a clean scan. New host runners generate this record
+automatically by default. See [opting in](../README.md#optional-image-scanning).
 
 A release config may supply `imageReviewFile`, resolved relative to that config.
 The review is revalidated against source, image and freshness; invalid evidence
@@ -433,8 +555,85 @@ All four are implemented for **local generation, release preparation and explici
 endpoint-reference creation**. Cloud deployment remains an operator workflow;
 real host behavior and Copilot Read-only labels are not yet qualified.
 All support Entra delegated callers and one anonymous or **Key Vault API-key**
-JSON backend with explicitly reviewed, parameter-free GETs. They do not add
-backend OAuth, username/password, arbitrary arguments or write tools.
+JSON backend with explicitly reviewed, fixed-path GETs and bounded declared query
+arguments. They do not add backend OAuth, username/password, arbitrary routing
+or write tools.
+
+## Query arguments and date ranges
+
+All four hosts use the shared parameter-aware runtime. Existing recipes without
+parameters keep their empty tool input schema. For parameterized GETs, declare
+inline **operation-level** OpenAPI `parameters` with `in: "query"`. The backend
+origin and literal path remain fixed; the runtime URL-encodes validated values.
+No caller-controlled headers, path substitutions, request bodies, nested
+schemas, external references or automatic pagination are supported.
+
+Start from the complete synthetic
+`examples/mcp/container-apps-query-dates.json`; replace its fictional resources
+and backend before planning. Its operation includes:
+
+```json
+{
+  "operationId": "get_events",
+  "parameters": [
+    { "name": "start_date", "in": "query", "required": true,
+      "schema": { "type": "string", "format": "date" } },
+    { "name": "end_date", "in": "query", "required": true,
+      "schema": { "type": "string", "format": "date" } }
+  ],
+  "x-mcp-date-range": {
+    "startParameter": "start_date",
+    "endParameter": "end_date",
+    "maxSpanDays": 7
+  }
+}
+```
+
+Query values are scalar strings, integers or booleans; required and optional
+arguments have explicit schemas. Unsupported constraints are rejected rather
+than ignored.
+
+| Constraint | Bound |
+| --- | --- |
+| Declared query parameters | At most 20 per operation |
+| Names | 1-100 ASCII characters, starting with a letter; letters, digits, underscore, dot and hyphen; case-insensitive duplicates and reserved names rejected |
+| Strings | At most 2048 Unicode code points; optional inclusive `minLength`/`maxLength`; well-formed Unicode without control characters |
+| Integers | JavaScript safe integers, optionally narrowed by inclusive `minimum`/`maximum`; no coercion |
+| Enums | 1-50 unique values satisfying the scalar schema; boolean enums at most 2 |
+| Encoded argument query | At most 8192 characters, including names and separators |
+| Final backend URL | At most 24576 characters, including any separately injected query credential |
+| Defaults | Not supported; omitted optional arguments remain absent |
+
+Only `name`, `in`, `schema`, `required`, `description`, `style`, `explode` and
+`allowReserved` are accepted on a parameter. `style` must be absent or `form`;
+`explode` may be absent or boolean for these scalars; `allowReserved` must be
+absent or false. Schema keywords are `type` and optional `enum`, string
+`minLength`/`maxLength`/`format: "date"`, or integer `minimum`/`maximum`.
+Defaults, arbitrary regex patterns, nullable values, arrays, references and
+composition are rejected, not dropped.
+
+A date is a real calendar date in `YYYY-MM-DD` (years 0001-9999), not a relative
+phrase or timestamp. The optional range rule names two required date arguments
+and enforces `start <= end` and an **elapsed UTC calendar-day difference** no
+greater than `maxSpanDays` (1-366). Equal dates are allowed. A limit of 7 permits
+June 1 through June 8; if a provider specifies seven dates counted inclusively,
+configure 6 instead. Determine the provider's exact convention from its docs.
+The caller resolves "this week" using the intended week/time zone; the server
+does not guess it.
+
+Invalid arguments fail before a backend request. Unknown names and collisions
+with credential/routing fields are rejected. The API key is injected separately,
+never declared as a tool input. Date validation does not prove the provider's
+response fits the runtime's existing size/time limits, and pagination-link
+credential reflection remains a separate compatibility concern.
+
+Parameters and range rules are sealed into generated source and reviewed plans.
+Regenerate into a new directory and obtain a fresh release/execution review;
+do not patch an existing sealed project or reinterpret a historical proof.
+The SDK validation/execution workflows bind the selected arguments to that
+source and its discovered tool schema. No-argument examples still use `{}`.
+Argument-bearing support is offline verified only, not new live-host/provider
+acceptance.
 
 ## API-key backends
 
@@ -494,7 +693,8 @@ placement (header names are case-insensitive; query names are case-sensitive).
 Scopes must be empty. Optional/alternative/mixed profiles, references, OAuth,
 cookie keys and explicit anonymous overrides are rejected. Omitted security is
 allowed with the explicit reviewed backend auth; it never overrides that auth.
-Do not model the key as an operation parameter: tools still take no arguments.
+Do not model the key as an operation parameter: it is injected independently of
+the tool's declared nonsecret query arguments.
 
 ### Identity, deployment and secret resolution
 

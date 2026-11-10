@@ -1,6 +1,6 @@
 ---
 name: copilot-mcp
-description: Review and generate REST-to-MCP APIM bundles or bounded Container Apps, App Service and Functions SDK recipes; prepare custom federated connector drafts and safely resume or preserve MCP evidence. Not plugin authoring or arbitrary OAuth/server generation.
+description: Discover API requirements from documentation or OpenAPI, assess toolkit compatibility, and prepare configuration or a handoff prompt; generate reviewed APIM bundles or bounded hosting recipes and safely resume MCP evidence. Not live endpoint probing or arbitrary OAuth/server generation.
 ---
 
 # Copilot MCP Toolkit
@@ -15,7 +15,34 @@ engine path/build ID and matching shipped skill; do not assume `main`, package
 version or an installed skill copy includes newer branch work. A mismatch needs
 review, not silent installation, skill replacement or stale-approval reuse.
 
+## Discover an API and prepare setup
+
+When the user supplies an API/backend endpoint, documentation URL or OpenAPI
+file and asks what can be supported, how to prompt, or how to create an MCP
+setup, first read [API discovery and setup](references/api-discovery.md).
+Start with the user's desired questions/actions, not an arbitrarily convenient
+endpoint. Use documentation-first discovery, check the pinned engine's current
+capabilities/schemas, and distinguish supported, partial, unsupported and unknown.
+API documentation discovery is not live MCP initialize/tools-list discovery.
+Do not probe the backend, fetch credentials or deploy to complete this intake.
+
+Prepare configuration conversationally instead of handing the user a manual
+copy/edit exercise. Continue in the same conversation unless they request a
+handoff prompt. Missing inputs stay explicit; narrower alternatives need a user
+decision. This is skill guidance, not a new discovery command or runtime feature.
+
 ## New or resume
+
+For container image selection, use the supported digest-pinned families in
+`docs/hosting-recipes.md`: official Node 22 bookworm/trixie slim builders and
+either slim or Distroless Debian 12/13 runtimes. New host/execution and recovered-image
+plans default vulnerability scanning to off. Set `scanGate: true` with a reviewed
+pinned `scannerImage` to opt in. Never silently opt users in or fabricate a clean
+scan; disabled scanning/SBOM are `not-run`. Image/source integrity, nonroot smoke,
+identity, inherited cloud policies and no-replay checks remain required.
+Preserve generated nonroot execution and the family-specific Node entrypoint;
+do not hand-edit a sealed Dockerfile, reuse a consumed build, or infer readiness
+from a successful dependency-install diagnostic.
 
 When the owner wants a minimally interrupted, single-reviewed execution, read
 the **separate bounded execution contract** in `docs/reusable-validation.md` and
@@ -31,6 +58,72 @@ Retain pending consumer, negative and rotation gates as such. Submit genuine
 pending owner evidence with `mcp-execution-record`; it cannot erase a failure.
 Scope/security/identity drift, exhausted budgets and unknown dispatches stop
 without retry. An execution expiry is not resource cleanup or a billing cap.
+If a Docker stage stops, inspect the retained `reasonCode` and optional
+`dockerFailure` in the host receipt/current execution status. Explain its closed
+category and available step/exit code without claiming a verified root cause.
+Missing diagnostics in old receipts cannot be reconstructed. Do not collect raw
+logs into durable evidence, weaken TLS, change shared Docker settings or create
+a replacement output to replay a consumed build. See `docs/reusable-validation.md`
+for safe diagnostics and the separate recovery-review boundary.
+For an eligible failed ACA build, read `docs/build-recovery.md` and use only
+`mcp-build-recovery-schema/plan/run` for a separately approved build-only attempt.
+Ask the owner to establish that the prior build stopped and that they control
+the engine exclusively; never infer this from an empty labelled-container list
+or automatically fill `previousBuildStoppedReviewed`. Keep the old source/run
+sealed. Planning is read-only; execution takes a permanent linked recovery claim
+and exact fresh approval with local/network flags, never cloud authority.
+Success is an unqualified local image, not permission to push/deploy it.
+`mcp-recovered-image-schema/plan/run` is the separate reviewed scan/smoke/push/
+create-only deployment contract. Failed recovery is consumed too; do not loop new outputs.
+For `BUILD_RECOVERY_ENGINE_UNTRUSTED`, inspect optional `engineSecurity.checks`:
+`failed` identifies a rejected setting category; `unknown` means missing or
+malformed metadata. Older receipts lack this detail and cannot establish the
+failed setting. The earlier guard also rejected unrelated insecure registry
+entries; do not assert this caused a specific historical failure without evidence.
+Any fresh read-only engine inspection needs separate review and does not permit
+replay, claim removal, Docker setting changes or another recovery output.
+The narrow exception is `rejectedRecoveryOutput` described in
+`docs/build-recovery.md`: one separately approved linked successor only for a
+sealed engine-security rejection after exactly two reads and no build intent.
+It preserves the original claim and takes an additional permanent claim.
+Inspect eligibility before proposing it; do not use it for an interrupted
+attempt, a dispatched build, later reconciliation failures or another successor.
+For a linked attempt that failed only its first Docker version GET with
+`DOCKER_RESPONSE_UNKNOWN`, `connectionRecoveryOutput` supports a separately
+requested and approved retry, with the full bounded predecessor chain preserved.
+Never use it for build failures, missing terminal receipts or later requests.
+Do not run it automatically when Docker comes back; require the user's explicit
+retry request and review the current plan. See the connection-retry section in
+`docs/build-recovery.md`.
+
+For corrected build inputs after a sealed recovery build failure, use the
+`supersededRecoveryOutput` contract in that document. Generate a new sealed
+source separately; only the explicitly reviewed npm registry and/or pinned build
+images may change. Preserve versions/integrities, runtime, identities, targets,
+all prior sources and receipts. This adds one deterministic child claim, never
+releases reservations or replays an unchanged build. Reconfirm prior-build
+termination and exclusive engine control; generation is not execution approval.
+After a successful recovery, prepare a separate `mcp-recovered-image` plan from
+that successful source, with the original private identity. Require new exact
+local/network/cloud approval for scanning, smoke, tagging, push and create-only
+deployment. Neither a connectivity probe nor a successful local build grants it.
+
+If that continuation stops at scan with `HOST_EXECUTION_SCAN_POLICY` or
+`HOST_EXECUTION_SCAN_INCONCLUSIVE`, inspect the retained evidence without
+replaying it. Use `scanRejectedContinuationOutput` alongside all source-revision
+fields only for the exact successful build and a complete sealed scan rejection.
+The replacement source must use a different runtime digest, with unchanged
+application code, dependency metadata/integrities and deployment targets.
+Public registry inspection, source generation, replacement build and later
+qualification/deployment require their own reviews. A newer pin is not evidence
+of a fix. When scanning is enabled, never suppress unknown findings or weaken
+the zero-critical/high gate. A new plan's explicit scan selection does not
+reinterpret historical strict evidence or release a consumed claim.
+Preserve all old claims, reports, images and scanner volumes. Confirm prior
+builds/scans stopped and exclusive engine control. A successful replacement has
+its own one-shot continuation claim; smoke and any opted-in scan run again. This is not
+recovery for transport failures, missing receipts or later deployment failures.
+See the runtime-remediation section of `docs/build-recovery.md`.
 
 For reusable validation of an **existing direct Container Apps deployment** (v1),
 read `docs/reusable-validation.md` and `mcp-validation-schema`. Create a private
@@ -70,7 +163,8 @@ annotations, first read `docs/hosting-recipes.md`, the chosen host guide and
 `mcp-hosting-schema --json`. In order: direct Container Apps, Container Apps behind
 APIM, App Service, Functions. Use `mcp-hosting-plan/create` with an explicit
 private workspace/new directory. `mcp-container-apps-*` remains recipe-1-only.
-Generation is local and is not part of the terminal wizard or APIM Resume.
+Generation is local; the terminal wizard accepts prepared hosting recipe files,
+but APIM Resume does not handle hosting source.
 Select `npmRegistryUrl` explicitly before generation when public npm is blocked;
 the historical default remains public npm. Confirm that the selected feed is
 approved and can serve the locked dependencies. A diagnostic HTTP 200 is not
@@ -142,7 +236,8 @@ tokens. Never run the displayed commands, upload the diagram, or turn the
 handover into permission to deploy, install, sign in or replay a consumed call.
 
 Explain the current boundary in plain language: Entra sign-in for callers,
-anonymous or Key Vault API-key JSON backend, selected fixed GETs with no arguments, and existing
+anonymous or Key Vault API-key JSON backend, selected fixed-path GETs with optional
+declared bounded query arguments, and existing
 host prerequisites from the guide. Ask for actual resource
 choices and IDs, not fabricated placeholders. Require explicit read-only review;
 do not claim annotations independently prove backend behavior. Use the plan's
@@ -170,6 +265,13 @@ Match any selected OpenAPI API-key security declaration exactly; reject mixed
 auth rather than stripping it. Never reuse the pull/storage identity or grant
 roles to make this work. Missing/unresolved injected keys fail startup; do not
 suggest anonymous fallback, removing caller checks or retrying a dispatched call.
+For query arguments, read `docs/hosting-recipes.md#query-arguments-and-date-ranges`.
+Keep the backend origin/path fixed and use only declared inline scalar query
+parameters. Calendar dates use `format: date`; date relationships require the
+explicit `x-mcp-date-range` rule, not just a description. Resolve relative dates
+with the user/caller; the runtime accepts explicit dates only. Never add the
+credential as a tool argument or infer that query support enables headers,
+path substitutions, bodies, automatic pagination or new authentication.
 Generation/release use native Key Vault references, not a live secret read.
 Local launch needs separate approved, process-only secret resolution/injection;
 read the guide rather than pasting key values into shell commands or settings.
@@ -321,6 +423,63 @@ is supported. Generated infrastructure and an observed protocol result are not
 business correctness or host acceptance.
 
 ## Custom federated connector preparation
+
+After a secured MCP execution completes, offer exactly: **FCC**, **Microsoft
+365/Cowork plugin**, or **None**. Do not treat source generation or historical
+proof as fresh consumer readiness. Read `docs/consumer-onboarding.md`. Prepare
+private `mcp-onboard-schema` inputs using the exact existing descriptor, observed
+capture and owner-reviewed `mcp-fcc-schema`/`mcp-auth-registration-schema`
+metadata. Never invent a capture, registration ID or review. `mcp-onboard`
+provides the terminal journey and resumable shared auth execution; automation
+uses the existing explicit auth phase commands and `mcp-consumer-plan/bundle`.
+
+**A consumer selection starts a new onboarding task; it is not the final result.**
+When the user chooses FCC or Plugin in app chat, continue in that conversation:
+inspect the retained inputs/results, collect only missing nonsecret metadata and
+present the next exact operation for approval. Do not finish with "Plugin
+selected", a suggested command, or "consumer creation is separately reviewed".
+Separate review means **ask for that review now**, not defer the task implicitly.
+An earlier "stop after MCP creation and ask" instruction is satisfied by asking;
+the subsequent consumer choice requests preparation of that consumer, but is
+not blanket authority for registration, tenant changes, consent or publication.
+
+For app/noninteractive sessions, do not invoke terminal-only `mcp-onboard`.
+Use this explicit continuation:
+1. Reuse the completed run's exact descriptor and observed capture. Do not
+   redeploy, refresh discovery, repeat the proof or copy authentication caches.
+2. Inspect any retained registration result/session before starting one.
+   Prepare the private FCC and shared Entra SSO registration inputs. Ask for
+   missing account, restrictions or provider setup rather than inventing them.
+   Preserve existing references and require exact descriptor/request binding.
+3. If a compatible reference is missing, use `mcp-auth-execution-plan` and the
+   existing `mcp-auth-execute` phases with their exact approvals and flags.
+   Obtain the reviewed real-terminal login/identity confirmation when required;
+   never treat a noninteractive shell as authenticated or retry a consumed call.
+   If login is blocked, give the concrete sign-in handoff, not a selection-only
+   completion message.
+4. Import the successful `result.json` with `source.registrationResultFile`,
+   export the shared authentication bundle and reference it from the private
+   FCC input using `source.authenticationBundleFile`. Never invent a reference
+   or combine an explicit reference with result-file import.
+5. Review and run `mcp-consumer-plan/bundle` for the chosen consumer. For Plugin,
+   verify `plugin/manifest.template.json`, its observed tool-description file,
+   HTML and integrity manifest exist. Branding/legal/app metadata can have
+   disclosed placeholders; authentication references and tool schemas cannot.
+6. Finish only with actual files/reference, an explicit user stop, or a specific
+   blocker and next action. Do not describe a blocked draft with no plugin
+   manifest as plugin creation. Packaging, publication, directory/endpoint
+   updates and actual consumer calls are still separately reviewed.
+
+Reuse a supplied compatible registration and import a newly created receipt,
+including its Application ID URI. Preserve tenant/app restrictions and consumed
+attempts. No dummy Teams app for FCC; Windows shared-profile effects and
+AnyApp compatibility require their own existing review. None leaves everything
+unchanged and can return later without deployment or proof replay.
+For FCC provide the new local HTML setup guide. For plugin provide the
+agentConnector manifest starter and observed tools; leave only unfinished
+branding/app/legal metadata as placeholders. WIQD owns the remaining plugin
+project/package lifecycle. Directory settings, endpoint compatibility, consent,
+publication and actual consumer validation remain separately reviewed.
 
 Read `docs/federated-connectors.md` and `mcp-fcc-schema --json`. Use
 `mcp-fcc-plan --workspace-root ABS --config FILE --output NEW.json --json --summary`

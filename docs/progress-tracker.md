@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-10-26.
+Last updated: 2026-10-28.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,329 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### Consumer selection continuation
+
+Corrected the completion-menu dead end: selecting FCC or Plugin now enters
+the existing reviewed terminal journey; it does not merely return a command.
+JSON next steps and skill guidance explicitly direct the app agent to collect
+missing inputs and present the next exact registration/export review. Selection
+is intent, not execution approval. This is agent-driven app continuation, not
+a native app event hook or automatic resumption of a stopped conversation.
+Incomplete selected onboarding is distinct from successful MCP execution;
+a missing plugin manifest remains blocked even when HTML was exported.
+Twenty offline consumer tests and three targeted execution regressions passed,
+including actual synthetic registration-to-starter output, declined review/None,
+noninteractive JSON behavior and unchanged proof consumption. Asset inventory,
+syntax and public-type checks passed. These do not qualify live app-agent
+continuation or Teams Developer Portal registration.
+No live registration, deployment, discovery, proof or publication was performed.
+
+### Post-creation consumer onboarding
+
+Implemented a separate prepared-input terminal journey with FCC / plugin / None
+choices, existing-reference reuse, guarded existing auth-executor phases and
+resumable immutable local state. Completed execution JSON exposes next-step
+choices without prompting unattended callers. FCC and plugin export share the
+existing FCC metadata/auth/capture validation and offline HTML styling.
+Plugin output uses standalone v1.28 agentConnectors and observed tool schemas,
+not fabricated auth references or an automatically published WIQD package.
+Registration, endpoint configuration, local artifacts and consumer testing remain
+distinct; this implementation does not qualify Windows live registration or
+WeatherAPI consumer acceptance. See [consumer onboarding](consumer-onboarding.md).
+Offline consumer, FCC, execution, auth, handover and guided regressions passed,
+along with asset, syntax and public-type checks. A synthetic manifest was also
+checked against the official v1.28 schema; HTML tabs/copy controls were exercised
+locally. These checks involved no live registration or provider proof.
+
+### WeatherAPI two-stage live validation
+
+A fresh direct-ACA WeatherAPI REST-to-MCP execution completed with the existing
+reusable runner on baseline `3806ba4`, not a new runner or recovery of an old
+attempt. One exact grant covered generation through one fixed forecast proof.
+Hosting paused cleanly before runtime sign-in with zero provider calls; the
+same grant subsequently finished without another build or deployment.
+
+| Surface | Observed result |
+| --- | --- |
+| Pinned Node slim build / image integrity / nonroot smoke / upload | Passed |
+| App readback / revision readiness / health | Passed |
+| Vulnerability scan / SBOM | Not run under the explicitly approved disabled policy |
+| Expected-user Entra sign-in / authenticated discovery | Passed |
+| `get_event_forecast({q: "Seattle", days: 3})` | Exactly one dispatch; `protocol-success` at `2026-10-28T05:29:45.347Z` |
+| Discovery-to-dispatch pacing | 74.776 seconds |
+| Retained capture / dispatch / proof | One each; receipt hashes and cross-receipt/source/argument bindings checked |
+| Runner consumption | Seven steps, 45 logical Azure commands, one provider call across two invocations |
+| Three returned forecast dates / business correctness / negative authorization / consumer acceptance | Not verified |
+| Cost closeout | App retained and billable; no cleanup authorized |
+
+The missing secret-reader permission was separately approved, created only at
+the selected secret scope, and read back before the execution grant. It was not
+an SDK host role operation. The key remained a versioned Key Vault reference,
+not a tool argument or locally read credential. Query-log protection and shared
+service entitlement were owner-reviewed, not independently certified.
+Both runner processes exited; current execution/host locks were released.
+This is successful two-stage same-grant protocol validation, not a single
+uninterrupted process or general readiness. All real configuration, identities,
+secret references, generated projects and live receipts remain outside the
+public repository. Earlier failed/consumed runs were not modified or replayed.
+
+### Opt-in vulnerability scanning
+
+At the user's direction, new host and recovered-image plans default to
+`scanGate: false`; the reusable execution runner uses the same host setting.
+Explicit `scanGate: true` requires a pinned scanner and retains the strict
+critical/high/unknown, completeness and freshness checks. Disabled mode skips
+scanner downloads and SBOM generation, records `not-run` instead of clean
+findings, and still verifies image export integrity and nonroot smoke.
+Version-2 image reviews preserve the policy in release evidence. Deployment-only
+continuations inherit the parent's policy, not a new default. Historical
+pre-change plans, reviews, scan failures and consumed claims remain unchanged.
+See [README](../README.md#optional-image-scanning). This is a code-policy change,
+not a live deployment or resolution of the historical scan failures below.
+
+Offline verification covers default-off direct/gateway hosts, strict opt-in
+rejections, image-integrity and smoke failures, recovered-image and deployment-only
+policy inheritance, historical strict descriptions, versioned review validation
+and complete reusable-runner journeys. The runner's image-build milestone now
+accepts an explicitly disabled scan only under that reviewed policy and records
+the omission in its note. A skipped scan is never reported as passed.
+Syntax, strict public types, asset inventory and whitespace checks passed.
+
+### Bounded image-family flexibility
+
+Historical policy/evidence at implementation time (before the opt-in change above):
+
+Official Node 22 bookworm/trixie slim are supported as digest-pinned builders
+and runtimes alongside the existing Distroless runtimes. Generated Dockerfiles
+and shared host/recovered-image smoke use the selected family's actual Node
+binary. Nonroot user/group `65532:65532`, exact source/image binding, fresh scans,
+zero critical/high and unknown-severity rejection remain required. No arbitrary
+image/entrypoint support, mutable defaults or automatic source updates.
+
+Verification passed 26 selected offline tests covering all three container
+generators, direct/gateway host smoke, critical/unknown scan rejection,
+failed-build source revision through recovered-image continuation, registry
+security selection, and both diagnostic-image families. Syntax, strict public
+types and asset inventory checks passed. This does not establish that any
+newly supported base image passes the live scan or that deployment is unblocked.
+
+Subsequent approved live Node slim attempt: the revised source built successfully
+with CFS (`built-unqualified`, 18 Docker requests, no Azure/provider calls in
+the build). A separate continuation under explicit deployment delegation
+verified the recovered image and stopped at scan with
+`HOST_EXECUTION_SCAN_INCONCLUSIVE` / `unknown-no-replay`. The retained report
+contains 1 critical, 67 high and 2 unknown finding entries; these are raw
+observations, not accepted qualification or independently verified exploitability.
+The receipt does not identify the first failed scan assertion. No smoke, new
+tag, push, deployment or provider call followed. Both new attempts remain
+consumed; complete lineage and all 38 original protected files were verified
+unchanged. Relaxing image-family selection did not waive the scan gate.
+
+### Scan-rejected runtime remediation
+
+Implemented `scanRejectedContinuationOutput` for complete sealed scan-policy or
+scan-inconclusive failures of the exact successful recovered build. A separately
+generated source must select a different runtime digest while preserving
+application/dependency/identity/target contracts. The new review binds all
+receipt, claim and diagnostic-file digests; checks prior scanner containers;
+and preserves old images, volumes, claims and reservations. A successful
+replacement gets a separate per-build continuation claim with unchanged
+scan/smoke/push/create-only gates. No implicit rescan or policy exception.
+
+Offline regression coverage includes direct ACA and ACA/APIM continuation,
+unknown/critical/high rejection, unchanged-digest refusal, incomplete/stale scan
+evidence, source-local private identity locks, concurrent child claims, remaining
+scanner containers and repeated remediation ancestry. All 120 combined offline
+recovery, shared-host, verified-image and fresh packed-consumer tests passed;
+syntax, strict types, asset inventory and whitespace checks passed.
+Final follow-up passed four selected checks including both deployment profiles
+and a resealed scan chain whose start predates the successful build, plus the
+same static checks. Earlier and follow-up counts overlap.
+No new runtime pin, live build or live qualification is implied.
+
+Subsequent separately approved live remediation attempt: the generated replacement
+source reached the dependency-install build step and stopped with
+`DOCKER_DISPATCH_FAILED` / `build-command-failed` (step 5, exit 1).
+Engine security and prior-owner reconciliation passed; all 38 original protected
+files and the full recovery/scan lineage were verified unchanged. Dependency
+input bytes matched the earlier successful CFS build, so this receipt does not
+establish the underlying npm cause or a runtime-image defect. The new build claim
+is consumed. No scan, smoke, push, Azure operation, deployment or provider call
+followed. A separate bounded installation diagnostic was proposed but remains
+unapproved at that checkpoint; no diagnostic or retry was executed then.
+
+Subsequent explicit diagnostic approval: one bounded CFS dependency installation
+in the same pinned builder succeeded using the exact dependency input bytes,
+an empty temporary cache and disabled scripts/audit/retries. The owned temporary
+container was removed. This was a nonroot isolated diagnostic, not a repeat of
+the root Docker build stage; it neither establishes the historical failure's
+cause nor qualifies a built image. The failed build remains consumed.
+
+### Revised-source recovery and recovered-image continuation
+
+Implemented `supersededRecoveryOutput` with separately generated source changes
+limited to npm registry/pinned build images. Original runtime, locked dependency
+metadata/integrities, identities and deployment targets remain fixed. Failed
+attempts form a bounded, append-only single-child lineage; prior claims and
+reservations remain immutable. All prior build owners/tags are reconciled and
+the lineage is checked again before dispatch.
+
+Implemented separate `mcp-recovered-image-schema/plan/run` authority. Successful
+recovery evidence and exact local image identity feed the shared scan, network-
+disabled smoke, unique-tag, push, create-only deployment and health stages.
+It preserves the original selected private identity and adds a one-shot target
+claim; failed stages remain consumed. No rebuilt image is treated as qualified
+without fresh scan/smoke and separately approved cloud authority.
+
+All 133 combined offline host-operation, build-recovery, original host-execution
+and verified-image regressions passed, including complete direct-ACA and ACA/APIM
+revised-source build-through-deployment flows. Syntax, strict types, asset
+inventory and whitespace checks passed. The targeted earlier checks overlap
+these totals. No live source generation, build, push or deployment is implied
+by this implementation.
+Follow-up checks passed for the source-local private identity lock boundary,
+the repeated revision request ceiling, and a fresh offline packed consumer.
+The capability check was updated for the newly available, separately approved
+continuation while preserving its existing boolean field type.
+Final hardening passed five selected offline tests covering both deployment
+profiles, late predecessor-evidence rejection with a safe reason code, and
+rejection of historical continuation output even when its claim is absent.
+Syntax, strict types, asset inventory and whitespace checks also passed.
+
+### Container registry diagnostic identity
+
+The container npm diagnostic now accepts exact approved Node tag-plus-digest
+references in Docker `RepoDigests`, alongside canonical digest-only references.
+It still rejects different digests, repositories, tagged versions, platforms
+and malformed digest lists before container creation. This fixes diagnostic
+reference matching only; feed selection, installation and build recovery remain
+separate operations, and consumed diagnostic records are never reset.
+All 26 offline host-operation checks passed (including 11 image-identity
+subcases), along with syntax, strict types, asset inventory and whitespace
+checks. These checks do not establish live feed access or installation success.
+
+### Build-only recovery
+
+Explicit connection-only follow-ups now use `connectionRecoveryOutput` after a
+linked attempt's sealed first-version-GET failure. They preserve the entire
+bounded lineage and use one deterministic child claim per parent, never a
+reset, implicit retry or permission to replay a dispatched build. Restoring
+the engine alone is not permission to execute a new plan.
+All 20 offline recovery regressions passed, including repeated explicit
+connection-only lineage, competing child approvals, and rejection of dispatched
+or ambiguous evidence. Syntax, strict types, asset inventory and whitespace
+checks passed. These checks do not qualify a live image or authorize deployment.
+
+An explicitly reviewed `rejectedRecoveryOutput` successor is available only for
+the original recovery's sealed engine-security rejection after two reads and
+no build dispatch. It binds the old claim, plan, intent and terminal result,
+revalidates before build, and creates a separate permanent target claim. No
+original claim is reset; dispatched-build failures, incomplete receipts and
+further successors stay blocked. This does not add deployment continuation.
+All 18 offline recovery regressions passed after this addition, including
+preserved original/rejected evidence, exact successor approval, changed evidence
+before dispatch, and rejection of further successors. Syntax, strict public
+types, asset inventory and whitespace checks passed. This is engineering
+verification, not live deployment acceptance.
+
+Recovery engine-check follow-up: unrelated insecure registry indexes no longer
+block the approved public image pulls. Docker Hub aliases and gcr.io are checked
+explicitly; debug, loopback-only insecure CIDRs and fail-closed metadata checks
+remain enforced. New receipts retain `engineSecurity` with fixed per-check
+statuses, not raw engine settings. The historical generic rejection cannot
+establish which setting failed, and this fix does not release consumed claims.
+Follow-up offline verification passed all 14 recovery tests, asset inventory,
+syntax, strict public types and whitespace checks. Synthetic cases cover
+unrelated insecure indexes, rejected approved registries, malformed metadata,
+safe failure receipts and the unchanged consumed-claim barrier. No live engine
+inspection or rebuild was performed.
+
+`mcp-build-recovery-schema/plan/run` implements a separate target-claimed local
+attempt for an eligible failed Container Apps build, including behind APIM.
+Parent receipts, reservations and outer journal stay immutable. Current trusted
+build files, exact fresh approval and owner-reviewed engine quiescence are
+required. Reconciliation preserves old images; failure/interruption remains
+consumed. Success is `built-unqualified`, never scan/deployment readiness.
+Downstream qualification/upload/deployment now has the separate recovered-image
+contract above; it remains outside build-only approval. See
+[build recovery](build-recovery.md).
+
+Offline verification passed: 12 recovery regressions, 8 selected shared-host,
+outer-journal and verified-image regressions, 9 Docker parser/push tests, and the
+fresh offline packed-consumer test. Asset inventory, syntax, strict public types
+and whitespace checks passed. No live Docker, Azure or provider operation,
+installed-skill update or publication occurred.
+
+### Safe Docker failure diagnostics
+
+Docker progress errors now retain a closed category, HTTP status, record index
+and optional numeric build step/total, instruction name and exit code. The safe
+projection is sealed into host failure receipts and new outer execution
+journals/status. Raw messages, commands, URLs, image names and credentials remain
+excluded. Unknown/malformed output stays explicitly inconclusive; categories
+are reported clues, not verified root causes. Earlier failed receipts remain
+unchanged and consumed. No live execution or Docker configuration change occurred.
+
+Offline verification passed: 9 parser/push tests, 5 selected host regressions
+and 1 outer-journal/status regression, plus asset inventory, syntax, strict types
+and whitespace checks. The journal regression rejects extra/invalid diagnostic
+fields and successful outcomes carrying failure metadata, and accepts historical
+failed events without diagnostics while preserving the no-replay barrier.
+
+### Bounded generated query arguments and date ranges
+
+| Surface | Implemented behavior |
+| --- | --- |
+| Compiler/shared runtime | All four generated hosts; up to 20 inline scalar query parameters; fixed origin/path, safe encoding, strict schema and value bounds |
+| Calendar-date rules | Valid `YYYY-MM-DD`, explicit ordered required date pair, configurable maximum elapsed days; no relative-date guessing |
+| MCP inputs | Advertised schema; required/optional values without coercion or defaults; invalid arguments rejected before backend dispatch |
+| Authentication | Existing Entra caller and anonymous/Key Vault backend modes unchanged; caller cannot override credentials or routing |
+| Runners/proofs | Actual selected arguments validated and source/schema/range-bound; direct and gateway paths; unrelated historical proofs remain consumed |
+| Compatibility | Parameter-free schemas unchanged; no edits to sealed projects or historical evidence; no new OAuth, path arguments, bodies or automatic pagination |
+| Guidance | Skill, wizard text, capabilities, hosting guides and synthetic date-range recipe updated |
+| Verification | Runtime/compiler focused checks 55/55; runner integration 86/86; discovery regressions 113/113; final historical-binding validation 21/21; parent package/wizard/skill/query integration 74/74 |
+| Live status | Not live-qualified for parameterized requests; no Azure/provider calls or deployment performed |
+
+The listed test sets overlap and are not a combined suite total. An initial
+runner check overlapped source edits and failed pinned-build checks; rerunning
+against stable source passed. This does not weaken build pinning or refresh old
+approvals. The final validation-only rerun covered the subsequent historical
+binding refinement.
+
+### Documentation-first API discovery skill
+
+| Surface | Implemented guidance |
+| --- | --- |
+| Entry point | Existing `copilot-mcp` skill routes API assessment/setup/prompt requests to its bundled discovery reference |
+| Discovery | Official documentation or authorized local OpenAPI, bounded reads, sources and explicit unknowns; no backend probes |
+| Compatibility | Current engine/schema checks; supported, partial, unsupported and unknown; no silent scope reduction |
+| Preparation | Agent-authored private configuration, missing-input questions, local-write and exact generation reviews |
+| Handoff | Optional grounded prompt, no credentials or transferred approval authority |
+| Scope | Guidance only; no new runtime adapters/commands, installed-skill changes or live acceptance |
+| Offline verification | 5/5 skill structure and synthetic schema checks passed; offline package dry-run includes the reference; asset inventory, syntax and strict public types passed |
+
+Offline structural/package checks and synthetic schema cases cover this guidance;
+they do not establish that an agent follows it reliably in a live conversation.
+
+### Guided CLI coverage and wording
+
+| Surface | Implemented behavior |
+| --- | --- |
+| New setup menu | Native APIM, existing MCP, direct Container Apps, Container Apps behind APIM, App Service and preview Functions |
+| Hosting generation | Prepared private recipe JSON; full configuration/token/destination review and explicit local-write confirmation |
+| Saved-work review | Distinct APIM/reference, sealed source, execution-run and validation-run routes; no automatic continuation |
+| Configuration review | Existing definition/resource choices plus hosting, execution and Container Apps infrastructure plans |
+| Language and discoverability | Plain-language access choices, explicit recipe-file/preview labels, command-help entry and per-menu numbering |
+| Recipe preparation guidance | Both matching template names/full paths shown before the workspace question; explicit manual copy/edit steps, separate no-auth/API-key copy commands, host-specific field checklist and ID lookup guidance; full edited file path required |
+| REST API security guidance | Separates REST backend access from MCP caller sign-in; native APIM Entra restrictions and hosted no-auth/API-key-only support are explicit |
+| Safety | No network, sign-in, build or deployment; existing folders and changed approvals rejected; cancellation preserved |
+| Offline verification | 75/75 targeted guided/terminal/hosting tests passed; asset inventory, syntax and strict public types passed |
+
+Hosting source authoring still requires a prepared recipe file; the wizard does
+not collect all host settings field by field. Unsupported backend authentication
+and operation profiles remain rejected. The terminal workflow does not grant
+live runner authority or generate an HTML handover implicitly.
 
 ### Stabilized runner workflow and final regression
 
@@ -34,6 +357,33 @@ was queried, and remaining resources can still incur charges.
 
 ### Latest live validation outcome
 
+**The uninterrupted build-through-proof runner passed.** A fresh, explicitly
+approved run on the implementation merged in PR #5 completed the entire
+direct-ACA fixture workflow in one process, without restart, repair or automatic
+retry. It reported `execution-completed`, consuming seven steps, 41 logical Azure
+commands and one provider call. Local journal/receipt digests and cross-phase
+bindings were checked; the runner exited and its current locks were released.
+
+| Validation surface | Same-run evidence |
+| --- | --- |
+| Build / zero-critical-high scan / nonroot smoke / registry upload | Passed |
+| App deployment / readiness / health / release / reference | Passed |
+| Expected-user sign-in / fresh authenticated discovery | Passed in the same runner session |
+| Single `get_validation_fixture({})` call | `protocol-success` at `2026-10-26T15:26:06.865Z`; exactly one dispatch and proof |
+| Discovery-to-dispatch pacing | 73.080 seconds; required minimum 65 seconds |
+| One uninterrupted combined build-through-proof execution | Passed for this bounded direct-ACA fixture profile |
+| Approved temporary-app cleanup | One DELETE; complete collection readback verified absence at `2026-10-26T15:26:49.388Z` |
+| Retained resources | Three existing apps, shared infrastructure, registry images and local evidence preserved |
+| Business correctness / negative-auth / FCC or WIQD consumer acceptance | Not established; overall execution readiness remains false |
+
+Authentication remained memory-only. Cleanup used five separate bounded Azure
+commands and has its own receipt; the immutable runner report still lists
+cost-closeout as pending. Retained resources can still incur charges. This
+successful new run does not rewrite earlier failed attempts or release consumed
+proof budgets.
+
+### Earlier existing-app validation outcome
+
 **The existing-app sign-in-and-proof session passed.** Following the user's
 renewed request, authentication and discovery completed in the same process as
 exactly one `get_validation_fixture({})` call, returning `protocol-success` at
@@ -41,7 +391,7 @@ exactly one `get_validation_fixture({})` call, returning `protocol-success` at
 greater-than-65-second discovery-to-dispatch interval and process exit were
 verified. No token was persisted, and no new resource or rebuild was needed.
 
-| Validation surface | Current evidence |
+| Validation surface | Evidence from that earlier attempt |
 | --- | --- |
 | Build / scan / smoke / upload / app deployment / readiness / health | Passed in the earlier hosting execution |
 | Expected-user sign-in / fresh discovery / single fixture call | Passed together in the subsequent interactive session |
@@ -69,14 +419,14 @@ No rebuild or additional app was needed. This is separate discovery evidence,
 not repair of the earlier combined run or a passing full build-through-proof.
 Tokens are not persisted for later unattended execution.
 
-**Latest combined run: all hosting gates passed, but sign-in timed out.**
+**Earlier combined run: all hosting gates passed, but sign-in timed out.**
 After explicit approval, the exact stale shared identity mutex was archived
 without changing old run locks, reservations or consumed evidence. The fresh
 create-only execution passed the entire hosting chain and release/reference
 generation. Authentication stopped at `2026-10-26T01:53:17.913Z` with
 `AUTHENTICATION_TIMEOUT`, token stage. The process ended; no retry was started.
 
-| Gate | Latest same-run result |
+| Gate | Same-run result for that earlier attempt |
 | --- | --- |
 | Identity / preflight / build / scan / smoke / upload / qualification | Passed |
 | App creation/readback / revision readiness / health | Passed |

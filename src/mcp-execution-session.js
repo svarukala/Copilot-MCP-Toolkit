@@ -21,7 +21,7 @@ function projection(options, childPlan, configDigest, minimumProofDelayMs) {
   requireMetadata(childPlan.action === 'mcp-session' && childPlan.maximumSessionMs === 900000
     && childPlan.tokenPersistence === 'none' && childPlan.proofAuthorized === false
     && discovery?.source.kind === 'existing-mcp' && discovery.auth?.expectedUserId
-    && proof && Object.keys(proof).every(key => ['toolName', 'arguments', 'safetyReview', 'resultAssertion'].includes(key))
+    && proof && Object.keys(proof).every(key => ['toolName', 'arguments', 'safetyReview', 'resultAssertion', 'generatedSource'].includes(key))
     && typeof proof.toolName === 'string' && /^[A-Za-z0-9_.-]{1,128}$/.test(proof.toolName)
     && proof.arguments && typeof proof.arguments === 'object' && !Array.isArray(proof.arguments)
     && proof.safetyReview?.readOnly === true
@@ -38,6 +38,7 @@ function projection(options, childPlan, configDigest, minimumProofDelayMs) {
     discoveryOperationDigest: discovery.approvalDigest,
     proof: { toolName: proof.toolName, argumentsDigest: digest(proof.arguments),
       safetyReview: proof.safetyReview, resultAssertion },
+    ...(childPlan.generatedTool ? { generatedTool: childPlan.generatedTool } : {}),
     minimumProofDelayMs, maximumSessionMs: childPlan.maximumSessionMs, tokenPersistence: 'none',
   });
   requireMetadata(!secretIssues(JSON.stringify(body)), 'SENSITIVE_INPUT');
@@ -81,6 +82,7 @@ export function createExecutionProofApproval({ options, childPlan, authorization
       const operation = proof.operation;
       requireMetadata(proof.action === 'standalone-mcp-project-proof' && proof.executionVersion === 2
         && proof.projectDir === expected.projectDir && proof.reviewDigest === expected.reviewDigest
+        && equal(proof.generatedTool ?? null, expected.generatedTool ?? null)
         && operation?.action === 'standalone-mcp-read-only-proof'
         && operation.source.descriptorDigest === expected.sourceDigest
         && operation.source.endpoint === expected.endpoint

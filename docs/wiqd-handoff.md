@@ -4,6 +4,12 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+2026-10-28 update: [consumer onboarding](consumer-onboarding.md) now provides
+a narrow standalone v1.28 agentConnector starter, observed tool-description
+file and HTML guide after shared guarded SSO registration/reuse. This is not a
+WIQD project, full H1 contract, package, publication or qualified consumer.
+WIQD still owns project composition and its downstream lifecycle.
+
 2026-10-15 approved scope addition: [shared auth preparation](auth-registration.md)
 now exports explicit SSO/OAuth settings and nonsecret FCC/plugin reference data.
 This narrow implementation is not H1/H3's endpoint/tool contract and does not

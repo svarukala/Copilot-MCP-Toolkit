@@ -8,12 +8,12 @@ import { readControl } from './mcp-control.js';
 import { secretIssues } from './validation.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { sealRecipeFiles } from './mcp-recipe-artifacts.js';
-import { imageBuildSchema } from './mcp-image-review.js';
+import { imageBuildSchema, runtimeNodePath } from './mcp-image-review.js';
 import { npmRegistryUrlSchema, resolveNpmRegistryUrl, mapRuntimeLock } from './npm-registry.js';
 import { hostingSchemas, gatewaySettings, gatewayInfrastructure, appServiceInfrastructure, functionsInfrastructure,
   backendIdentity, backendSecretName } from './mcp-hosting-targets.js';
 import { runtimeSchema, validateRuntimeConfig, toolDefinitions, apiKeyPlacementProperties, apiKeyPlacementChoice,
-  validateApiKeyPlacement, backendCredentialEnvironment } from './recipes/container-apps/runtime.js';
+  validateApiKeyPlacement, backendCredentialEnvironment, normalizeQueryParameters } from './recipes/container-apps/runtime.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, required: Object.keys(properties), properties });
 const uuid = { type: 'string', format: 'uuid' };
@@ -139,13 +139,16 @@ function compile(value, hosting) {
   const tools = input.operationIds.map(id => {
     const op = operations.find(operation => operation.id === id);
     const item = document.paths[op.path], operation = item.get;
-    requireRecipe(op.method === 'GET' && op.parameters.length === 0 && op.requestBody === undefined
+    requireRecipe(op.method === 'GET' && !(item.parameters?.length) && op.requestBody === undefined
       && Object.keys(item).every(key => ['get', 'put', 'post', 'delete', 'patch', 'options', 'head', 'trace', 'summary', 'description', 'parameters'].includes(key))
       && Object.keys(operation).every(key => ['operationId', 'summary', 'description', 'responses', 'parameters',
-        'security', 'tags', 'deprecated', 'externalDocs'].includes(key)),
-    'SDK hosting recipes support fixed GETs only: no parameters, bodies, callbacks, references, alternate servers or mappings.');
+        'security', 'tags', 'deprecated', 'externalDocs', 'x-mcp-date-range'].includes(key)),
+    'SDK hosting recipes support fixed GETs with inline scalar query parameters only: no path/header parameters, bodies, callbacks, references, alternate servers or mappings.');
     validateSecurity(operation.security);
-    return { name: id, description: operation.description ?? operation.summary ?? id, path: op.path, readOnlyReviewed: true };
+    const queryParameters = normalizeQueryParameters(operation.parameters ?? []);
+    return { name: id, description: operation.description ?? operation.summary ?? id, path: op.path, readOnlyReviewed: true,
+      ...(queryParameters.length ? { queryParameters } : {}),
+      ...(operation['x-mcp-date-range'] === undefined ? {} : { dateRange: operation['x-mcp-date-range'] }) };
   });
   const runtime = validateRuntimeConfig({
     schemaVersion: 1, name: input.name, authentication: input.authentication,
@@ -212,7 +215,7 @@ ENV NODE_ENV=production
 COPY --from=dependencies --chown=65532:65532 /app/dist/ ./
 USER 65532:65532
 EXPOSE 3000
-ENTRYPOINT ["/nodejs/bin/node"]
+ENTRYPOINT [${JSON.stringify(runtimeNodePath(build.runtimeImage))}]
 CMD ["server.js"]
 `;
 }
@@ -355,6 +358,7 @@ async function writeRecipe(options, hosting) {
   return withCliWorkspace(options.workspaceRoot, async () => {
     const plan = await prepare(options, hosting);
     requireRecipe(options.approval === plan.approvalToken, 'Review the exact current local-write approval token.', 'APPROVAL_REQUIRED');
+    requireRecipe(!options.signal?.aborted, 'Hosting setup aborted before writing.', 'ABORTED');
     await mkdir(plan.outputPath, { mode: 0o700 });
     await mkdir(path.join(plan.outputPath, 'infra'), { mode: 0o700 });
     for (const [name, content] of Object.entries(plan.files)) {

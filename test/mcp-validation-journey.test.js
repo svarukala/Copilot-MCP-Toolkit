@@ -13,6 +13,8 @@ import { executeMcpProjectForTest } from '../src/mcp-discovery-project.js';
 import { discoverMcpToolsForTest, runMcpReadOnlyProofForTest } from '../src/mcp-discovery.js';
 import { observationTransport } from './support/mcp-observation.js';
 import { selectMockAzureIdentity } from './support/azure-identity.js';
+import { compileHostingRecipe } from '../src/mcp-container-apps.js';
+import { toolDefinitions } from '../src/recipes/container-apps/runtime.js';
 
 const evidenceDigest = `sha256:${'a'.repeat(64)}`;
 const uid = '77777777-7777-4777-8777-777777777777';
@@ -56,7 +58,7 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
   const transport = async (state = {}) => {
     const project = path.join(run, hosting ? 'reference' : 'source');
     const server = await withCliWorkspace(root, () => readMcpServerProject(project));
-    const tools = { tools: [{ name: input.proof.toolName, description: 'Read a synthetic record',
+    const tools = { tools: hosting ? toolDefinitions(compileHostingRecipe(definition).runtime) : [{ name: input.proof.toolName, description: 'Read a synthetic record',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, destructiveHint: false } }] };
     const fixture = observationTransport(server.review.descriptor, input.discovery, tools), base = fixture.mcpTransport;
@@ -64,6 +66,7 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
       const rpc = JSON.parse(request.body);
       if (state.beforeRequest) await state.beforeRequest(rpc);
       if (rpc.method !== 'tools/call') return base(url, request);
+      assert.deepEqual(rpc.params.arguments, input.proof.arguments);
       fixture.calls.push(rpc.method);
       if (state.unknown) throw Error('PRIVATE_PROVIDER_ERROR');
       return new Response(JSON.stringify({ jsonrpc: '2.0', id: rpc.id, result: {
@@ -80,7 +83,7 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
 }
 
 for (const gateway of [false, true]) for (const key of ['header', 'query']) {
-  test(`creation runner generates ${gateway ? 'gateway' : 'direct'} ACA ${key}-key release and reference without hidden deployment`, async t => {
+  test(`creation runner generates ${gateway ? 'gateway' : 'direct'} ACA ${key}-key release and reference with query arguments=${key === 'query'}`, async t => {
     const f = await setup(t, `container-apps-${gateway ? 'apim' : 'direct'}-api-key`,
       gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2', d => {
         delete d.backend.apiKey.headerName; delete d.backend.apiKey.queryParameterName;
@@ -91,6 +94,15 @@ for (const gateway of [false, true]) for (const key of ['header', 'query']) {
           scheme.in = key; scheme.name = key === 'query' ? 'access_key' : 'X-Api-Key';
         }
       });
+    if (key === 'query') {
+      const operation = Object.values(f.definition.document.paths)[0].get;
+      operation.parameters = ['start_date', 'end_date'].map(name => ({
+        name, in: 'query', required: true, schema: { type: 'string', format: 'date' },
+      }));
+      operation['x-mcp-date-range'] = { startParameter: 'start_date', endParameter: 'end_date', maxSpanDays: 7 };
+      f.input.proof.arguments = { start_date: '2024-02-28', end_date: '2024-03-06' };
+      await f.json('definition.json', f.definition);
+    }
     const initial = await f.start();
     assert.equal(initial.coverage.backend, `api-key-${key}`);
     assert.equal(initial.coverage.caller, 'entra');
@@ -112,6 +124,7 @@ for (const gateway of [false, true]) for (const key of ['header', 'query']) {
     await f.step({}, deps);
     assert.equal((await nextValidation(f.active)).phase, 'proof');
     const proved = await f.step({}, deps);
+    assert.match(proved.plan.childPlan.generatedTool.schemaDigest, /^sha256:/);
     assert.equal(proved.report.protocol, 'passed-historical');
     assert.equal(proved.report.outcome, 'incomplete');
     assert.equal(fixture.calls.filter(c => c === 'tools/call').length, 1);

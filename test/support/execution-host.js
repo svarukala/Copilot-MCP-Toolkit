@@ -55,7 +55,7 @@ const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value
 export async function createSyntheticExecutionHost({ workspaceRoot, project, host, seedIdentity = true, oci = false }) {
   const source = (await withCliWorkspace(workspaceRoot, () => readRecipeProject(project))).input;
   const identityProject = host.azureIdentityProject ?? project;
-  const calls = [], resources = new Map(), containers = new Map(), volumes = new Map(), findings = [];
+  const calls = [], resources = new Map(), containers = new Map(), volumes = new Map(), findings = [], imageTags = new Set();
   const a = source.azure;
   const image = syntheticExecutionImage({ oci });
   let counter = 0, tag, owner, pushed = false;
@@ -88,6 +88,7 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
     }
     if (args[0] === 'account') return account;
     if (args[0] === 'acr') {
+      if (args[1] === 'manifest') return { digest: syntheticHostImageDigest };
       if (args[1] === 'login') {
         assert.equal(execution.sensitiveOutput, true);
         return { loginServer: a.registry.server, accessToken: syntheticHostRegistryToken };
@@ -156,6 +157,7 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
     if (route.startsWith('/v1.44/build?')) {
       const params = new URLSearchParams(route.split('?')[1]);
       tag = params.get('t'); owner = JSON.parse(params.get('labels'))['copilot-mcp-execution'];
+      imageTags.add(tag);
       assert.equal(params.get('platform'), 'linux/amd64');
       assert.equal(params.get('memory'), '1073741824');
       assert.equal(execution.headers['X-Registry-Config'], Buffer.from('{}').toString('base64'));
@@ -167,10 +169,19 @@ export async function createSyntheticExecutionHost({ workspaceRoot, project, hos
       const name = decodeURIComponent(route.slice('/v1.44/images/'.length, -'/json'.length));
       if (name === host.scannerImage) return response({ Id: `sha256:${'c'.repeat(64)}`, Os: 'linux',
         Architecture: 'amd64', RepoDigests: [host.scannerImage] });
-      assert.ok([image.imageId, tag, `${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`].includes(name));
+      if (![image.imageId, `${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`].includes(name)
+        && !imageTags.has(name)) return response(null, 404);
       return response({ Id: image.imageId, Os: 'linux', Architecture: 'amd64', Size: 100,
         RepoDigests: pushed ? [`${a.registry.server}/${host.imageRepository}@${syntheticHostImageDigest}`] : [],
         Config: { User: '65532:65532', Labels: { 'copilot-mcp-execution': owner } } });
+    }
+    if (route.startsWith('/v1.44/images/') && route.includes('/tag?')) {
+      const imageId = decodeURIComponent(route.slice('/v1.44/images/'.length, route.indexOf('/tag?')));
+      assert.equal(imageId, image.imageId);
+      const query = new URLSearchParams(route.split('?')[1]), selected = `${query.get('repo')}:${query.get('tag')}`;
+      assert.equal(imageTags.has(selected), false);
+      imageTags.add(selected);
+      return response(null, 201);
     }
     if (route.endsWith('/get')) return response(image.archive);
     if (route.includes('/push?')) {

@@ -22,13 +22,14 @@ const socket = String.raw`\\.\pipe\docker_engine`;
 const response = (value, status = 200) => ({ status, body: Buffer.isBuffer(value) ? value : Buffer.from(JSON.stringify(value)) });
 const flags = { allowLocal: true, allowCloud: true, allowNetwork: true };
 const secret = 'synthetic-registry-token-never-persist';
-async function fixture(t, { gateway = false, key = false, login = false, oci = false } = {}) {
+async function fixture(t, { gateway = false, key = false, login = false, oci = false, nodeSlim = false } = {}) {
   const root = path.join(TOOLKIT_ROOT, '.test-output', `host-execution-${randomUUID()}`);
   await mkdir(root, { recursive: true });
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = JSON.parse(await readFile(new URL('../examples/mcp/container-apps-direct.json', import.meta.url)));
   source.imageBuild = { builderImage: `node:22-bookworm-slim@sha256:${'d'.repeat(64)}`,
     runtimeImage: `gcr.io/distroless/nodejs22-debian13:nonroot@sha256:${'e'.repeat(64)}`, platform: 'linux/amd64' };
+  if (nodeSlim) source.imageBuild.runtimeImage = `node:22-trixie-slim@sha256:${'e'.repeat(64)}`;
   if (gateway) {
     source.recipe = 'container-apps-apim-v1';
     source.azure.gateway = { serviceName: 'synthetic-apim', resourceGroup: 'synthetic-gateway-rg',
@@ -50,7 +51,7 @@ async function fixture(t, { gateway = false, key = false, login = false, oci = f
   const identityProject = path.join(root, 'identity');
   await mkdir(identityProject);
   const config = { schemaVersion: 1, azureIdentityProject: identityProject, accountName: 'operator@example.com',
-    dockerSocket: socket, localEngineTrusted: true, scannerImage, imageRepository: 'reviewed/mcp',
+    dockerSocket: socket, localEngineTrusted: true, scanGate: true, scannerImage, imageRepository: 'reviewed/mcp',
     expiresAt: new Date(Date.now() + 3600000).toISOString(), downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true, ...(login ? { privateLoginReviewed: true } : {}) };
   const options = { workspaceRoot: root, project, config: path.join(root, 'host.json'), output: path.join(root, 'run') };
@@ -63,6 +64,115 @@ async function execute(f) {
   const plan = await planHostExecution(f.options);
   return { plan, result: await runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies) };
 }
+
+test('new host plans default to no scanner but retain image binding, smoke, push and deployment', async t => {
+  for (const gateway of [false, true]) for (const explicit of [false, true]) {
+    await t.test(`${gateway ? 'gateway' : 'direct'} ${explicit ? 'explicit' : 'omitted'}`, async t => {
+      const f = await fixture(t, { gateway });
+      if (explicit) f.config.scanGate = false;
+      else delete f.config.scanGate;
+      delete f.config.scannerImage;
+      await f.save();
+      f.findings.push({ Severity: 'CRITICAL' }, { Severity: 'UNKNOWN' });
+      const { plan, result } = await execute(f);
+      assert.equal(result.status, 'passed', JSON.stringify(result));
+      assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
+      assert.deepEqual(plan.scope.scanPolicy, { enabled: false });
+      assert.equal(plan.scope.config.scanGate, false);
+      assert.equal(plan.scope.downloads.scannerImage, undefined);
+      assert.equal(plan.scope.downloads.database, undefined);
+      assert.equal(f.calls.some(call => call.route?.includes('/images/create?')
+        || call.route?.includes('-scan') || call.route?.includes('-sbom') || call.route?.includes('/volumes')), false);
+      assert.ok(f.calls.some(call => call.route?.includes('-smoke')));
+      assert.ok(f.calls.some(call => call.route?.includes('/get')));
+      assert.equal(f.calls.filter(call => call.route?.includes('/push?')).length, 1);
+      const scan = JSON.parse(await readFile(path.join(f.options.output, 'scan.result.json')));
+      assert.equal(scan.value.status, 'not-run');
+      assert.equal(scan.value.critical, undefined);
+      const review = JSON.parse(await readFile(result.imageReviewFile));
+      assert.equal(review.input.schemaVersion, 2);
+      assert.equal(review.result.status, 'passed-image-review-without-vulnerability-scan');
+      assert.deepEqual(review.result.scan, { image: result.containerImage, status: 'not-run' });
+      const releaseConfig = path.join(f.root, 'release.json');
+      await writeFile(releaseConfig, JSON.stringify({ schemaVersion: 1, accountName: f.config.accountName,
+        containerImage: result.containerImage, imageReviewFile: result.imageReviewFile,
+        ...(gateway ? { backendOrigin: result.backendOrigin } : {}) }));
+      const release = await planRecipeRelease({ ...f.options, config: releaseConfig, output: path.join(f.root, 'release') });
+      assert.equal(release.review.imageQualification.policy.scanGate, false);
+    });
+  }
+});
+
+test('scan opt-in needs a scanner pin and changes the reviewed approval', async t => {
+  const f = await fixture(t);
+  const strict = await planHostExecution(f.options);
+  delete f.config.scanGate;
+  await f.save();
+  const disabled = await planHostExecution(f.options);
+  assert.notEqual(strict.approvalToken, disabled.approvalToken);
+  assert.equal(disabled.scope.downloads.scannerImage, undefined);
+  const count = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: strict.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, count);
+  f.config.scanGate = true;
+  delete f.config.scannerImage;
+  await f.save();
+  await assert.rejects(planHostExecution(f.options));
+});
+
+test('historical host descriptions with no scan flag remain strict and byte-compatible', async t => {
+  const f = await fixture(t);
+  const source = await withCliWorkspace(f.root, () => readRecipeProject(f.options.project));
+  const strict = describeHostExecution(source, f.config);
+  delete f.config.scanGate;
+  assert.deepEqual(describeHostExecution(source, f.config, { historical: true }), strict);
+  assert.deepEqual(describeHostExecution(source, f.config).scanPolicy, { enabled: false });
+});
+
+test('disabling scanning does not skip image export integrity or nonroot smoke failures', async t => {
+  for (const failure of ['integrity', 'smoke']) await t.test(failure, async t => {
+    const f = await fixture(t), docker = f.dependencies.dockerRequest;
+    delete f.config.scanGate;
+    delete f.config.scannerImage;
+    await f.save();
+    f.dependencies.dockerRequest = async (...args) => {
+      if (failure === 'integrity' && args[1].endsWith('/get')) return response(Buffer.from('invalid archive'));
+      if (failure === 'smoke' && args[1].includes('/containers/create?') && args[1].includes('-smoke')) {
+        throw Object.assign(new Error('synthetic smoke failure'), { code: 'DOCKER_DISPATCH_FAILED' });
+      }
+      return docker(...args);
+    };
+    const { result } = await execute(f);
+    assert.equal(result.status, 'unknown-no-replay');
+    assert.equal(result.stage, failure === 'integrity' ? 'scan' : 'smoke');
+    assert.equal(f.calls.some(call => call.route?.includes('/push?') || call.args?.includes('PUT')), false);
+  });
+});
+
+test('Node slim host execution uses its actual binary for nonroot smoke on direct and gateway hosts', async t => {
+  for (const gateway of [false, true]) await t.test(gateway ? 'gateway' : 'direct', async t => {
+    const f = await fixture(t, { gateway, nodeSlim: true });
+    const { result } = await execute(f);
+    assert.equal(result.status, 'passed', JSON.stringify(result));
+    const smoke = f.calls.find(call => call.route?.includes('/containers/create?') && call.route.includes('-smoke'));
+    assert.deepEqual(smoke.execution.body.Entrypoint, ['/usr/local/bin/node']);
+    assert.equal(smoke.execution.body.User, '65532:65532');
+    assert.equal(smoke.execution.body.NetworkDisabled, true);
+    assert.equal(smoke.execution.body.HostConfig.ReadonlyRootfs, true);
+    assert.equal(f.calls.filter(call => call.route?.includes('/push?')).length, 1);
+  });
+});
+test('Node slim host execution still blocks critical and unknown scan findings before smoke or push', async t => {
+  for (const severity of ['CRITICAL', 'UNKNOWN']) await t.test(severity, async t => {
+    const f = await fixture(t, { nodeSlim: true });
+    f.findings.push({ Severity: severity });
+    const { result } = await execute(f);
+    assert.equal(result.status, 'unknown-no-replay');
+    assert.equal(result.stage, 'scan');
+    assert.equal(result.reasonCode, severity === 'UNKNOWN' ? 'HOST_EXECUTION_SCAN_INCONCLUSIVE' : 'HOST_EXECUTION_SCAN_POLICY');
+    assert.equal(f.calls.some(call => call.route?.includes('-smoke') || call.route?.includes('/push?')), false);
+  });
+});
 
 test('status-only Docker push summary proceeds through image verification and deployment', async t => {
   const f = await fixture(t), docker = f.dependencies.dockerRequest;
@@ -92,6 +202,34 @@ test('rejected status-only push remains consumed and cannot dispatch deployment 
   const count = f.calls.length;
   await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
   assert.equal(f.calls.length, count);
+});
+
+test('Docker build diagnostics are sealed and returned while the failed dispatch stays consumed', async t => {
+  const f = await fixture(t), docker = f.dependencies.dockerRequest;
+  f.dependencies.dockerRequest = async (...args) => {
+    const value = await docker(...args);
+    return args[1].includes('/build?') ? response(Buffer.from([
+      { stream: `Step 3/8 : RUN npm ci ${secret}\n` },
+      { stream: `npm ERR! code ENOTFOUND\nnpm ERR! ${secret}\n` },
+      { error: `The command '/bin/sh -c npm ci ${secret}' returned a non-zero code: 1` },
+    ].map(row => JSON.stringify(row)).join('\n'))) : value;
+  };
+  const { plan, result } = await execute(f);
+  assert.equal(result.status, 'unknown-no-replay');
+  assert.equal(result.stage, 'build');
+  assert.equal(result.reasonCode, 'DOCKER_DISPATCH_FAILED');
+  assert.deepEqual(result.dockerFailure, { schemaVersion: 1, category: 'name-resolution',
+    httpStatus: 200, recordIndex: 3, step: 3, totalSteps: 8, instruction: 'RUN', exitCode: 1 });
+  const receipt = await readFile(path.join(f.options.output, 'build.result.json'), 'utf8');
+  assert.deepEqual(JSON.parse(receipt).dockerFailure, result.dockerFailure);
+  assert.equal(JSON.parse(receipt).contentDigest, result.evidenceDigest);
+  assert.ok(!receipt.includes(secret));
+  assert.equal(f.calls.filter(call => call.route?.includes('/build?')).length, 1);
+  assert.equal(f.calls.filter(call => call.route?.includes('/push?') || call.args?.includes('PUT')).length, 0);
+  const count = f.calls.length;
+  await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: plan.approvalToken }, f.dependencies));
+  assert.equal(f.calls.length, count);
+  assert.equal(await readFile(path.join(f.options.output, 'build.result.json'), 'utf8'), receipt);
 });
 
 for (const changed of ['transport', 'url-path-case', 'identity-missing', 'identity-different',
@@ -172,7 +310,7 @@ test('initial host description is pure, explicit and does not inspect the identi
   } }, review: { npmRegistryUrl: 'https://packages.example.com/npm/' },
   manifest: { files: { 'package-lock.json': imageId } } };
   const host = { schemaVersion: 1, accountName: 'operator@example.com', dockerSocket: socket,
-    azureIdentityProject: 'Z:\\not-an-existing-identity', localEngineTrusted: true, scannerImage, imageRepository: 'bounded/mcp',
+    azureIdentityProject: 'Z:\\not-an-existing-identity', localEngineTrusted: true, scanGate: true, scannerImage, imageRepository: 'bounded/mcp',
     expiresAt: '2000-01-01T00:00:00Z', downloadsReviewed: true, resourceCeilingsReviewed: true, createOnlyReviewed: true };
   const description = describeHostExecution(source, host);
   assert.equal(description.effective.maximumMs, 1800000);

@@ -47,7 +47,7 @@ test('recipe rejects unsupported mappings, auth, targets and unreviewed read-onl
     x => { x.authentication.tenantId = x.azure.subscriptionId; },
     x => { x.authentication.allowedClientIds = []; },
     x => { x.azure.environmentResourceId = x.azure.environmentResourceId.replace(x.azure.subscriptionId, x.azure.tenantId); },
-    x => { x.document.paths['/information'].get.parameters = [{ in: 'query', name: 'q', schema: { type: 'string' } }]; },
+    x => { x.document.paths['/information'].get.parameters = [{ in: 'header', name: 'q', schema: { type: 'string' } }]; },
     x => { x.document.paths['/information'].get.requestBody = {}; },
     x => { x.document.paths['/information'].get['x-cowork-backend'] = { path: '/other' }; },
     x => { x.document.paths['/information'].get.servers = [{ url: 'https://other.example.com' }]; },

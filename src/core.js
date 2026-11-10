@@ -93,6 +93,20 @@ export const runMcpReadOnlyProof = (value, options) => mcpNetworkOperation(() =>
 
 export { getLibraryInfo } from './machine-contract.js';
 
+export const getBuildRecoverySchema = async () =>
+  structuredClone((await import('./mcp-build-recovery.js')).buildRecoverySchema);
+export const planBuildRecovery = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-build-recovery.js')).planBuildRecovery(options));
+export const runBuildRecovery = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-build-recovery.js')).runBuildRecovery(options));
+
+export const getRecoveredImageSchema = async () =>
+  structuredClone((await import('./mcp-recovered-image.js')).recoveredImageSchema);
+export const planRecoveredImage = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-recovered-image.js')).planRecoveredImage(options));
+export const runRecoveredImage = options => operation('VALIDATION', options?.signal, async () =>
+  (await import('./mcp-recovered-image.js')).runRecoveredImage(options));
+
 export const getVerifiedImageDeploymentSchema = async () =>
   structuredClone((await import('./mcp-verified-image-deployment.js')).verifiedImageDeploymentSchema);
 export const planVerifiedImageDeployment = options => operation('VALIDATION', options?.signal, async () =>

@@ -21,7 +21,7 @@ export async function main(args = process.argv.slice(2), dependencies = {}) {
   return withCliFeedback(() => mainWithFeedback(args, dependencies));
 }
 async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport, authExecutionProvider,
-  hostOperationDependencies, sessionDependencies, sessionProofApproval, executionDependencies } = {}) {
+  hostOperationDependencies, sessionDependencies, sessionProofApproval, executionDependencies, consumerPrompter } = {}) {
   let json = args.includes('--json');
   let prompter;
   let standaloneMcp = false;
@@ -44,7 +44,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     const { values: options, positionals } = parseArgs({
       args, allowPositionals: true, strict: true,
       options: Object.fromEntries([
-        ...['project', 'output', 'config', 'workspace-root', 'phase', 'tenant-id', 'approve',
+        ...['project', 'output', 'config', 'workspace-root', 'phase', 'consumer', 'tenant-id', 'approve',
           'subscription-id', 'account-name', 'archive', 'sha256', 'persistence'].map(key => [key, { type: 'string' }]),
         ...['json', 'help', 'version', 'interactive', 'allow-cloud', 'allow-network', 'allow-local', 'allow-provider', 'confirm-identity',
           'experimental-configuration', 'use-device-code', 'progress', 'summary'].map(key => [key, { type: 'boolean' }]),
@@ -63,6 +63,7 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       return nextArgs ? main(nextArgs, { runAzure, mcpProjectOperation, onMcpDeviceCode, mcpAuthTransport }) : 2;
     }
     standaloneMcp = command.startsWith('mcp-');
+    if (options.consumer !== undefined && command !== 'mcp-onboard') throw new Error('--consumer applies only to mcp-onboard.');
     configureCliFeedback(command, { progress: options.progress, summary: options.summary });
     const evidenceCommands = ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'];
     if (['archive', 'sha256', 'persistence'].some(key => options[key] !== undefined)
@@ -73,9 +74,9 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
       throw new Error('--use-device-code is supported only for explicit Azure or standalone MCP account plan/switch commands.');
     }
     if (options['experimental-configuration'] !== undefined && !['mcp-reconcile-plan', 'mcp-reconcile'].includes(command)) throw new Error('--experimental-configuration is supported only for explicit v3 reconciliation/refresh.');
-    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-validation-run', 'mcp-verified-image-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
-    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session', 'mcp-validation-run', 'mcp-verified-image-run'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
-    if (options['allow-local'] !== undefined && !['mcp-host-run', 'mcp-verified-image-run'].includes(command)) throw new Error('--allow-local applies only to reviewed host operations or verified-image evidence writes.');
+    if (options['allow-cloud'] !== undefined && !['mcp-app-apply', 'mcp-inventory', 'mcp-reconcile', 'mcp-proof', 'mcp-proof-preflight', 'mcp-prerequisites', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-validation-run', 'mcp-verified-image-run', 'mcp-recovered-image-run'].includes(command)) throw new Error('--allow-cloud is supported only for explicit cloud apply/read commands.');
+    if (options['allow-network'] !== undefined && !['mcp-discover', 'mcp-proof', 'mcp-auth-rejection', 'mcp-backend-rejection', 'mcp-qualification', 'mcp-resume', 'mcp-auth-execute', 'mcp-host-run', 'mcp-session', 'mcp-validation-run', 'mcp-verified-image-run', 'mcp-build-recovery-run', 'mcp-recovered-image-run'].includes(command)) throw new Error('--allow-network is supported only for explicit MCP or auth-provider execution.');
+    if (options['allow-local'] !== undefined && !['mcp-host-run', 'mcp-verified-image-run', 'mcp-build-recovery-run', 'mcp-recovered-image-run'].includes(command)) throw new Error('--allow-local applies only to reviewed host operations or verified-image evidence writes.');
     if ((options['allow-provider'] !== undefined || options['confirm-identity'] !== undefined) && command !== 'mcp-auth-execute') {
       throw new Error('--allow-provider/--confirm-identity are supported only for explicit mcp-auth-execute phases.');
     }
@@ -85,20 +86,77 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
     }
     const workspaceRoot = options['workspace-root'] === undefined ? undefined : await resolveWorkspaceRoot(options['workspace-root']);
     return await withCliWorkspace(workspaceRoot, async () => {
-    if (['mcp-verified-image-schema', 'mcp-verified-image-plan', 'mcp-verified-image-run'].includes(command)) {
-      const kind = command.slice('mcp-verified-image-'.length);
+    if (command === 'mcp-onboard-schema' || command === 'mcp-onboard') {
+      const schema = command.endsWith('-schema');
+      const allowed = schema ? ['json'] : ['workspace-root', 'config', 'output', 'project', 'consumer'];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || !schema && (!workspaceRoot
+        || !process.stdin.isTTY || !process.stderr.isTTY)) {
+        throw new Error('mcp-onboard requires a real terminal and private --workspace-root. Use --config/--output for a new session, or --project to resume. No inherited approvals or JSON mode; use explicit auth and consumer commands in automation.');
+      }
+      const onboarding = await import('../src/guided-onboarding.js');
+      if (schema) { print(onboarding.onboardingSchema, true); return 0; }
+      prompter = createPrompter();
+      const result = await onboarding.guidedOnboarding(prompter, { workspaceRoot, config: options.config,
+        output: options.output, project: options.project, consumer: options.consumer }, { provider: authExecutionProvider });
+      prompter.close(); prompter = undefined;
+      print(result, true);
+      return result.status === 'onboarding-paused' ? 2 : 0;
+    }
+    if (['mcp-consumer-schema', 'mcp-consumer-plan', 'mcp-consumer-bundle'].includes(command)) {
+      const kind = command.slice('mcp-consumer-'.length);
+      const allowed = kind === 'schema' ? ['json'] : ['workspace-root', 'config', 'output', 'json',
+        ...(kind === 'bundle' ? ['approve'] : ['summary'])];
+      if (Object.keys(options).some(key => !allowed.includes(key)) || kind !== 'schema'
+        && (!workspaceRoot || !options.config || !options.output)) {
+        throw new Error('Consumer export requires --workspace-root --config --output NEWDIR; bundle also requires exact --approve. No live effects.');
+      }
+      const consumer = await import('../src/mcp-consumer.js');
+      if (kind === 'schema') { print(consumer.consumerSchema, true); return 0; }
+      print(await (kind === 'plan' ? consumer.planConsumerBundle : consumer.writeConsumerBundle)({
+        workspaceRoot, config: options.config, output: options.output, approval: options.approve,
+      }), true);
+      return 0;
+    }
+    if (['mcp-build-recovery-schema', 'mcp-build-recovery-plan', 'mcp-build-recovery-run'].includes(command)) {
+      const kind = command.slice('mcp-build-recovery-'.length);
+      const allowed = kind === 'schema' ? ['json'] : ['workspace-root', 'project', 'config', 'output', 'json',
+        ...(kind === 'run' ? ['approve', 'allow-local', 'allow-network'] : ['summary'])];
+      if (Object.keys(options).some(key => !allowed.includes(key))
+        || kind !== 'schema' && (!workspaceRoot || !options.project || !options.config || !options.output)) {
+        throw new Error('Build-only recovery requires explicit --workspace-root, sealed source --project, --config and new --output; run also requires exact --approve --allow-local --allow-network. No cloud authority.');
+      }
+      const runner = await import('../src/mcp-build-recovery.js');
+      if (kind === 'schema') { print(runner.buildRecoverySchema, true); return 0; }
+      const controller = new AbortController(), cancel = () => controller.abort();
+      process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
+      try {
+        const result = await (kind === 'plan' ? runner.planBuildRecovery : runner.runBuildRecovery)({
+          workspaceRoot, project: options.project, config: options.config, output: options.output,
+          approval: options.approve, allowLocal: options['allow-local'] === true,
+          allowNetwork: options['allow-network'] === true, signal: controller.signal,
+        });
+        print(result, true);
+        return result.status === 'unknown-no-replay' ? 2 : 0;
+      } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
+    }
+    if (['mcp-verified-image-schema', 'mcp-verified-image-plan', 'mcp-verified-image-run',
+      'mcp-recovered-image-schema', 'mcp-recovered-image-plan', 'mcp-recovered-image-run'].includes(command)) {
+      const recovered = command.startsWith('mcp-recovered-image-');
+      const kind = command.slice(recovered ? 'mcp-recovered-image-'.length : 'mcp-verified-image-'.length);
       const allowed = kind === 'schema' ? ['json'] : ['workspace-root', 'project', 'config', 'output', 'json',
         ...(kind === 'run' ? ['approve', 'allow-local', 'allow-network', 'allow-cloud'] : ['summary'])];
       if (Object.keys(options).some(key => !allowed.includes(key))
         || kind !== 'schema' && (!workspaceRoot || !options.project || !options.config || !options.output)) {
-        throw new Error('Verified-image deployment requires explicit --workspace-root, historical --project, --config and new --output; run additionally requires exact --approve and all effect flags.');
+        throw new Error('Image continuation requires explicit --workspace-root, sealed --project, --config and new --output; run additionally requires exact --approve and all effect flags.');
       }
-      const runner = await import('../src/mcp-verified-image-deployment.js');
-      if (kind === 'schema') { print(runner.verifiedImageDeploymentSchema, true); return 0; }
+      const runner = recovered ? await import('../src/mcp-recovered-image.js') : await import('../src/mcp-verified-image-deployment.js');
+      if (kind === 'schema') { print(recovered ? runner.recoveredImageSchema : runner.verifiedImageDeploymentSchema, true); return 0; }
+      const action = recovered ? kind === 'plan' ? runner.planRecoveredImage : runner.runRecoveredImage
+        : kind === 'plan' ? runner.planVerifiedImageDeployment : runner.runVerifiedImageDeployment;
       const controller = new AbortController(), cancel = () => controller.abort();
       process.once('SIGINT', cancel); process.once('SIGTERM', cancel);
       try {
-        const result = await (kind === 'plan' ? runner.planVerifiedImageDeployment : runner.runVerifiedImageDeployment)({
+        const result = await action({
           workspaceRoot, project: options.project, config: options.config, output: options.output,
           approval: options.approve, allowLocal: options['allow-local'] === true,
           allowNetwork: options['allow-network'] === true, allowCloud: options['allow-cloud'] === true,
@@ -139,8 +197,19 @@ async function mainWithFeedback(args, { runAzure = runAzureCommand, mcpProjectOp
           ...(onMcpDeviceCode || options.interactive ? { onDeviceCode: terminalCallbacks().onDeviceCode } : {}),
         }, { ...executionDependencies, sessionDependencies: executionDependencies?.sessionDependencies ?? sessionDependencies,
           mcpProjectOperation: executionDependencies?.mcpProjectOperation ?? mcpProjectOperation, runAzure });
+        if (result.consumerOnboarding) {
+          if (kind === 'run' && options.interactive && !json
+            && (consumerPrompter || process.stdin.isTTY && process.stderr.isTTY)) {
+            prompter = consumerPrompter ?? createPrompter();
+            const { continueConsumerSelection } = await import('../src/guided-onboarding.js');
+            result.consumerOnboarding = await continueConsumerSelection(prompter, { workspaceRoot },
+              { provider: authExecutionProvider });
+            prompter.close(); prompter = undefined;
+          }
+        }
         print(result, true);
-        return ['blocked', 'paused', 'waiting-for-owner', 'input-required', 'sign-in-required'].includes(result.status) ? 2 : 0;
+        return result.consumerOnboarding?.incomplete
+          || ['blocked', 'paused', 'waiting-for-owner', 'input-required', 'sign-in-required'].includes(result.status) ? 2 : 0;
       } finally { process.removeListener('SIGINT', cancel); process.removeListener('SIGTERM', cancel); }
     }
     if (['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',

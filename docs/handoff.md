@@ -1,9 +1,209 @@
 # Session handoff
 
-Last updated: 2026-10-26. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-10-28. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Consumer selection continuation:** the terminal completion menu now enters
+  the existing reviewed onboarding journey instead of only returning a command.
+  JSON/skill guidance requires the app agent to collect missing inputs and
+  present the next exact review, not stop at "Plugin selected". App continuation
+  is agent-driven, not a native event hook. No live registration, publication,
+  endpoint change or replay was performed for this correction.
+
+- **Consumer onboarding implemented/offline verified, not live-qualified:** `mcp-onboard` offers
+  FCC / Microsoft 365-Cowork plugin / None and resumes shared guarded SSO
+  registration using the existing executor. References are reused, not
+  recreated. Local HTML includes copyable setup fields; plugin export is a
+  v1.28 agentConnector starter plus observed tools, with metadata placeholders.
+  No directory/endpoint change, consumer publication or proof replay is implied.
+  See [consumer onboarding](consumer-onboarding.md). WeatherAPI consumer
+  registration and actual FCC/plugin acceptance are still unverified.
+
+- **WeatherAPI REST-to-MCP live validation passed:** a fresh direct-ACA
+  execution on baseline `3806ba4` used the existing reusable runner in two
+  clean stages under one exact grant. Hosting completed before runtime sign-in,
+  with zero provider calls at the pause. The same grant then completed
+  expected-user Entra sign-in, authenticated discovery and exactly one
+  `get_event_forecast` call with `q: "Seattle"` and `days: 3`, returning
+  `protocol-success` at `2026-10-28T05:29:45.347Z`. The discovery-to-dispatch
+  interval was 74.776 seconds; receipt hashes, source/capture/argument bindings
+  and the single dispatch were checked. Total runner consumption was seven
+  steps, 45 logical Azure commands and one provider call, without rebuilding
+  or redeploying between stages. This is not a single uninterrupted process.
+  Pinned official Node slim, image integrity, nonroot smoke, upload, deployment,
+  readiness and health passed. Scanning/SBOM were explicitly `not-run` under
+  the approved disabled policy, not clean findings. A missing secret-scoped
+  reader role was separately approved and created before execution; the SDK
+  grant itself authorized no role changes. Owner query-log and entitlement
+  reviews remain declarations. Three returned forecast dates, business
+  correctness, negative authorization and consumer acceptance were not verified.
+  The app remains deployed and billable; no cleanup was authorized. Real
+  configuration, identities, secret references and receipts remain private
+  outside this repository. See [the tracker](progress-tracker.md).
+
+- **User-directed scan policy change:** new host/execution and recovered-image
+  plans default `scanGate` to false. Set `scanGate: true` with a pinned
+  `scannerImage` to enable the unchanged strict scanner checks. Disabled scans
+  and SBOMs are explicitly `not-run`; image export integrity, nonroot smoke,
+  source/identity checks and create-only deployment remain mandatory.
+  Version-2 image reviews record the disabled policy; historical version-1
+  reviews and pre-change plan descriptions remain strict. Old failures and
+  consumed claims are not reopened. No live deployment is implied.
+  See [README](../README.md#optional-image-scanning). The entries below record
+  earlier implementation and live evidence under the then-required scan policy.
+
+- **Bounded image-family flexibility implemented:** builders accept pinned
+  official Node 22 bookworm/trixie slim; runtimes accept either slim family or
+  the existing Distroless Debian 12/13 nonroot families. Generation and shared
+  host/recovered-image smoke select the correct Node binary. All generated
+  runtimes retain user/group `65532:65532`; freshness, digest binding and
+  critical/high/unknown scan gates remain unchanged. Historical Distroless
+  generation remains byte-compatible; no existing source or attempt is reset.
+  A separately approved isolated CFS installation diagnostic passed after the
+  failed replacement build, with owned-container cleanup. It did not reproduce
+  or explain the old failure, build an image, qualify it or deploy anything.
+  See [image families](hosting-recipes.md#minimal-images-and-qualification).
+
+- **Scan-rejected runtime remediation implemented:** build recovery accepts
+  `scanRejectedContinuationOutput` with the full source-revision selection for
+  a successful recovery whose exact recovered-image continuation ended at scan
+  policy/inconclusive. A different runtime digest is mandatory; application code,
+  dependency metadata/integrities and targets remain fixed. Old build/scan
+  evidence, claims, images and volumes remain intact. One child build and a
+  separately approved per-build continuation rerun unchanged qualification gates.
+  Registry lookup, generation, build and deployment are separate reviews; no new
+  runtime pin is selected or live-qualified by this engineering change.
+  See [runtime remediation](build-recovery.md#runtime-remediation-after-a-recovered-image-fails-scanning).
+
+- **Revised-source build recovery and recovered-image continuation implemented:**
+  `supersededRecoveryOutput` binds a sealed failed recovery build to a separately
+  generated source with only reviewed npm-registry/pinned-build-image changes.
+  Runtime, dependency metadata/integrities, authentication, targets and original
+  reservations remain fixed. Bounded lineage, deterministic single-child claims,
+  all-prior-owner reconciliation and before-build revalidation preserve history.
+  Successful recovered builds can use separate `mcp-recovered-image-schema/plan/run`
+  authority for existing scan/smoke/tag/push/create-only host stages. It verifies
+  the recovered image, uses the same private identity, takes an independent
+  target claim and never rebuilds or resumes the old execution. These are
+  engineering capabilities, not live qualification or permission to operate.
+  See [build recovery](build-recovery.md).
+
+- **Container registry diagnostic identity correction:** the existing probe
+  now recognizes an exact approved Node tag-plus-digest in Docker `RepoDigests`,
+  as well as canonical digest-only aliases. Linux/amd64, exact repository/digest,
+  isolated probe/cleanup and consumed-result boundaries remain enforced.
+  This does not select a build feed, qualify installation or authorize a build.
+
+- **Explicit pre-build connection retry:** `connectionRecoveryOutput` supports
+  a separately requested current-build attempt after a linked recovery failed
+  only its first Docker version GET. It recursively verifies at most 16
+  predecessors and uses a deterministic single-child claim, preserving all old
+  failures. No dispatched build, incomplete result, later failure or engine
+  security rejection is eligible. Docker availability is restored by the owner,
+  never implicitly by the runner. This remains build-only.
+
+- **Pre-build engine-rejection successor:** `rejectedRecoveryOutput` permits one
+  separately approved linked attempt only after the first recovery's sealed
+  engine-security rejection with exactly two reads and no build intent. Parent
+  and rejected recovery claims/results remain immutable; an additional target
+  claim prevents repeat successors. No build-stage failure or interrupted
+  recovery becomes eligible. This is build-only, not a deployment continuation.
+  See [build recovery](build-recovery.md).
+
+- **Recovery engine-check correction:** the initial recovery guard rejected
+  every insecure registry index, including unrelated entries, unlike the
+  target-scoped existing checks. It now checks only the trusted image schema's
+  Docker Hub/gcr.io registries, retains the debug/loopback-CIDR restrictions,
+  and blocks malformed security metadata. New receipts retain only fixed
+  `engineSecurity` check statuses. Historical generic rejections cannot be
+  attributed to this bug without additional evidence; consumed recovery claims
+  remain consumed. No live engine inspection, setting change or retry occurred.
+
+- **Build-only recovery:** `mcp-build-recovery-schema/plan/run` adds an independent
+  one-shot local build for eligible failed ACA host builds. It validates parent
+  receipts/reservations and any outer execution journal, preserves historical
+  source metadata, and requires current-generator-matched executable inputs.
+  Owner-confirmed prior-build termination/exclusive engine access is required:
+  label inspection alone is not proof of quiescence. The original run is never
+  resumed. Success is an unqualified local image with no downstream deployment
+  continuation within the build command. The separately approved recovered-image
+  contract above now supplies that path. No live recovery is implied.
+  See [build recovery](build-recovery.md).
+
+- **Safe Docker failure diagnostics:** progress-stream failures now retain
+  bounded categories and optional numeric build-position/exit-code context,
+  without raw commands, URLs or credentials. Host receipts and new outer
+  execution journals/status expose the same safe projection. Existing stop
+  codes and failed/unknown no-replay barriers are unchanged. The implementation
+  cannot recover an old discarded Docker error or establish its root cause.
+  No live build, engine change or retry is implied. See the diagnostic guidance
+  in [reusable validation](reusable-validation.md).
+
+- **Parameterized generated GETs implemented/offline verified:** all four
+  hosting recipes now accept bounded inline scalar query parameters while
+  retaining fixed origin/path and existing caller/backend authentication.
+  `format: date` validates calendar dates; `x-mcp-date-range` enforces ordered
+  required dates with a bounded elapsed-day interval. No-argument recipes
+  retain their original tool/schema shape. SDK validation/execution and
+  source-bound discovery/proofs bind exact arguments and schema/range rules;
+  unrelated historical proofs cannot satisfy the new source-bound selection.
+  Runtime/compiler checks, focused runner/discovery regressions and fresh
+  offline package/wizard integration passed. Documentation-only capability
+  changes do not qualify a live deployment. No NASA/Azure calls, publication
+  or installed-skill update occurred. See
+  [query arguments](hosting-recipes.md#query-arguments-and-date-ranges) and
+  `examples/mcp/container-apps-query-dates.json`. Existing sealed projects
+  require new generation/release review to gain this feature; old evidence
+  and consumed approvals are not upgraded or replayed.
+
+- **Documentation-first API intake guidance added:** the existing `copilot-mcp`
+  skill now routes API documentation/OpenAPI assessment to a bundled reference,
+  checks the pinned engine's compatibility, preserves the user's actual goal,
+  and prepares private configuration conversationally with reviewed writes.
+  A handoff prompt is optional, not another mandatory manual step. Unknowns,
+  partial alternatives, caller/backend authentication and exact approvals stay
+  distinct. This is skill guidance, not automatic probing, a new engine command
+  or live-provider validation. Installed skill copies are not updated.
+  See [API discovery](../skills/copilot-mcp/references/api-discovery.md).
+
+- **Guided CLI coverage expanded:** the terminal menu now lists native APIM,
+  existing MCP and all four SDK hosting profiles, with plain-language
+  authentication choices. Hosting generation uses a prepared private recipe
+  file and the existing reviewed local plan/create APIs; it is not field-by-field
+  hosting authoring or live execution. Saved-progress review distinguishes
+  APIM/reference projects, sealed hosting source and execution/validation runs.
+  Configuration review adds hosting, execution and bootstrap plans; help exposes
+  the remaining commands. Hosting instructions explicitly require a manual
+  private copy/edit, print exact paths and an optional non-overwriting copy
+  command, and explain each host's fields and where to find IDs. The security
+  guide distinguishes Entra caller sign-in from REST backend support: hosted
+  recipes accept only anonymous/API-key backends, unlike native APIM's limited
+  Entra modes. Full edited recipe paths are required; no template copy or resource
+  lookup is automatic. No approval, credential or replay boundaries changed.
+  See [guided setup](copilot-cli.md#interactive-new--resume-setup).
+
+- **Uninterrupted live runner acceptance passed.** A fresh, explicitly approved
+  direct-ACA run using the implementation merged in PR #5 completed build,
+  zero-critical/high scan, nonroot smoke, registry upload, deployment, readiness,
+  health, release/reference generation, expected-user sign-in, fresh discovery
+  and exactly one `get_validation_fixture({})` proof in one runner process.
+  The proof returned `protocol-success` at `2026-10-26T15:26:06.865Z`, with
+  73.080 seconds between discovery and dispatch. The runner reported
+  `execution-completed`: seven steps, 41 logical Azure commands and one provider
+  call, without restart, repair or automatic retry. Local receipt-chain and
+  cross-phase bindings were checked; the process exited and current locks were
+  released. Authentication remained memory-only.
+  The separately approved cleanup deleted only this run's temporary app;
+  complete collection readback verified absence at `2026-10-26T15:26:49.388Z`
+  and retention of the three existing apps. Shared infrastructure, registry
+  images and all local evidence remain preserved and can still incur charges.
+  Cleanup has its own receipt; the immutable runner report's cost-closeout
+  milestone remains pending rather than being rewritten. This is bounded
+  protocol acceptance, not business correctness, negative-authorization or
+  FCC/WIQD consumer acceptance; overall execution readiness remains false.
+  Earlier failed/consumed runs below remain unchanged historical evidence.
 
 - **Runner stabilization and cost closeout:** the
   [two-stage workflow](reusable-validation.md#choose-the-entry-point) now clearly
@@ -23,7 +223,7 @@ It contains public engineering context only, not credentials or execution author
   repeating that DELETE. Shared infrastructure and all local evidence remain
   untouched; remaining apps and shared resources can still incur charges.
 
-- **Existing-app validation completed successfully.** After the user requested
+- **Earlier existing-app validation completed successfully.** After the user requested
   another sign-in attempt, the single-process session completed expected-user
   authentication, fresh discovery and exactly one `get_validation_fixture({})`
   dispatch with `protocol-success` at `2026-10-26T13:17:34.665Z`. Capture,
@@ -53,7 +253,7 @@ It contains public engineering context only, not credentials or execution author
   repair the timed-out combined run below or establish full build-through-proof
   success. Authentication is not persisted for a later unattended proof.
 
-- **Latest combined live run: hosting passed; sign-in timed out.** Following
+- **Earlier combined live run: hosting passed; sign-in timed out.** Following
   explicit recovery approval, only the stale shared identity mutex was archived;
   previous run locks, reservations and consumed receipts were preserved. A fresh
   create-only run passed identity, preflight, build, scan, smoke, push, image

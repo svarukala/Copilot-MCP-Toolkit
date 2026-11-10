@@ -12,6 +12,7 @@ import { readAzureIdentity, azureIdentityGuard, validateAzureAccountTarget, plan
 import { runAzureCommand } from './azure.js';
 import { dockerSocketSchema, dockerEngineRequest, dockerJson, dockerError, registryAuthHeader } from './docker-engine.js';
 import { registryProbeSchema, registryProbeTarget, npmProbe, registryContainerCode } from './npm-registry-diagnostic.js';
+import { node22SlimImageSchema } from './mcp-image-review.js';
 
 const object = (properties, optional = {}) => ({ type: 'object', additionalProperties: false,
   properties: { ...properties, ...optional }, required: Object.keys(properties) });
@@ -21,7 +22,7 @@ export const hostOperationSchema = { oneOf: [
   object({ ...base, kind: { const: 'engine-diagnostic' }, ...engine }),
   object({ ...base, kind: { const: 'host-npm-diagnostic' } }, { registryProbe: registryProbeSchema }),
   object({ ...base, kind: { const: 'container-npm-diagnostic' }, ...engine,
-    image: { type: 'string', pattern: '^node:22-bookworm-slim@sha256:[a-f0-9]{64}$' } }, { registryProbe: registryProbeSchema }),
+    image: node22SlimImageSchema }, { registryProbe: registryProbeSchema }),
   object({ ...base, kind: { const: 'private-image-pull' }, ...engine,
     image: { type: 'string', maxLength: 512, pattern: '^[a-z0-9]+\\.azurecr\\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$' },
     accountName: { type: 'string', format: 'email', maxLength: 254 } }),
@@ -102,8 +103,10 @@ async function inspectEngine(call) {
 async function containerProbe(input, target, call, cleanupCall, owner) {
   const image = dockerJson(await call(`${api}/images/${encodeURIComponent(input.image)}/json`));
   requireMetadata(image.Os === 'linux' && image.Architecture === 'amd64'
-    && image.RepoDigests?.some(value => [input.image.replace('node:22-bookworm-slim@', 'node@'),
-      input.image.replace('node:22-bookworm-slim@', 'docker.io/library/node@')].includes(value)), 'DOCKER_IMAGE_MISMATCH');
+    && Array.isArray(image.RepoDigests)
+    && image.RepoDigests.some(value => [input.image, `docker.io/library/${input.image}`,
+      input.image.replace(/:[^@]+@/, '@'),
+      `docker.io/library/${input.image.replace(/:[^@]+@/, '@')}`].includes(value)), 'DOCKER_IMAGE_MISMATCH');
   const name = `copilot-mcp-probe-${randomUUID()}`;
   let attempted = false, result, failure;
   try {

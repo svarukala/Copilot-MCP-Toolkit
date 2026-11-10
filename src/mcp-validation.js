@@ -15,7 +15,8 @@ import { readMcpDiagnosis } from './mcp-diagnosis.js';
 import { readOperatorHandover } from './mcp-operator.js';
 import { checkedResultAssertion } from './mcp-result-assertion.js';
 import { assertMcpProofHistory } from './mcp-proof-history.js';
-import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectProof } from './mcp-discovery-project.js';
+import { planMcpProjectDiscovery, planMcpProjectProof, runMcpProjectProof,
+  validateGeneratedProofArguments } from './mcp-discovery-project.js';
 import { planInteractiveSession, runInteractiveSession } from './mcp-interactive-session.js';
 import { readHandoverRelease, planHandover, writeHandover } from './mcp-handover.js';
 
@@ -28,7 +29,7 @@ const manual = ['runtime-deployment', 'secret-resolution', 'auth-registration', 
   'fcc-save', 'admin-ready', 'audience', 'consumer-call', 'read-only-ui'];
 const proofSchema = object({
   toolName: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$' },
-  arguments: object({}),
+  arguments: { type: 'object' },
   safetyReview: object({ readOnly: { const: true }, reason: text }),
   resultAssertion: object({ kind: { const: 'json-array-string-field-v1' }, field: { type: 'string' },
     maxItems: { type: 'integer' }, maxStringLength: { type: 'integer' } }),
@@ -52,6 +53,7 @@ export const validationCheckpointSchema = object({
 export const validationSchema = { scenario: validationScenarioSchema, checkpoint: validationCheckpointSchema };
 const ajv = new Ajv(); addFormats(ajv);
 const validScenario = ajv.compile(validationScenarioSchema), validCheckpoint = ajv.compile(validationCheckpointSchema);
+const proofSelection = input => ({ ...input.proof, generatedSource: input.sourceProject });
 export const digest = value => metadataDigest(boundedSnapshot(value));
 export const keys = (value, names) => value && typeof value === 'object' && !Array.isArray(value)
   && Object.keys(value).sort().join(',') === [...names].sort().join(',');
@@ -92,6 +94,7 @@ async function bindings(input, workspaceRoot) {
     && digest(compiled.runtime) === digest(source.runtime)
     && source.input.operationIds.includes(input.proof.toolName), 'SOURCE',
   'This validator supports only an unchanged direct Container Apps source and one of its fixed GET tools.');
+  validateGeneratedProofArguments(compiled.runtime, input.proof);
   if (input.proof.resultAssertion) checkedResultAssertion(input.proof.resultAssertion);
   const reference = await readMcpServerProject(input.referenceProject);
   const origin = await readControl(path.join(input.referenceProject, 'recipe-origin.json'));
@@ -244,11 +247,16 @@ async function inspect(run, workspaceRoot) {
   if (proofs.some(p => p.status !== 'completed')) protocol = { status: 'unknown', provenance: 'retained-proof-history' };
   else if (proofs.length) {
     const matching = [];
+    const parameterized = current.source.runtime.tools.find(tool => tool.name === run.input.proof.toolName)?.queryParameters?.length;
     for (const attempt of proofs) {
-      const receipt = await readControl(path.join(run.input.referenceProject, '.mcp-observations', attempt.attemptId, 'proof.json'));
+      const proofFile = path.join(run.input.referenceProject, '.mcp-observations', attempt.attemptId, 'proof.json');
+      const receipt = await readControl(proofFile);
+      const generatedInRun = run.events.some((event, index) => event.kind === 'result'
+        && event.data.artifact === proofFile && ['session', 'proof'].includes(run.events[index - 1]?.data.phase));
       if (receipt.sourceDigest === current.reference.review.descriptor.descriptorDigest
         && receipt.toolName === run.input.proof.toolName && receipt.argumentsDigest === digest(run.input.proof.arguments)
         && digest(receipt.resultAssertion ?? null) === digest(run.input.proof.resultAssertion ?? null)
+        && (!parameterized || generatedInRun)
         && captures.some(c => c.receiptDigest === receipt.captureDigest)) {
         matching.push({ attempt, receipt });
       }
@@ -320,7 +328,7 @@ export const startValidation = options => scoped(options, async () => {
   await mkdir(path.join(plan.outputPath, 'events'), { mode: 0o700 });
   await mkdir(path.join(plan.outputPath, 'reports'), { mode: 0o700 });
   await writeControl(path.join(plan.outputPath, 'session.json'),
-    { schemaVersion: 1, discovery: plan.input.discovery, proof: plan.input.proof }, { create: true });
+    { schemaVersion: 1, discovery: plan.input.discovery, proof: proofSelection(plan.input) }, { create: true });
   const body = { schemaVersion: 1, kind: 'mcp-validation-run', runDirectory: plan.outputPath, createdAt: new Date().toISOString(),
     input: plan.input, binding: plan.binding, buildId: plan.buildId };
   const contentDigest = digest(body);
@@ -369,14 +377,14 @@ async function next(options) {
     if (s.protocol.status === 'pending') {
       if (s.capture) {
         phase = 'proof';
-        selection = { ...run.input.proof,
+        selection = { ...proofSelection(run.input),
           capture: path.join(run.input.referenceProject, '.mcp-observations', s.capture.attemptId, 'capture.json') };
         childPlan = await planMcpProjectProof(run.input.referenceProject, selection);
         assertMcpProofHistory(childPlan.proofHistory, childPlan.approvalDigest, childPlan.operation.approvalDigest, childPlan.operation);
       } else {
         phase = 'session';
         const sessionInput = await readControl(path.join(run.dir, 'session.json'));
-        requireRun(digest(sessionInput) === digest({ schemaVersion: 1, discovery: run.input.discovery, proof: run.input.proof }),
+        requireRun(digest(sessionInput) === digest({ schemaVersion: 1, discovery: run.input.discovery, proof: proofSelection(run.input) }),
           'STATE', 'Session selection changed; preserve the run.');
         selected = { workspaceRoot: options.workspaceRoot, project: run.input.referenceProject,
           config: path.join(run.dir, 'session.json') };

@@ -15,6 +15,132 @@ export const apiKeyPlacementProperties = {
 export const apiKeyPlacementChoice = [{ required: ['headerName'] }, { required: ['queryParameterName'] }];
 export const backendCredentialEnvironment = 'MCP_BACKEND_API_KEY';
 
+const queryName = { type: 'string', pattern: '^[A-Za-z][A-Za-z0-9_.-]{0,99}$' };
+const stringLimit = 2048;
+const queryLimit = 8192;
+const safeInteger = { type: 'integer', minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER };
+const scalarSchema = { oneOf: [
+  { type: 'object', additionalProperties: false, required: ['type'], properties: {
+    type: { const: 'string' }, format: { const: 'date' },
+    minLength: { type: 'integer', minimum: 0, maximum: stringLimit },
+    maxLength: { type: 'integer', minimum: 0, maximum: stringLimit },
+    enum: { type: 'array', minItems: 1, maxItems: 50, uniqueItems: true,
+      items: { type: 'string', maxLength: stringLimit } },
+  } },
+  { type: 'object', additionalProperties: false, required: ['type'], properties: {
+    type: { const: 'integer' }, minimum: safeInteger, maximum: safeInteger,
+    enum: { type: 'array', minItems: 1, maxItems: 50, uniqueItems: true, items: safeInteger },
+  } },
+  { type: 'object', additionalProperties: false, required: ['type'], properties: {
+    type: { const: 'boolean' },
+    enum: { type: 'array', minItems: 1, maxItems: 2, uniqueItems: true, items: { type: 'boolean' } },
+  } },
+] };
+const queryParameter = { type: 'object', additionalProperties: false, required: ['name', 'required', 'schema'],
+  properties: { name: queryName, required: { type: 'boolean' }, description: text(1000), schema: scalarSchema } };
+const dateRangeSchema = object({ startParameter: queryName, endParameter: queryName,
+  maxSpanDays: { type: 'integer', minimum: 1, maximum: 366 } });
+
+function validDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000')) return false;
+  const time = Date.parse(`${value}T00:00:00.000Z`);
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
+
+function validScalar(schema, value) {
+  if (schema.type === 'string') {
+    if (typeof value !== 'string' || value.length > stringLimit * 2 || !value.isWellFormed()
+      || /[\u0000-\u001f\u007f]/.test(value)) return false;
+    const length = [...value].length;
+    if (length < (schema.minLength ?? 0) || length > (schema.maxLength ?? stringLimit)
+      || schema.format === 'date' && !validDate(value)) return false;
+  } else if (schema.type === 'integer') {
+    if (!Number.isSafeInteger(value) || value < (schema.minimum ?? Number.MIN_SAFE_INTEGER)
+      || value > (schema.maximum ?? Number.MAX_SAFE_INTEGER)) return false;
+  } else if (schema.type !== 'boolean' || typeof value !== 'boolean') return false;
+  return !schema.enum || schema.enum.includes(value);
+}
+
+function validateQueryContract(tool, backendAuthentication) {
+  const parameters = tool.queryParameters ?? [];
+  const names = new Set();
+  for (const parameter of parameters) {
+    const name = parameter.name.toLowerCase();
+    validateApiKeyPlacement({ queryParameterName: parameter.name });
+    validateApiKeyPlacement({ queryParameterName: name.replaceAll(/[-_.]/g, '') });
+    if (names.has(name) || name === (backendAuthentication?.queryParameterName ?? backendAuthentication?.headerName)?.toLowerCase()
+      || /^(?:apikey|xapikey|key|subscriptionkey|ocpapimsubscriptionkey|credential|credentials|secret|clientsecret|signature|sig|auth|authentication|hostname|port|protocol|scheme|path|pathname|query|search|fragment|hash|baseurl|baseuri|backend|backendorigin|redirect|redirecturl|redirecturi|callback|callbackurl|returnurl|constructor|prototype|tostring|valueof|hasownproperty|isprototypeof|propertyisenumerable|tolocalestring)$/.test(name.replaceAll(/[-_.]/g, ''))) {
+      throw new Error('Invalid query parameter contract.');
+    }
+    names.add(name);
+    const schema = parameter.schema;
+    if (schema.type === 'string' && (schema.minLength ?? 0) > (schema.maxLength ?? stringLimit)
+      || schema.type === 'integer' && (schema.minimum ?? Number.MIN_SAFE_INTEGER) > (schema.maximum ?? Number.MAX_SAFE_INTEGER)
+      || schema.enum?.some(value => !validScalar(schema, value))
+      || schema.format === 'date' && ((schema.minLength ?? 0) > 10 || (schema.maxLength ?? stringLimit) < 10)) {
+      throw new Error('Invalid query parameter constraints.');
+    }
+  }
+  if (tool.dateRange) {
+    const range = tool.dateRange;
+    if (range.startParameter === range.endParameter || [range.startParameter, range.endParameter].some(name =>
+      !parameters.some(p => p.name === name && p.required && p.schema.type === 'string' && p.schema.format === 'date'))) {
+      throw new Error('Date ranges require two distinct required date parameters.');
+    }
+  }
+}
+
+// Only scalar form serialization is supported; OpenAPI defaults are not applied.
+function boundedScalarSchema(schema) {
+  return { ...schema, ...(schema.type === 'string'
+    ? { minLength: schema.format === 'date' ? 10 : schema.minLength ?? 0,
+      maxLength: schema.format === 'date' ? 10 : schema.maxLength ?? stringLimit }
+    : schema.type === 'integer' ? { minimum: schema.minimum ?? Number.MIN_SAFE_INTEGER,
+      maximum: schema.maximum ?? Number.MAX_SAFE_INTEGER } : {}) };
+}
+
+export function normalizeQueryParameters(parameters) {
+  if (!validateOpenApiParameters(parameters)) throw new Error('Use inline scalar operation query parameters only.');
+  validateQueryContract({ queryParameters: parameters });
+  return parameters.map(({ name, required = false, description, schema }) => ({
+    name, required, ...(description === undefined ? {} : { description }),
+    schema: boundedScalarSchema(schema),
+  }));
+}
+
+export function validateToolArguments(tool, args) {
+  try { return validateArguments(tool, args); }
+  catch { throw new Error('Invalid tool arguments.'); }
+}
+
+function validateArguments(tool, args) {
+  const invalid = () => { throw new Error('Invalid tool arguments.'); };
+  if (args === undefined) args = {};
+  if (!args || typeof args !== 'object' || Array.isArray(args)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(args))) invalid();
+  const parameters = tool.queryParameters ?? [];
+  const descriptors = Object.getOwnPropertyDescriptors(args);
+  if (Reflect.ownKeys(descriptors).some(name => typeof name !== 'string'
+    || !parameters.some(parameter => parameter.name === name) || !('value' in descriptors[name]))) invalid();
+  const effective = {};
+  const query = new URLSearchParams();
+  for (const parameter of parameters) {
+    const descriptor = descriptors[parameter.name];
+    if (!descriptor) { if (parameter.required) invalid(); continue; }
+    if (!validScalar(parameter.schema, descriptor.value)) invalid();
+    effective[parameter.name] = descriptor.value;
+    query.set(parameter.name, String(descriptor.value));
+  }
+  if (query.toString().length > queryLimit) invalid();
+  if (tool.dateRange) {
+    const { startParameter, endParameter, maxSpanDays } = tool.dateRange;
+    const days = (Date.parse(`${effective[endParameter]}T00:00:00.000Z`)
+      - Date.parse(`${effective[startParameter]}T00:00:00.000Z`)) / 86400000;
+    if (!Number.isInteger(days) || days < 0 || days > maxSpanDays) invalid();
+  }
+  return effective;
+}
+
 export function validateApiKeyPlacement(value) {
   const name = value.headerName ?? value.queryParameterName;
   const reserved = /^(?:authorization|proxy-authorization|cookies?|set-cookie|host|connection|keep-alive|transfer-encoding|content-.*|accept(?:-.*)?|user-agent|upgrade|te|trailer|expect|forwarded|via|origin|referer|range|if-.*|traceparent|tracestate|baggage|sec-.*|proxy(?:-.*)?|x-forwarded-.*|x-copilot-.*|x-http-method(?:-override)?|x-method-override|x-original-.*|x-rewrite-.*|x-real-ip|x-ms-client-principal(?:-.*)?|x-ms-token-.*|mcp-.*|www-authenticate|proxy-authenticate|access-control-.*)$/i;
@@ -40,6 +166,10 @@ export const runtimeSchema = object({
     readOnlyReviewed: { const: true },
   }) },
 });
+runtimeSchema.properties.tools.items.properties.queryParameters = {
+  type: 'array', minItems: 1, maxItems: 20, items: queryParameter,
+};
+runtimeSchema.properties.tools.items.properties.dateRange = dateRangeSchema;
 runtimeSchema.properties.gateway = object({
   tenantId: uuid, audience: uuid, principalId: uuid, role: { const: 'Mcp.Gateway' },
   publicUrl: { type: 'string', pattern: '^https://[a-z][a-z0-9-]+\\.azure-api\\.net/[a-z][a-z0-9-]+/mcp$' },
@@ -51,6 +181,12 @@ runtimeSchema.properties.backendAuthentication = {
 const ajv = new Ajv();
 addFormats(ajv);
 const validate = ajv.compile(runtimeSchema);
+const validateOpenApiParameters = ajv.compile({ type: 'array', maxItems: 20, items: {
+  type: 'object', additionalProperties: false, required: ['name', 'in', 'schema'], properties: {
+    ...queryParameter.properties, in: { const: 'query' }, style: { const: 'form' },
+    explode: { type: 'boolean' }, allowReserved: { const: false },
+  },
+} });
 const guid = value => typeof value === 'string' ? value.toLowerCase() : value;
 const canonicalCaller = value => ({ ...value, tenantId: guid(value.tenantId), audience: guid(value.audience),
   allowedClientIds: value.allowedClientIds.map(guid) });
@@ -79,13 +215,24 @@ export function validateRuntimeConfig(value) {
     || config.tools.some(tool => tool.path.includes('//') || tool.path.split('/').some(part => ['.', '..'].includes(part)))) {
     throw new Error('Tools need unique names and fixed literal paths.');
   }
+  for (const tool of config.tools) {
+    validateQueryContract(tool, config.backendAuthentication);
+    for (const parameter of tool.queryParameters ?? []) parameter.schema = boundedScalarSchema(parameter.schema);
+  }
   return config;
 }
 
 export function toolDefinitions(config) {
   return config.tools.map(tool => ({
     name: tool.name, description: tool.description,
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    inputSchema: { type: 'object', properties: Object.fromEntries((tool.queryParameters ?? []).map(parameter =>
+      [parameter.name, { ...parameter.schema, ...(parameter.description ? { description: parameter.description } : {}) }])),
+    additionalProperties: false,
+    ...(tool.queryParameters ? {
+      required: tool.queryParameters.filter(parameter => parameter.required).map(parameter => parameter.name),
+      description: `Scalar query values only; no defaults or type coercion. Strings must be well-formed Unicode without control characters; dates must be real YYYY-MM-DD dates in years 0001-9999. Encoded query must not exceed ${queryLimit} characters.`
+        + (tool.dateRange ? ` ${tool.dateRange.startParameter} must be on or before ${tool.dateRange.endParameter}; elapsed UTC calendar days must not exceed ${tool.dateRange.maxSpanDays}.` : ''),
+    } : {}) },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   }));
 }
@@ -180,20 +327,25 @@ export function createProtocolServer(value, { request = fetch, signal, env = pro
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefinitions(config) }));
   server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
     const tool = config.tools.find(item => item.name === params.name);
-    if (!tool || params.arguments !== undefined && (params.arguments === null
-      || typeof params.arguments !== 'object' || Array.isArray(params.arguments) || Object.keys(params.arguments).length)) {
-      throw new McpError(ErrorCode.InvalidParams, 'Select a listed tool and supply an empty arguments object.');
+    if (!tool) throw new McpError(ErrorCode.InvalidParams, 'Select a listed tool and supply an empty arguments object.');
+    let args;
+    try { args = validateToolArguments(tool, params.arguments); }
+    catch {
+      throw new McpError(ErrorCode.InvalidParams, tool.queryParameters
+        ? 'Invalid tool arguments.' : 'Select a listed tool and supply an empty arguments object.');
     }
     let failureKind = 'request';
     let httpStatus, timeout, requestSignal;
     try {
       const url = new URL(`${config.backendOrigin}${tool.path}`);
+      for (const [name, value] of Object.entries(args)) url.searchParams.set(name, String(value));
       const headers = { accept: 'application/json' };
       if (credential !== undefined) {
         const auth = config.backendAuthentication;
         if (auth.headerName) headers[auth.headerName] = credential;
         else url.searchParams.set(auth.queryParameterName, credential);
       }
+      if (url.href.length > 24576) throw new Error('Backend URL exceeds the limit.');
       timeout = AbortSignal.timeout(10000);
       requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
       const response = await request(url.href, {

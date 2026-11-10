@@ -1,10 +1,12 @@
 export const commandFamilies = {
   execution: ['mcp-verified-image-schema', 'mcp-verified-image-plan', 'mcp-verified-image-run',
+    'mcp-recovered-image-schema', 'mcp-recovered-image-plan', 'mcp-recovered-image-run',
     'mcp-execution-schema', 'mcp-execution-plan', 'mcp-execution-start',
     'mcp-execution-run', 'mcp-execution-status', 'mcp-execution-record'],
   validation: ['mcp-validation-schema', 'mcp-validation-plan', 'mcp-validation-start',
     'mcp-validation-next', 'mcp-validation-run', 'mcp-validation-status'],
-  hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch'],
+  hostOperations: ['mcp-host-schema', 'mcp-host-plan', 'mcp-host-run', 'mcp-host-account-plan', 'mcp-host-account-switch',
+    'mcp-build-recovery-schema', 'mcp-build-recovery-plan', 'mcp-build-recovery-run'],
   interactiveSession: ['mcp-session-plan', 'mcp-session'],
   terminal: ['mcp-terminal-handoff'],
   bootstrap: ['mcp-bootstrap-schema', 'mcp-bootstrap-plan', 'mcp-bootstrap-bundle'],
@@ -26,6 +28,7 @@ export const commandFamilies = {
   journey: ['mcp-status', 'mcp-resume', 'mcp-diagnose'],
   evidence: ['mcp-export-plan', 'mcp-export', 'mcp-archive-inspect', 'mcp-restore-plan', 'mcp-restore'],
   federated: ['mcp-fcc-schema', 'mcp-fcc-plan', 'mcp-fcc-bundle'],
+  consumerOnboarding: ['mcp-onboard-schema', 'mcp-onboard', 'mcp-consumer-schema', 'mcp-consumer-plan', 'mcp-consumer-bundle'],
   registration: ['mcp-auth-registration-schema', 'mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
   wiqdHandoff: ['mcp-auth-wiqd-schema', 'mcp-auth-wiqd-plan', 'mcp-auth-wiqd-bundle'],
   registrationExecution: ['mcp-auth-execution-schema', 'mcp-auth-execution-plan', 'mcp-auth-execute', 'mcp-auth-execution-status'],
@@ -36,9 +39,12 @@ export const HELP = `Copilot MCP Toolkit (Node.js 22+)
 copilot-mcp <command> [options]
 node bin/copilot-mcp.js <command> [options]
 
-No command / init: terminal-only New / Resume / Advanced setup.
-New: source/authentication questions, reviewed local generation after confirmation.
-Resume: local report only. No automatic login, deployment, discovery or tool calls.
+No command / init: terminal menu for new setup, saved progress, configuration review and help.
+New: APIM or existing-server questions; Container Apps, App Service and Functions use a recipe JSON file.
+Saving setup/source files needs confirmation. Functions is a preview profile.
+Saved progress: APIM/reference projects, hosting source, execution runs or validation runs.
+Configuration review can plan hosting, end-to-end tests and Container Apps infrastructure.
+No automatic login, build, deployment, discovery or tool calls from the menu.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
 Container Apps uses its separate mcp-container-apps-schema, not the APIM schema.
 
@@ -98,6 +104,15 @@ reviewed direct-ACA-only contract for an eligible consumed push-unknown run's
 fresh OCI image. Never rebuilds/pushes or resumes old authority. Run requires
 exact --approve plus --allow-local --allow-network --allow-cloud.
 See docs/verified-image-deployment.md for evidence and one-shot claim requirements.
+Build-only recovery: mcp-build-recovery-schema/plan/run authorizes one linked local
+build after an eligible failed ACA host build, never resuming its old grant.
+The owner must confirm the prior build stopped. Run requires exact --approve
+--allow-local --allow-network; --allow-cloud is rejected. Stops at an unqualified
+local image. Explicit revised-source successors permit only changed npm registry
+or pinned build images, preserving all prior sources, failures and reservations.
+Recovered-image continuation: mcp-recovered-image-schema/plan/run separately
+reviews scan/smoke/unique-tag/push/create-only deployment, without a rebuild.
+All local/network/cloud gates are required. See docs/build-recovery.md.
 Validation: schema/plan/start/next/run/status for existing direct ACA (v1), or
 fresh direct ACA, ACA behind APIM, native APIM REST, existing MCP and proxies (v2).
 Use --workspace-root and a NEW run --output; continuation --project is the run.
@@ -136,7 +151,9 @@ Recipe reviews: schema describes bounded operator evidence. Plan/bundle require
 workspace/project/config and new output JSON; bundle needs exact --approve.
 Container generation emits a minimal nonroot Dockerfile only when imageBuild
 provides reviewed builder/runtime digests and platform. No mutable base fallback.
-Image review binds scan/SBOM/smoke metadata to source and image, not attestation.
+Image review binds source/image and smoke, not attestation. New host plans default
+scanGate to false (scan/SBOM not-run); opt in with scanGate:true and scannerImage.
+Historical version-1 scanned reviews remain strict.
 Release may reference imageReviewFile; stale or failing qualification is refused.
 Review kinds also cover preserving Container Apps/Entra updates, readiness,
 authentication impact, secret metadata and cost/closeout. Nothing is executed.
@@ -150,8 +167,9 @@ It cannot be added to an already consumed proof or removed to authorize replay.
 Container Apps recipe 1: local SDK server source and ARM review files only.
 mcp-container-apps-plan/create requires --workspace-root, --config and a NEW
 --output directory; create requires the plan's exact --approve. Plan supports
---summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed fixed
-GETs only. No APIM, cloud deployment, image build/push or automatic sign-in.
+--summary. Entra v2 delegated callers, anonymous or Key Vault API-key JSON backend and reviewed
+fixed-path GETs with bounded inline scalar query arguments and optional date-range rules.
+No dynamic paths, bodies or automatic pagination. No APIM, cloud deployment, image build/push or automatic sign-in.
 mcp-hosting-schema/plan/create additionally support Container Apps behind APIM,
 App Service containers and Functions SDK custom handlers (preview, Linux FC1).
 All four accept a dedicated header or query API key via native Key Vault references
@@ -177,6 +195,22 @@ First-call Tavily acceptance is an explicit selection in a FUTURE unused ordinar
 proof. Failed, inconclusive and unknown dispatched calls are consumed too.
 Export/restore never renew evidence, credentials, roots, approvals or calls.
 Diagnosis is local evidence-only; no network probes, retries or host UI diagnosis.
+Consumer onboarding: mcp-onboard-schema describes the prepared FCC/shared SSO
+inputs. mcp-onboard --workspace-root ABS --config FILE --output NEWDIR is a
+terminal-only FCC / plugin / None journey, optionally --consumer fcc|plugin|none.
+Resume with --workspace-root ABS --project SAVEDDIR. Existing references are
+reused; new registration uses the existing executor with separate exact reviews,
+including Windows shared-profile disclosure and actual sign-in identity review.
+No redeployment, proof replay, FCC submission or plugin publication is implied.
+The interactive execution completion menu enters this journey after selection;
+it does not only print a command. JSON callers receive an appContinuation
+contract: collect missing inputs and present the next exact auth/export review
+using explicit commands. Selection alone authorizes no provider operation.
+mcp-consumer-schema/plan/bundle exports offline HTML and, for plugin, a v1.28
+manifest starter with observed tools. Plan/bundle requires --workspace-root ABS
+--config FILE --output NEWDIR; bundle adds the exact --approve token.
+Missing authentication/tools never become fabricated manifest values.
+
 FCC: mcp-fcc-schema describes local onboarding input. mcp-fcc-plan requires
 --workspace-root, --config and --output NEW.json; mcp-fcc-bundle also requires
 the exact --approve token. Output is a private onboarding draft, not a Microsoft
