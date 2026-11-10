@@ -16,7 +16,9 @@ All four full offline CI jobs passed on Windows/Linux with Node 22/24.
 The local Node 26 run passed 1,248/1,254 tests: three creation cases passed
 when rerun without suite contention; three prompt-output assertions needed
 stream-safe test capture. Actual rejection messages were emitted correctly.
-Native REST authoring is being integrated separately, retaining both histories.
+Native REST authoring was integrated through PR #10, retaining both histories;
+all four Windows/Linux Node 22/24 CI jobs passed. The stream-safe prompt test
+capture also passed on local Node 26.
 No live execution, publication, credential transfer or proof replay is implied.
 
 The OAuth/OBO integration candidate corrects portal dispatch ordering: signed
