@@ -75,9 +75,14 @@ JSON file.
 1. Start a new MCP setup
 2. Review an existing setup or test run (no actions)
 3. Review a configuration file (advanced)
-4. Show all CLI commands
+4. Show all CLI commands (deploy, validate, HTML, FCC/plugin)
 5. Exit without changes
 ```
+
+The help choice opens a task-to-command guide for deployment, fresh execution,
+step-by-step validation, existing-endpoint sessions, hosting HTML handover and
+FCC/plugin onboarding. These remain separate reviewed commands, not automatic
+menu actions. See the [README next-step table](../README.md#5-review-the-next-step).
 
 The new-setup menu lists all supported hosting families:
 

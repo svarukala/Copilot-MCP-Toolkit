@@ -61,11 +61,12 @@ export async function guidedArguments(p, options = {}) {
   p.output.write(WELCOME);
   p.output.write('Local setup and review only. Never enter passwords, tokens or API keys. Saving files needs your confirmation; sign-in, deployment and tool calls need separate approvals.\n');
   p.output.write('Choose Azure API Management (APIM), an existing MCP server, Container Apps, App Service or Functions. Hosting source projects need a prepared recipe JSON file. No cloud changes run from this menu.\n');
+  p.output.write('For deployment, validation, HTML handover or FCC/plugin onboarding, choose Show all CLI commands for the task-to-command guide. These are separate reviewed workflows, not automatic setup steps.\n');
   let action = await p.choose('How would you like to start?', [
     { value: 'new', label: 'Start a new MCP setup' },
     { value: 'resume', label: 'Review an existing setup or test run (no actions)' },
     { value: 'advanced', label: 'Review a configuration file (advanced)' },
-    { value: 'help', label: 'Show all CLI commands' },
+    { value: 'help', label: 'Show all CLI commands (deploy, validate, HTML, FCC/plugin)' },
     { value: 'exit', label: 'Exit without changes' },
   ]);
   if (action === 'exit') return undefined;

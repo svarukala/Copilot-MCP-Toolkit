@@ -9,6 +9,22 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### CLI and README discoverability
+
+The start menu now points to a task-to-command guide for deployment, validation,
+HTML handover and FCC/plugin onboarding without changing menu numbering or
+executing any of those operations. Help corrects the Windows SSO provider flag
+and public anonymous APIM descriptions. The README documents the same entry
+points, ACA-only OAuth/OBO prepared recipes, public APIM and the implemented
+FCC/plugin/None journey with its v1.28 starter export. Basic REST authentication,
+full WIQD packaging/publication and consumer acceptance remain outside that
+support. No runtime authentication or approval gates changed.
+
+Verification: **57/57** offline guided-menu/setup/CLI checks passed, including
+actual help output, task-guide visibility and unchanged local-only routing.
+Asset inventory, changed-source syntax, whitespace and 83 local Markdown file
+targets passed. No full-suite rerun or live operation was performed.
+
 ### Support matrix reconciliation
 
 The 2026-11-10 reconciliation aligns hosting/scenario tables, terminal setup
