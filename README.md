@@ -17,8 +17,19 @@ services demo, those tools might retrieve public exchange rates or access an
 approved research service. The toolkit does not provide financial data licenses
 or investment advice.
 
-Use the guided terminal setup or work conversationally with **GitHub Copilot
-CLI**. This is an experimental developer toolkit, not a turnkey production
+**Recommended: use the included `copilot-mcp` skill with GitHub Copilot app or
+CLI for a more guided, conversational experience.** Describe your API and goal;
+the agent can help assess supported scenarios, explain tradeoffs, prepare
+configuration for review and guide you through the next appropriate command,
+instead of requiring you to navigate every command or edit every field manually.
+Equivalent coding-agent tools can use the skill too if they support `SKILL.md`
+instructions, workspace file access and local command execution; installation,
+approval handling and compatibility depend on the host and are not universally
+verified. See the [skill setup guide](docs/copilot-cli.md).
+
+The guided terminal setup remains available without an AI agent. Both approaches
+use the same toolkit and retain the same explicit approvals and safety boundaries.
+This is an experimental developer toolkit, not a turnkey production
 product. The guided setup creates APIM files or existing-server references from
 your answers. It can also generate Node.js MCP source for Container Apps, App
 Service or Functions from a prepared hosting recipe file, with a narrower
@@ -111,7 +122,8 @@ before running live scenarios.
 ### 1. Check what you need
 
 For local setup, install **Git**, **Node.js 22 or later** (with npm), and optionally
-**GitHub Copilot CLI** if you want conversational guidance. The commands below
+**GitHub Copilot app or CLI**, or a compatible coding-agent host, if you want
+skill-based conversational guidance. The commands below
 use PowerShell. Windows users do not need Linux or Docker for local setup.
 
 For Azure deployment later, you also need an Azure subscription, permission to
@@ -202,9 +214,10 @@ Entra sign-in to the MCP endpoint is **not** Entra access to the REST backend;
 see the [REST API security matrix](docs/hosting-recipes.md#rest-api-security-versus-mcp-caller-sign-in)
 for the different APIM and generated-host capabilities.
 
-**Option B: GitHub Copilot CLI**
+**Option B: Skill-based guidance in GitHub Copilot app or CLI (recommended)**
 
-From the same toolkit folder, start `copilot` and use a prompt like:
+In GitHub Copilot app, open this repository in a project session. In Copilot CLI,
+start `copilot` from the toolkit folder. Use a prompt like:
 
 > Read `skills\copilot-mcp\SKILL.md` from this checkout and use
 > `bin\copilot-mcp.js`. Help me create a new MCP setup for a REST API.
@@ -213,8 +226,13 @@ From the same toolkit folder, start `copilot` and use a prompt like:
 > deploy or call the endpoint yet.
 
 You can also [install the included skill](docs/copilot-cli.md) for use from
-other folders. The skill guides the same CLI; it does not give Copilot extra
-permissions. Never paste passwords, API keys or tokens into prompts.
+other folders; that guide provides Copilot CLI installation paths. For the app
+or another compatible coding-agent host, use its supported skill-loading
+mechanism, or explicitly ask it to read the skill from this checkout. Keep the
+complete `skills/copilot-mcp` directory, including its `references`, together
+and identify the local toolkit path. The skill guides the same CLI; it does not
+give the agent extra permissions or bypass terminal sign-in requirements.
+Never paste passwords, API keys or tokens into prompts.
 
 For less manual preparation, supply an official API documentation URL or local
 OpenAPI file and the questions you want the MCP server to answer. The
