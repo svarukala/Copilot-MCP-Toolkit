@@ -37,10 +37,19 @@ read-only feature set. **Saving files does not deploy an endpoint or make it ava
 Microsoft 365 Copilot.**
 
 [Quick start](#quick-start) |
+[Video demo](#video-demo-weather-api-to-mcp-in-github-copilot-app) |
 [FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
 [What is supported](#what-is-supported) |
 [Optional image scanning](#optional-image-scanning) |
 [Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Video demo: Weather API to MCP in GitHub Copilot app
+
+Watch the toolkit in use with GitHub Copilot app to create an MCP server from
+the Weather API REST API. The recording illustrates the conversational workflow;
+it is not a guarantee of compatibility for every API, authentication mode or host.
+
+https://github.com/user-attachments/assets/915eb6f9-c45b-42d1-a2d4-a55c426120e0
 
 ## Optional image scanning
 
