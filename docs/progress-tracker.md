@@ -9,6 +9,40 @@ Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
 
+### CLI and README discoverability
+
+The start menu now points to a task-to-command guide for deployment, validation,
+HTML handover and FCC/plugin onboarding without changing menu numbering or
+executing any of those operations. Help corrects the Windows SSO provider flag
+and public anonymous APIM descriptions. The README documents the same entry
+points, ACA-only OAuth/OBO prepared recipes, public APIM and the implemented
+FCC/plugin/None journey with its v1.28 starter export. Basic REST authentication,
+full WIQD packaging/publication and consumer acceptance remain outside that
+support. No runtime authentication or approval gates changed.
+
+Verification: **57/57** offline guided-menu/setup/CLI checks passed, including
+actual help output, task-guide visibility and unchanged local-only routing.
+Asset inventory, changed-source syntax, whitespace and 83 local Markdown file
+targets passed. No full-suite rerun or live operation was performed.
+
+### Support matrix reconciliation
+
+The 2026-11-10 reconciliation aligns hosting/scenario tables, terminal setup
+descriptions and agent guidance with the shipped authentication contracts.
+Anonymous/API-key profiles cover all four SDK hosts with bounded query
+arguments; explicit OAuth client credentials, user PKCE and same-tenant OBO
+are parameter-free ACA-only pilots. V3 validation retains manual hosting/owner
+checkpoints; bounded execution/host-execution, native APIM and existing OAuth
+MCP retain their narrower gates. Basic/username-password is still design-only.
+Older v2 backlog statements are labeled historical rather than current gaps.
+No runtime auth profile, execution authority or live qualification is added.
+
+Guided setup regression coverage passed **39/39** offline checks, including
+prepared ACA OAuth source generation, unchanged generic-auth rejection and
+native APIM OAuth rejection without route changes or writes. Asset inventory,
+guided-setup syntax, strict public types and 125 local documentation link targets
+passed. The full suite was not rerun for this guidance-only change.
+
 ### Branch consolidation
 
 Core hosting/recovery and consumer onboarding were integrated through PR #9.
@@ -920,6 +954,10 @@ publication, integration/merge or consumer qualification has been performed.
 
 ### Priority: reusable fresh-creation runners
 
+This subsection records the v2 implementation checkpoint, not the current
+OAuth backlog. The separate ACA-only v3 pilots above now cover explicit OAuth
+and OBO; v2 and the bounded execution runners still reject those profiles.
+
 V2 creation runners are implemented through the same `mcp-validation-*` family,
 preserving the v1 existing-deployment contract. The focused integration gate
 passed **164/164** tests with zero failures/skips/cancellations, including fresh
@@ -933,11 +971,11 @@ purposes stay consumed, including across explicitly related replacement referenc
 
 | Priority family | Implemented runner scope | Not yet qualified / unsupported |
 | --- | --- | --- |
-| Direct Container Apps | Fresh SDK source, release, reference, Entra caller discovery/proof; header/query Key Vault backend keys | Actual builds/feed/image/deployment and negative/rotation/consumer gates remain separate; SDK Entra backend unsupported |
+| Direct Container Apps | Fresh SDK source, release, reference, Entra caller discovery/proof; header/query Key Vault backend keys | Actual builds/feed/image/deployment and negative/rotation/consumer gates remain separate; SDK OAuth/OBO backend unsupported in v2 |
 | Container Apps behind APIM | Same plus actual host/backend origin, gateway release and bypass checkpoint | Actual gateway deployment and two-token enforcement still need live qualification |
 | Native APIM from REST | Private account, existing foundation/finalize/gateway/reconciliation and protocol planners; key and existing Entra backend profiles | Header-key unannotated proof unsupported; query-key, delegated fixture and managed-identity Graph proof remain narrow, not universal |
 | Existing MCP / proxies | New local existing reference; Entra/anonymous discovery and annotated proof; guarded proxy v2/v3 lifecycle | Existing API-key caller/OAuth login unsupported; v3 header only and experimental; provider compatibility needs controlled live evidence |
-| Next: third-party OAuth REST / OBO / username-password | Recorded as subsequent implementation priorities | No new executor; distinguish grants/token exchange/Basic/password exchange, do not assume ROPC |
+| Subsequent auth work | OAuth/OBO now implemented as separate ACA-only v3 pilots, not added to v2 | Username/password remains design-only; no bounded OAuth host executor, provider qualification or ROPC |
 
 Build/deployment/negative/consumer checkpoints are explicitly owner-reported;
 they are not replaced with synthetic passes. SDK handover and MCP recovery
@@ -1298,6 +1336,8 @@ Implementation details and all unsupported cases remain in
 | Native APIM REST, Key Vault API key | Header/query generation; narrower mapped query-key proof | Offline verified; generic/header-key native proof is not supported |
 | Native APIM REST, Entra delegated | Same-resource token passthrough; controlled fixture proof | Offline verified; not generic OBO or arbitrary delegated APIs |
 | Native APIM REST, system managed identity | Existing APIM principal and exact role prerequisites; fixed Graph profile | Offline verified; no independent live requalification recorded here |
+| ACA REST backend OAuth/OBO, direct or behind APIM | Application client credentials, per-user code + PKCE and same-tenant OBO; parameter-free GETs; v3 validation with owner checkpoints | Implemented/offline verified pilots, not named-provider/live qualification; manual hosting, no bounded execution/host-execution support; App Service/Functions reject |
+| REST username/password or Basic authentication | Design-only, not implemented | No runtime or consumer qualification; OAuth client authentication is not REST Basic authentication |
 | Existing anonymous / Entra MCP | References plus separately guarded discovery/eligible proof | Provider-specific acceptance remains separate |
 | Existing provider OAuth MCP | Reference descriptor | Login/exchange/discovery/proof unsupported on this path |
 | Upstream API-key MCP proxy v2 | Generation and guarded provider-dependent flow | Compatibility caveats remain; not the automatic fallback for v3 |

@@ -34,9 +34,10 @@ const restSecurityGuidance = [
   '  - Native APIM (option 1): no authentication, API key from Key Vault, or supported Microsoft Entra access.',
   '    Entra user access only passes the same resource/audience token through; it does not exchange tokens (no OBO).',
   '    Entra app access uses an existing APIM system-managed identity with the exact backend application role.',
-  '  - Container Apps, App Service and Functions (options 3-6): no authentication or API key from Key Vault only.',
-  '    These hosting recipes do NOT support Entra-protected or other OAuth-protected REST backends, even behind APIM.',
-  '  - Third-party OAuth and username/password (Basic) REST backends are not supported by these setup paths.',
+  '  - Container Apps, App Service and Functions (options 3-6): anonymous or Key Vault API-key REST backends.',
+  '    Only direct/gateway ACA additionally supports explicit OAuth/OBO pilot recipes: client credentials, user code + PKCE, or same-tenant OBO.',
+  '    Pilots require parameter-free fixed GETs and separately reviewed manual hosting; bounded execution/host-execution runners reject them. See docs/backend-oauth.md.',
+  '    App Service and Functions reject OAuth/OBO backend profiles. Username/password (Basic) REST backends remain unimplemented on every host.',
   'This is separate from caller sign-in (the client accessing your MCP endpoint). Hosting recipes require Entra caller sign-in.',
   'Existing MCP servers (option 2) have their own choices; third-party OAuth there saves a reference only, without sign-in or testing.',
 ].join('\n');
@@ -92,11 +93,11 @@ function hostingInstructions(p, workspace, choice) {
     'authentication.tenantId: the same tenant as azure.tenantId. authentication.audience: the MCP resource app Application (client) ID, not its object ID.',
     'authentication.applicationIdUri and scope: the resource app > Expose an API. allowedClientIds: the Application (client) IDs of the apps allowed to call this MCP server, not user IDs.',
     'backend.origin: the real REST API HTTPS origin. document.paths: its fixed GET paths, tool names and descriptions; responses must be JSON.',
-    'Optional query arguments: declare operation-level string/integer/boolean query parameters. Dates use format: date; x-mcp-date-range enforces ordering and an elapsed-day limit. See docs/hosting-recipes.md.',
+    'Optional query arguments for anonymous/API-key backends: declare operation-level string/integer/boolean query parameters. Dates use format: date; x-mcp-date-range enforces ordering and an elapsed-day limit. OAuth/OBO pilots remain parameter-free. See docs/hosting-recipes.md.',
     'operationIds: select the tool operationId values from document. review.readOnlyOperationIds: include only those same operations after reviewing that they do not change data.',
     'requestsPerMinute: choose a suitable request limit. This is not an Azure cost cap.',
   ]) p.output.write(`   - ${item}\n`);
-  p.output.write('\n   For the API-key template, configure Key Vault/identity references and the header\n   or query parameter name; never put the key value in JSON. Review shared key\n   access and any query-log exposure. The no-auth template needs no backend key.\n   These hosting recipes do not support other backend sign-in methods.\n');
+  p.output.write('\n   For the API-key template, configure Key Vault/identity references and the header\n   or query parameter name; never put the key value in JSON. Review shared key\n   access and any query-log exposure. The no-auth template needs no backend key.\n   For direct/gateway ACA OAuth/OBO pilots, prepare the explicit profile separately\n   using docs/backend-oauth.md; this wizard does not author its auth settings.\n   App Service and Functions reject those profiles. Do not remove required auth\n   or arguments, or change hosts, merely to fit a template.\n');
   if (choice.value !== 'functions-sdk-v1') {
     p.output.write('   Optional imageBuild settings need reviewed digest-pinned builder/runtime images before a container build; the example alone is not build-ready.\n');
   }
@@ -104,9 +105,9 @@ function hostingInstructions(p, workspace, choice) {
 }
 
 async function createHostingSetup(p, options, choice) {
-  p.output.write(`\nWhich JSON file should you copy? Choose ONE for your REST API's security:\n\n  No authentication: ${choice.example}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example))}\n\n  API key: ${choice.example.replace('.json', '-api-key.json')}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example.replace('.json', '-api-key.json')))}\n\nCopy the matching file into your private workspace and edit that copy, not the toolkit example.\nIf the REST API requires Entra or another OAuth provider, neither template supports it.\n`);
-  p.output.write('This creates local server code and deployment files, not a running endpoint.\nThis is a file-based setup: you must copy an example recipe, edit its settings yourself, and supply the edited file.\nA recipe is a JSON file describing your API, authentication and Azure resources. The next instructions show exactly what to copy and change.\nREST API access (backend.auth): anonymous means no authentication; api-key uses a Key Vault reference. Entra and other OAuth REST backends are NOT supported here.\nMCP caller access (authentication): Microsoft Entra sign-in is required. This does not grant access to an Entra-protected REST backend.\nOnly fixed read-only GET operations are supported. Never enter credentials.\nChoose an existing private workspace folder outside the toolkit checkout. Create it in another terminal or your file manager first if needed.\nExisting host resources and permissions are required later; this setup does not create them. Container Apps infrastructure planning is available under configuration review.\n');
-  p.output.write('Fixed paths may accept declared query arguments, including validated date ranges. No dynamic paths, bodies or automatic pagination. See examples/mcp/container-apps-query-dates.json for a synthetic parameter example.\nThe next question asks for the WORKSPACE FOLDER only, not the JSON file.\nAfter you enter that folder, you will see copy/edit instructions with destination paths, then a separate question for your edited JSON file.\n');
+  p.output.write(`\nWhich JSON file should you copy? Choose ONE for your REST API's security:\n\n  No authentication: ${choice.example}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example))}\n\n  API key: ${choice.example.replace('.json', '-api-key.json')}\n  Full template path: ${json(path.join(TOOLKIT_ROOT, 'examples', 'mcp', choice.example.replace('.json', '-api-key.json')))}\n\nCopy the matching file into your private workspace and edit that copy, not the toolkit example.\nIf the REST API requires Entra or another OAuth provider, neither template supports it. Only direct/gateway ACA has separate explicit pilot profiles; see docs/backend-oauth.md and examples/mcp/container-apps-direct-oauth.json before preparing a recipe.\n`);
+  p.output.write('This creates local server code and deployment files, not a running endpoint.\nThis is a file-based setup: you must copy an example recipe, edit its settings yourself, and supply the edited file.\nA recipe is a JSON file describing your API, authentication and Azure resources. The next instructions show exactly what to copy and change.\nREST API access (backend.auth): anonymous means no authentication; api-key uses a Key Vault reference. ACA OAuth/OBO needs an explicit versioned pilot profile, not a generic entra or oauth value.\nMCP caller access (authentication): Microsoft Entra sign-in is required. This does not grant access to an Entra-protected REST backend.\nOnly fixed read-only GET operations are supported. Never enter credentials.\nChoose an existing private workspace folder outside the toolkit checkout. Create it in another terminal or your file manager first if needed.\nExisting host resources and permissions are required later; this setup does not create them. Container Apps infrastructure planning is available under configuration review.\n');
+  p.output.write('Fixed paths may accept declared query arguments, including validated date ranges, for anonymous/API-key backends only. OAuth/OBO pilots remain parameter-free. No dynamic paths, bodies or automatic pagination. See examples/mcp/container-apps-query-dates.json for a synthetic parameter example.\nThe next question asks for the WORKSPACE FOLDER only, not the JSON file.\nAfter you enter that folder, you will see copy/edit instructions with destination paths, then a separate question for your edited JSON file.\n');
   const workspace = await resolveWorkspaceRoot(options['workspace-root']
     ?? await p.ask('Existing absolute private workspace directory (outside the toolkit checkout)'));
   if (isWithin(TOOLKIT_ROOT, workspace)) throw new Error('New setup output must be outside the toolkit checkout.');
@@ -289,12 +290,12 @@ export async function createGuidedSetup(p, options = {}) {
     { value: 'api-key', label: 'API key stored in Azure Key Vault (never paste the key)' },
     { value: 'entra', label: source === 'rest' ? 'Microsoft Entra user sign-in (API must accept the same token)' : 'Microsoft Entra sign-in (use existing app IDs)' },
     ...(source === 'rest' ? [{ value: 'managed-identity', label: 'Microsoft Entra app access (use an existing APIM managed identity)' }] : []),
-    { value: 'oauth', label: source === 'rest' ? 'Other OAuth provider (not supported for REST APIs)' : 'Other OAuth provider (save a reference only; no sign-in or testing)' },
+    { value: 'oauth', label: source === 'rest' ? 'Other OAuth provider (not supported by native APIM REST)' : 'Other OAuth provider (save a reference only; no sign-in or testing)' },
     cancelled,
   ]);
   if (auth === 'cancel') return;
   if (source === 'rest' && auth === 'oauth') {
-    p.output.write('Third-party OAuth REST backends are not supported. No token exchange, credential collection, files or live operations were performed. Choose a supported source/authentication mode instead.\n');
+    p.output.write('Third-party OAuth REST backends are not supported by native APIM. Direct/gateway ACA has separate explicit OAuth/OBO pilots; see docs/backend-oauth.md for parameter-free GETs and manual-hosting limits before choosing a different route. No token exchange, credential collection, files or live operations were performed. Your host and authentication choices were not changed.\n');
     return;
   }
   const workspace = await resolveWorkspaceRoot(options['workspace-root']
@@ -310,7 +311,7 @@ export async function createGuidedSetup(p, options = {}) {
       if (auth === 'oauth') p.output.write('REFERENCE ONLY: provider OAuth login, discovery and runtime proof are unsupported. A saved reference is not an operational connector.\n');
     } else {
       input.backend = { auth };
-      if (auth === 'entra') p.output.write('Delegated passthrough requires the backend to accept the same resource/audience and authorize the user. Generic OAuth and OBO are not supported.\n');
+      if (auth === 'entra') p.output.write('Delegated passthrough requires the backend to accept the same resource/audience and authorize the user. Generic OAuth and OBO are not supported on this native APIM route.\n');
       if (source === 'mcp') {
         input.schemaVersion = 2;
         input.kind = 'apim-mcp-proxy';

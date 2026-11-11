@@ -5,6 +5,14 @@ It contains public engineering context only, not credentials or execution author
 
 ## Decisions and current baseline
 
+- **Support descriptions reconciled:** hosting/scenario matrices, CLI guidance
+  and agent discovery guidance distinguish anonymous/API-key support on all four
+  SDK hosts from parameter-free OAuth/OBO pilots on direct/gateway ACA only.
+  V3 validation has owner checkpoints; bounded execution/host-execution still
+  rejects those pilots. Native APIM and existing OAuth MCP retain their separate
+  restrictions; Basic/username-password remains design-only. This is a guidance
+  correction, not new runtime support, deployment or consumer qualification.
+
 - **Residual worktree consolidation:** the retained Power Platform study is now
   [B6](progress-tracker.md#b6-power-platform-custom-connector--copilot-studio-mcp-integration),
   avoiding the existing B2 hosting-recipe identifier. Historical WeatherAPI
@@ -538,7 +546,7 @@ It contains public engineering context only, not credentials or execution author
   compatibility, deployment, publication or merge is claimed. The older v2
   boundary described below remains the v2 contract, not a v3 capability claim.
 
-- Current priority is reusable **fresh creation** validation for direct ACA,
+- Historical v2 priority was reusable **fresh creation** validation for direct ACA,
   ACA behind APIM, native APIM REST and existing MCP/proxies. V2 is implemented
   alongside the unchanged v1 existing-deployment contract. Focused integration
   passed **164/164**, including the fresh packed consumer; a follow-up **8/8**
@@ -549,8 +557,9 @@ It contains public engineering context only, not credentials or execution author
   unsupported authentication/proof gates. SDK builds/deployment and real consumer
   actions remain separate owner operations. See the
   [v2 support matrix and sequence](reusable-validation.md#fresh-creation-runners-version-2).
-  Third-party OAuth REST, OBO and username/password profiles are next, not part
-  of this runner implementation; no ROPC assumption or live authorization.
+  OAuth REST/OBO were subsequent work at that checkpoint and are now separate
+  ACA-only v3 pilots, not additions to v2. Username/password remains design-only;
+  no ROPC assumption or live authorization.
   The older frozen `d9d091d` full offline gate passed **925/925**. A subsequent
   separately approved real Entra metadata discovery passed with **no tools/call**;
   historical provider proof remained consumed. Neither result qualifies v2

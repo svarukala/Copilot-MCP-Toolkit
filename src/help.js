@@ -48,6 +48,18 @@ No automatic login, build, deployment, discovery or tool calls from the menu.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
 Container Apps uses its separate mcp-container-apps-schema, not the APIM schema.
 
+Choose your next task (commands below still require their own inputs/reviews):
+  Deploy supported APIM projects: mcp-resume -> mcp-provision-plan/provision.
+  Plan a fresh supported journey: mcp-execution-schema/plan; see docs/reusable-validation.md.
+  Validate step by step: mcp-validation-schema/plan/start/next.
+  Validate an existing Entra endpoint: mcp-session-plan/session; no rebuild implied.
+  Export hosting HTML handover: mcp-handover-schema/plan/bundle; see docs/deployment-handover.md.
+  Choose FCC / plugin / None: mcp-onboard-schema, then mcp-onboard (real terminal).
+  Export consumer HTML/plugin starter: mcp-consumer-schema/plan/bundle.
+  See docs/consumer-onboarding.md; no automatic FCC submission or WIQD publication.
+App Service/Functions deployment and ACA OAuth/OBO pilot hosting remain manual.
+Plans and help never authorize execution; do not reuse consumed grants or proofs.
+
 ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands.join(', ')}`).join('\n')}
 
 --workspace-root ABS_DIR  Explicit existing caller-owned workspace, separate from installed code.
@@ -65,7 +77,7 @@ ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands
 --allow-cloud             Explicit approved inspection/app apply opt-in where required.
 --allow-network           Explicit approved MCP discovery/proof/rejection opt-in.
 --allow-local             Host run: explicitly reviewed local Docker access.
---allow-provider          Explicit auth-provider phase opt-in (Linux tmpfs only).
+--allow-provider          Explicit auth-provider phase opt-in (Linux tmpfs or reviewed Windows SSO).
 --confirm-identity        Registration only: confirm reviewed ATK account/organization.
 --interactive             Protected MCP runtime sign-in; terminal required, not Azure login.
 --experimental-configuration  V3-only read-only reconcile/refresh; no gateway replay.
@@ -77,8 +89,10 @@ ${Object.entries(commandFamilies).map(([name, commands]) => `${name}: ${commands
 
 REST: OpenAPI 3.0.x JSON, explicit operation IDs, local references only. GET/query
 authoring and executable proof are narrower than generation. Generated APIM inbound
-is explicit Entra; backend anonymous, Key Vault API key, delegated passthrough or
-constrained existing system-managed identity. Existing MCP references may declare
+defaults to explicit Entra; a separate anonymous public-data/read-only profile
+supports parameter-free fixed GETs with an anonymous backend and aggregate rate limits.
+Protected APIM backends support anonymous, Key Vault API key, delegated passthrough
+or constrained existing system-managed identity. Existing MCP references may declare
 anonymous/Entra/OAuth; OAuth exchange/discovery is NOT implemented.
 Upstream key proxy v2 has provider compatibility limits; v3 owned-backend-routing-v1
 is explicit experimental opt-in, not forwarding proof.

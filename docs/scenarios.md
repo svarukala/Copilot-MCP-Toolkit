@@ -1,13 +1,24 @@
 # Supported scenario matrix
 
+Support is scenario-specific, not every combination of host, authentication and
+operation. Generation, automated execution and live/consumer qualification are
+separate. See [backend OAuth/OBO pilots](backend-oauth.md) for the ACA-only
+profiles and [the tracker](progress-tracker.md#scenario-and-runtime-qualification)
+for historical runtime observations.
+
 | Scenario | Inbound | Backend | Supported boundary |
 | --- | --- | --- | --- |
 | Resumable existing Container Apps validation | Existing source-matched Entra reference and explicit discovery user/client | Sealed direct recipe anonymous or Key Vault API-key backend | Private run/report; approved discovery and separately approved one-call proof; owner-reported deployment/FCC checkpoints and approved handover; no deployment, registration, automatic retry or live-readiness attestation. [Guide](reusable-validation.md) |
 | Fresh creation validation v2 | Direct ACA, ACA behind APIM, native REST APIM, existing MCP references or v2/v3 MCP proxies | Existing supported header/query Key Vault keys and distinct Entra caller / narrow native Entra backend profiles | Versioned resumable source/release/reference and guarded APIM lifecycle/protocol. SDK builds/deployment and human consumer acceptance remain explicit owner gates. Unsupported combinations block; existing endpoints are referenced, not redeployed. Related consumed histories stay consumed. [Matrix and sequence](reusable-validation.md#fresh-creation-runners-version-2) |
+| Fresh creation validation v3 | Entra callers on direct ACA or ACA behind APIM | Explicit OAuth/OBO SDK pilot profiles | Source/release/reference and guarded protocol journey with separate owner checkpoints; not automated OAuth hosting or live qualification. V1/v2 retain their existing auth boundaries |
 | Direct Container Apps recipe 1 | Entra v2 delegated tenant/audience/scope/client allowlist | One anonymous or Key Vault API-key HTTPS JSON backend | Local SDK/ARM generation, release preparation and explicit endpoint reference; owner-reviewed fixed GETs; existing environment/registry/pull identity; separate secret identity for keys; no automatic deployment/live qualification |
 | Container Apps + APIM recipe 2 | Same delegated checks plus signed APIM managed-identity token at the server | Same | Ordinary HTTP proxy, inherited policies and separate gateway app/role; server owns annotations, direct-host MCP access requires both tokens |
 | App Service recipe 3 | Same delegated checks | Same | Existing Linux Basic-or-higher plan, container with managed-identity ACR pull; actual platform hostname |
 | Functions SDK recipe 4 | Same delegated checks | Same | Explicit public-preview acceptance; Linux FC1 custom handler, stateless JSON, identity-based storage and separately reviewed source ZIP |
+| ACA OAuth application pilot, direct or behind APIM | Entra delegated callers; additional signed gateway identity when behind APIM | `oauth-client-credentials-v1` | Shared application entitlement; Key Vault client-secret/certificate reference; parameter-free fixed GETs; no named-provider/live qualification |
+| ACA OAuth per-user pilot, direct or behind APIM | Same | `oauth-authorization-code-v1` | Hosted code + PKCE account connection; memory-only single-process tokens; parameter-free fixed GETs; no durable token store or consumer qualification |
+| ACA Entra OBO pilot, direct or behind APIM | Same-tenant Entra delegated callers; additional signed gateway identity when behind APIM | `entra-obo-v1` | Explicit downstream resource/scopes and Key Vault client credential; parameter-free fixed GETs; not native APIM passthrough |
+| Username/password or Basic-auth REST backend | No implemented profile | Design-only | Not enabled on any host; OAuth client-secret authentication does not implement REST Basic authentication |
 | Hosting deployment handover | No authentication operation | All four sealed SDK recipe projects | Private offline two-tab HTML, SVG/editable Excalidraw, source and optional matched release; configured/owner-reported/historical outcomes stay distinct; repeat-environment guide is not a deployment executor |
 | Native APIM from REST | Explicit Entra tenant, resource, scope and client allowlist | Anonymous | OpenAPI 3.0.x JSON and explicit operation IDs |
 | Native APIM from REST | Same | API key | Versionless Key Vault reference; APIM system identity; dedicated header OR query parameter |
@@ -25,16 +36,18 @@
 Anonymous **backend** does not automatically make generated inbound anonymous.
 
 All four generated hosts share bounded inline query-argument support for
-fixed-path GETs: strings, integers, booleans and explicit calendar-date range
-rules. Existing no-argument recipes remain supported. This does not add path
-arguments, bodies, automatic pagination or backend OAuth. See
+anonymous/API-key fixed-path GETs: strings, integers, booleans and explicit
+calendar-date range rules. Existing no-argument recipes remain supported.
+The separate ACA OAuth/OBO pilots remain parameter-free. Neither profile adds
+path arguments, bodies or automatic pagination. See
 [query arguments](hosting-recipes.md#query-arguments-and-date-ranges).
 Entra remains the guided default; public access is a separate explicit choice.
 Keys are never
 manifest/config values: APIM reads Key Vault through managed identity. Operator
 secret-write rights and service secret-read rights are separate. No shared-service
 identity PATCH, native-APIM user-assigned identity, default-role fallback, app-role assignment
-mutation, OBO, backend client-secret flow or automatic consent is implemented.
+mutation or automatic consent is implemented. Native APIM does not implement
+OBO or backend client-secret exchange; the separate ACA runtime pilots do.
 The separate auth-config executor registers confidential OAuth metadata; it does
 not add a backend token-exchange flow or OAuth MCP discovery/proof.
 
@@ -42,14 +55,22 @@ For SDK servers rather than native APIM tool generation, see
 [all four hosting recipes](hosting-recipes.md). Generated annotations are not
 observed evidence. Source projects and local releases are not deployed resources.
 A separately approved endpoint reference can use existing discovery/proof/FCC
-flows without fabricating captures. All four need live platform and consumer
-qualification; the Functions host itself has not been run by the offline suite.
+flows without fabricating captures. Live platform/provider/consumer qualification is scenario-specific; historical
+direct-ACA observations do not qualify every host/auth combination. The
+Functions host itself has not been run by the offline suite.
 Their API-key profile supports dedicated header/query placement, exact selected
 OpenAPI security matching, a separate pre-existing user-assigned secret identity
 and native host Key Vault references. Shared entitlement and query exposure
-require explicit review. It does not add arbitrary query arguments, OAuth,
-per-user backend credentials, role grants or public callers. This separate
-profile does not widen native APIM key generation or proof support.
+require explicit review. This API-key profile does not add OAuth, per-user
+backend credentials, role grants or public callers, and does not widen native
+APIM key generation or proof support.
+
+ACA OAuth/OBO source generation and v3 validation are implemented pilots, not
+automatic build/deployment support. The bounded `mcp-execution-*` and
+`mcp-host-execution-*` runners reject these profiles before effects. App Service
+and Functions reject them entirely. Existing third-party OAuth MCP references
+remain reference-only; REST backend OAuth does not add provider MCP login,
+discovery or proof.
 
 ## Public anonymous APIM
 

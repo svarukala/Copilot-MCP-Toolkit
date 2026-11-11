@@ -519,7 +519,9 @@ does not qualify its credential path. Controlled delegated and Graph organizatio
 assertions retain their explicit fixture/identity prerequisites. Direct existing
 MCP references do not accept API-key caller credentials. Existing OAuth references,
 SDK Entra/OAuth/password backends, legacy proxy v1 and unknown profiles stop before
-runner execution; no anonymous fallback or invented readiness.
+v2 runner execution; no anonymous fallback or invented readiness. The separate
+v3 ACA OAuth/OBO pilot is described in [backend contracts](backend-oauth.md);
+it does not extend the bounded execution/host-execution runners.
 
 `mcp-validation-schema --json` exposes `creationScenario`, `creationCheckpoint`
 and `creationCoverage`. For a synthetic direct-ACA run, copy

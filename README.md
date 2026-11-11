@@ -3,7 +3,7 @@
 **Turn supported REST API operations into tools that AI assistants can use.**
 Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
 Management (APIM), and check them in separately approved steps. You can also
-connect to an existing Model Context Protocol (MCP) server, or generate an
+connect to an existing Model Context Protocol (MCP) server, or generate
 [MCP servers on Container Apps, App Service or Functions](docs/hosting-recipes.md),
 with APIM optional as a gateway.
 
@@ -17,8 +17,19 @@ services demo, those tools might retrieve public exchange rates or access an
 approved research service. The toolkit does not provide financial data licenses
 or investment advice.
 
-Use the guided terminal setup or work conversationally with **GitHub Copilot
-CLI**. This is an experimental developer toolkit, not a turnkey production
+**Recommended: use the included `copilot-mcp` skill with GitHub Copilot app or
+CLI for a more guided, conversational experience.** Describe your API and goal;
+the agent can help assess supported scenarios, explain tradeoffs, prepare
+configuration for review and guide you through the next appropriate command,
+instead of requiring you to navigate every command or edit every field manually.
+Equivalent coding-agent tools can use the skill too if they support `SKILL.md`
+instructions, workspace file access and local command execution; installation,
+approval handling and compatibility depend on the host and are not universally
+verified. See the [skill setup guide](docs/copilot-cli.md).
+
+The guided terminal setup remains available without an AI agent. Both approaches
+use the same toolkit and retain the same explicit approvals and safety boundaries.
+This is an experimental developer toolkit, not a turnkey production
 product. The guided setup creates APIM files or existing-server references from
 your answers. It can also generate Node.js MCP source for Container Apps, App
 Service or Functions from a prepared hosting recipe file, with a narrower
@@ -26,10 +37,19 @@ read-only feature set. **Saving files does not deploy an endpoint or make it ava
 Microsoft 365 Copilot.**
 
 [Quick start](#quick-start) |
+[Video demo](#video-demo-weather-api-to-mcp-in-github-copilot-app) |
 [FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
 [What is supported](#what-is-supported) |
 [Optional image scanning](#optional-image-scanning) |
 [Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Video demo: Weather API to MCP in GitHub Copilot app
+
+Watch the toolkit in use with GitHub Copilot app to create an MCP server from
+the Weather API REST API. The recording illustrates the conversational workflow;
+it is not a guarantee of compatibility for every API, authentication mode or host.
+
+https://github.com/user-attachments/assets/915eb6f9-c45b-42d1-a2d4-a55c426120e0
 
 ## Optional image scanning
 
@@ -111,7 +131,8 @@ before running live scenarios.
 ### 1. Check what you need
 
 For local setup, install **Git**, **Node.js 22 or later** (with npm), and optionally
-**GitHub Copilot CLI** if you want conversational guidance. The commands below
+**GitHub Copilot app or CLI**, or a compatible coding-agent host, if you want
+skill-based conversational guidance. The commands below
 use PowerShell. Windows users do not need Linux or Docker for local setup.
 
 For Azure deployment later, you also need an Azure subscription, permission to
@@ -176,7 +197,7 @@ node .\bin\copilot-mcp.js
 | Start a new MCP setup | Set up APIM, connect to an existing MCP server, or generate Container Apps, App Service or Functions source from a recipe file. |
 | Review an existing setup or test run | Choose an APIM/reference project, hosting source project, end-to-end execution run or step-by-step validation run. Nothing continues automatically. |
 | Review a configuration file (advanced) | Review APIM/reference inputs, hosting recipes, end-to-end test plans or Container Apps infrastructure choices; select APIM resources. |
-| Show all CLI commands | Find the separate commands for sign-in, deployment, validation, HTML handover and other operations. |
+| Show all CLI commands (deploy, validate, HTML, FCC/plugin) | Start with the task-to-command guide, then find the separate commands for sign-in and other operations. |
 | Exit | Leave without making changes. |
 
 For APIM setups, choose existing or new APIM, Key Vault (only for API-key
@@ -192,14 +213,20 @@ checklist; it does not discover resources or populate IDs. See the
 [preparation guide](docs/hosting-recipes.md#preparing-a-recipe-for-the-terminal-wizard). Functions is
 a preview profile. These recipes require Entra caller authentication and fixed,
 read-only GETs; backend access can be anonymous or use a Key Vault API-key
-reference. Generation does not build, deploy or run a validation test.
+reference. Direct/gateway ACA also accepts prepared explicit
+[OAuth/OBO pilot recipes](docs/backend-oauth.md): application client credentials,
+per-user code + PKCE, or same-tenant OBO. These remain parameter-free fixed GETs
+with separately reviewed manual hosting; App Service and Functions reject them.
+The wizard does not author OAuth settings field by field.
+Generation does not build, deploy or run a validation test.
 Entra sign-in to the MCP endpoint is **not** Entra access to the REST backend;
 see the [REST API security matrix](docs/hosting-recipes.md#rest-api-security-versus-mcp-caller-sign-in)
 for the different APIM and generated-host capabilities.
 
-**Option B: GitHub Copilot CLI**
+**Option B: Skill-based guidance in GitHub Copilot app or CLI (recommended)**
 
-From the same toolkit folder, start `copilot` and use a prompt like:
+In GitHub Copilot app, open this repository in a project session. In Copilot CLI,
+start `copilot` from the toolkit folder. Use a prompt like:
 
 > Read `skills\copilot-mcp\SKILL.md` from this checkout and use
 > `bin\copilot-mcp.js`. Help me create a new MCP setup for a REST API.
@@ -208,8 +235,13 @@ From the same toolkit folder, start `copilot` and use a prompt like:
 > deploy or call the endpoint yet.
 
 You can also [install the included skill](docs/copilot-cli.md) for use from
-other folders. The skill guides the same CLI; it does not give Copilot extra
-permissions. Never paste passwords, API keys or tokens into prompts.
+other folders; that guide provides Copilot CLI installation paths. For the app
+or another compatible coding-agent host, use its supported skill-loading
+mechanism, or explicitly ask it to read the skill from this checkout. Keep the
+complete `skills/copilot-mcp` directory, including its `references`, together
+and identify the local toolkit path. The skill guides the same CLI; it does not
+give the agent extra permissions or bypass terminal sign-in requirements.
+Never paste passwords, API keys or tokens into prompts.
 
 For less manual preparation, supply an official API documentation URL or local
 OpenAPI file and the questions you want the MCP server to answer. The
@@ -236,6 +268,25 @@ report rather than skipping prerequisites. If an operation fails or its outcome
 is unclear, inspect the retained state instead of repeating it blindly.
 **A successful deployment or tool listing is not proof that Cowork or another
 consumer can use the endpoint.**
+
+Use these separate entry points after setup; they are not automatic start-menu
+actions and each retains its own prerequisites and approvals:
+
+| Next task | CLI entry point | Guide |
+| --- | --- | --- |
+| Deploy a supported APIM project | `mcp-resume`, then `mcp-provision-plan` / `mcp-provision` | [CLI contract](docs/cli-contract.md) |
+| Plan a supported fresh execution journey | `mcp-execution-schema` / `mcp-execution-plan` | [Runner choices and limits](docs/reusable-validation.md#choose-the-entry-point) |
+| Validate step by step | `mcp-validation-schema` / `mcp-validation-plan` / `mcp-validation-start` / `mcp-validation-next` | [Reusable validation](docs/reusable-validation.md) |
+| Validate an existing Entra endpoint without rebuilding | `mcp-session-plan` / `mcp-session` | [Existing-endpoint workflow](docs/reusable-validation.md#choose-the-entry-point) |
+| Export private hosting HTML and architecture files | `mcp-handover-schema` / `mcp-handover-plan` / `mcp-handover-bundle` | [Deployment handover](docs/deployment-handover.md) |
+| Choose FCC, Microsoft 365 / Cowork plugin, or None | `mcp-onboard-schema`, then terminal-only `mcp-onboard` | [Consumer onboarding](docs/consumer-onboarding.md) |
+| Export consumer HTML and a plugin starter from prepared inputs | `mcp-consumer-schema` / `mcp-consumer-plan` / `mcp-consumer-bundle` | [Consumer exports](docs/consumer-onboarding.md) |
+
+These are command names, not complete execution commands. Read the matching
+schema/guide and review the exact plan before any effect. App Service/Functions
+deployment and ACA OAuth/OBO pilot hosting remain manual. Consumer onboarding
+can also be offered after interactive execution completes; selecting a consumer
+does not authorize registration, publication or another proof.
 
 ## FSI demo idea: public exchange rates
 
@@ -274,6 +325,7 @@ selected values for your environment.
 | Scenario | Current boundary |
 | --- | --- |
 | REST API through APIM | Selected operations with supported anonymous, Key Vault API-key or limited Entra authentication patterns. Not every API can be converted. |
+| Public anonymous APIM | Explicit public-data/read-only declarations, anonymous backend, parameter-free fixed GETs and aggregate rate limits. Not anonymous access to private/key-protected APIs. [Public profile](docs/scenarios.md#public-anonymous-apim). |
 | Container Apps, without APIM | SDK server, Entra sign-in, reviewed fixed GETs, Docker/ARM files and reviewed release preparation. [Recipe 1](docs/container-apps-recipe.md). |
 | Container Apps behind APIM | Same SDK server; APIM proxies requests rather than generating tools. Signed gateway identity prevents direct-host bypass. [Recipe 2](docs/apim-gateway-recipe.md). |
 | App Service | Same container on an existing Linux Basic-or-higher plan, with managed-identity image pull. [Recipe 3](docs/app-service-recipe.md). |
@@ -281,9 +333,10 @@ selected values for your environment.
 | Existing MCP server | Anonymous and Entra references with separate discovery and eligible testing. API-key proxy compatibility depends on the provider. |
 | Third-party OAuth MCP | Reference and authentication-registration preparation; integrated provider login, tool discovery and runtime proof are not supported on this path. |
 | OAuth/OBO REST backends on ACA | Explicit application OAuth, hosted user PKCE and same-tenant OBO runtime pilots on direct/gateway ACA. Key Vault secret/certificate references; memory-only user connections. [Contracts and limits](docs/backend-oauth.md). Not named-provider/live qualification. |
-| Username/password MCP | Backlog only; not implemented. |
+| REST Basic / username-password backend | Design-only; not implemented on any host. OAuth token-endpoint client-secret authentication is not REST Basic support. |
 | Microsoft 365 custom federated connector (FCC) | Prepare onboarding fields and observed tool metadata. Administrator registration and consumer verification are separate. |
-| Cowork plugin packaging | Separate consumer workflow; an automatic end-to-end toolkit-to-WIQD handoff is not implemented. |
+| FCC / Microsoft 365-Cowork plugin / None selection | Implemented terminal onboarding with separately reviewed shared SSO registration or reference reuse. None leaves the endpoint and evidence unchanged. [Consumer journey](docs/consumer-onboarding.md). |
+| Cowork plugin starter export | Local v1.28 manifest starter, observed tool descriptions and HTML guide, with explicit metadata placeholders. Not a complete WIQD project/package, publication or consumer-acceptance proof; automatic end-to-end toolkit-to-WIQD handoff remains unimplemented. |
 
 For a new direct Container Apps setup, the [operator workflow](docs/hosting-recipes.md)
 now includes prerequisite templates, immutable operation records, preserving-update

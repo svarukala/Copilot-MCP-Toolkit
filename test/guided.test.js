@@ -17,12 +17,15 @@ test('guided review welcomes the user once before its safety notice and menu', a
   let output = '';
   const prompt = {
     output: { write: value => { output += value; } },
-    choose: async () => {
+    choose: async (label, choices) => {
       assert.equal(output.split('Welcome to Copilot MCP Toolkit').length - 1, 1);
       assert.match(output, /REST APIs -> MCP tools -> Copilot/);
       assert.match(output, /Local setup and review only\. Never enter passwords, tokens or API keys/);
       assert.match(output, /Container Apps, App Service or Functions/);
       assert.match(output, /prepared recipe JSON file/);
+      assert.match(output, /deployment, validation, HTML handover or FCC\/plugin onboarding/);
+      assert.match(output, /separate reviewed workflows, not automatic setup steps/);
+      assert.match(choices.find(choice => choice.value === 'help').label, /deploy, validate, HTML, FCC\/plugin/);
       const banner = output.slice(0, output.indexOf('Local setup and review only.'));
       assert.ok(banner.includes(' |  \\/  |/ ___|  _ \\'));
       assert.match(banner, /^[\x20-\x7e\n]+$/);
@@ -49,6 +52,18 @@ test('CLI welcome never appears in noninteractive, help, version or JSON output'
     assert.equal(result.error, undefined);
     assert.equal(result.status, status, result.stderr);
     assert.doesNotMatch(result.stdout + result.stderr, /Welcome to Copilot MCP Toolkit|REST APIs -> MCP tools/);
+    if (args[0] === '--help' && !args.includes('--json')) {
+      assert.match(result.stdout, /Choose your next task/);
+      for (const command of ['mcp-provision-plan/provision', 'mcp-execution-schema/plan',
+        'mcp-validation-schema/plan/start/next', 'mcp-session-plan/session',
+        'mcp-handover-schema/plan/bundle', 'mcp-onboard-schema', 'mcp-consumer-schema/plan/bundle']) {
+        assert.ok(result.stdout.includes(command), command);
+      }
+      assert.match(result.stdout, /Linux tmpfs or reviewed Windows SSO/);
+      assert.match(result.stdout, /anonymous public-data\/read-only profile/);
+      assert.match(result.stdout, /App Service\/Functions deployment and ACA OAuth\/OBO pilot hosting remain manual/);
+      assert.doesNotMatch(result.stdout, /Linux tmpfs only|inbound\nis explicit Entra;/);
+    }
     if (args.includes('--json')) {
       const value = JSON.parse(result.stdout);
       assert.equal(typeof value, 'object');

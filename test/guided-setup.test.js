@@ -367,7 +367,11 @@ test('new setup menu includes every supported hosting recipe and explains file-b
     assert.match(output, /Native APIM \(option 1\): no authentication, API key from Key Vault, or supported Microsoft Entra access/);
     assert.match(output, /same resource\/audience token through.*no OBO/);
     assert.match(output, /existing APIM system-managed identity with the exact backend application role/);
-    assert.match(output, /hosting recipes do NOT support Entra-protected or other OAuth-protected REST backends, even behind APIM/);
+    assert.match(output, /Only direct\/gateway ACA additionally supports explicit OAuth\/OBO pilot recipes/);
+    assert.match(output, /parameter-free fixed GETs and separately reviewed manual hosting/);
+    assert.match(output, /bounded execution\/host-execution runners reject them/);
+    assert.match(output, /App Service and Functions reject OAuth\/OBO backend profiles/);
+    assert.match(output, /Username\/password \(Basic\) REST backends remain unimplemented on every host/);
     assert.match(output, /separate from caller sign-in/);
     assert.equal(choices.at(-1).value, 'cancel');
     return 'cancel';
@@ -384,6 +388,7 @@ const hostingExamples = [
   ['container-apps-direct-v1', 'container-apps-direct-api-key.json'],
   ['functions-sdk-v1', 'functions-sdk-api-key.json'],
   ['container-apps-direct-v1', 'container-apps-query-dates.json'],
+  ['container-apps-direct-v1', 'container-apps-direct-oauth.json'],
 ];
 async function hostingInput(root, example) {
   const input = await readFile(new URL(`../examples/mcp/${example}`, import.meta.url), 'utf8');
@@ -484,7 +489,7 @@ test('hosting input requires a full edited file path, not a folder or relative f
   assert.deepEqual(await readdir(root), ['recipe.json']);
 });
 
-test('hosting guidance does not imply support for Entra or OAuth REST backends', async t => {
+test('hosting guidance distinguishes explicit ACA pilots from unsupported generic auth values', async t => {
   const root = await workspace(t);
   for (const [recipe, example] of hostingExamples.slice(0, 4)) {
     const config = await hostingInput(root, example);
@@ -496,12 +501,29 @@ test('hosting guidance does not imply support for Entra or OAuth REST backends',
       await assert.rejects(guidedArguments(p, { 'workspace-root': root }), { code: 'MCP_CONTAINER_APPS_INPUT' });
       p.done();
       assert.match(p.text, /REST API access \(backend.auth\): anonymous.*api-key/);
-      assert.match(p.text, /Entra and other OAuth REST backends are NOT supported here/);
+      assert.match(p.text, /ACA OAuth\/OBO needs an explicit versioned pilot profile, not a generic entra or oauth value/);
+      assert.match(p.text, /OAuth\/OBO pilots remain parameter-free/);
+      assert.match(p.text, /App Service and Functions reject those profiles/);
+      assert.doesNotMatch(p.text, /hosting recipes do NOT support Entra-protected|Entra and other OAuth REST backends are NOT supported here/);
       assert.match(p.text, /MCP caller access \(authentication\): Microsoft Entra sign-in is required/);
       assert.doesNotMatch(p.text, /Hosting source files saved/);
     }
   }
   assert.deepEqual(await readdir(root), ['recipe.json']);
+});
+
+test('native APIM OAuth rejection points to ACA pilots without changing route or writing', async t => {
+  const root = await workspace(t);
+  const p = scripted([c('new'), c('rest'), c((label, choices) => {
+    assert.match(choices.find(choice => choice.value === 'oauth').label, /not supported by native APIM REST/);
+    return 'oauth';
+  })]);
+  assert.equal(await guidedArguments(p, { 'workspace-root': root }), undefined);
+  p.done();
+  assert.match(p.text, /Third-party OAuth REST backends are not supported by native APIM/);
+  assert.match(p.text, /see docs\/backend-oauth.md for parameter-free GETs and manual-hosting limits/);
+  assert.match(p.text, /Your host and authentication choices were not changed/);
+  assert.deepEqual(await readdir(root), []);
 });
 
 test('hosting cancellation, abort and changed review never publish a project', async t => {
