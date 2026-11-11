@@ -1,0 +1,33 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "copilot",
+  "elements": [
+    {"id":"title","type":"text","x":250,"y":0,"width":540,"height":55,"text":"From your REST API to MCP tools","fontSize":22,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"api","type":"rectangle","x":20,"y":160,"width":230,"height":140,"strokeColor":"#0078D4","backgroundColor":"#CFE4FA","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"toolkit","type":"rectangle","x":310,"y":160,"width":250,"height":140,"strokeColor":"#5C2D91","backgroundColor":"#E8DAEF","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"apim","type":"rectangle","x":680,"y":60,"width":330,"height":70,"strokeColor":"#107C10","backgroundColor":"#DFF6DD","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"aca","type":"rectangle","x":680,"y":150,"width":330,"height":70,"strokeColor":"#107C10","backgroundColor":"#DFF6DD","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"app-service","type":"rectangle","x":680,"y":240,"width":330,"height":70,"strokeColor":"#107C10","backgroundColor":"#DFF6DD","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"functions","type":"rectangle","x":680,"y":330,"width":330,"height":70,"strokeColor":"#107C10","backgroundColor":"#DFF6DD","fillStyle":"solid","strokeWidth":2,"roughness":0,"roundness":{"type":3}},
+    {"id":"api-label","type":"text","x":30,"y":185,"width":210,"height":45,"text":"Existing REST API","fontSize":18,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"api-detail","type":"text","x":30,"y":220,"width":210,"height":80,"text":"Anonymous or secured\n(supported auth)","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"toolkit-label","type":"text","x":320,"y":185,"width":230,"height":45,"text":"Copilot MCP Toolkit","fontSize":18,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"toolkit-detail","type":"text","x":320,"y":220,"width":230,"height":80,"text":"Select API operations\nChoose a hosting recipe","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"apim-label","type":"text","x":690,"y":75,"width":310,"height":80,"text":"Azure API Management\nNative MCP tools","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"aca-label","type":"text","x":690,"y":165,"width":310,"height":80,"text":"Azure Container Apps\nGenerated MCP server","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"app-service-label","type":"text","x":690,"y":255,"width":310,"height":80,"text":"Azure App Service\nGenerated MCP server","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"functions-label","type":"text","x":690,"y":345,"width":310,"height":80,"text":"Azure Functions (preview)\nGenerated MCP server","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"api-to-toolkit","type":"arrow","x":250,"y":230,"width":50,"height":0,"points":[[0,0],[50,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0,"endArrowhead":"arrow"},
+    {"id":"trunk","type":"line","x":560,"y":230,"width":60,"height":0,"points":[[0,0],[60,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0},
+    {"id":"branches","type":"line","x":620,"y":95,"width":0,"height":270,"points":[[0,0],[0,270]],"strokeColor":"#495057","strokeWidth":2,"roughness":0},
+    {"id":"to-apim","type":"arrow","x":620,"y":95,"width":50,"height":0,"points":[[0,0],[50,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0,"endArrowhead":"arrow"},
+    {"id":"to-aca","type":"arrow","x":620,"y":185,"width":50,"height":0,"points":[[0,0],[50,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0,"endArrowhead":"arrow"},
+    {"id":"to-app-service","type":"arrow","x":620,"y":275,"width":50,"height":0,"points":[[0,0],[50,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0,"endArrowhead":"arrow"},
+    {"id":"to-functions","type":"arrow","x":620,"y":365,"width":50,"height":0,"points":[[0,0],[50,0]],"strokeColor":"#495057","strokeWidth":2,"roughness":0,"endArrowhead":"arrow"},
+    {"id":"gateway-note","type":"text","x":20,"y":425,"width":990,"height":40,"text":"APIM can optionally front the generated MCP servers.","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"},
+    {"id":"scope-note","type":"text","x":20,"y":465,"width":990,"height":40,"text":"Support varies by recipe. Deployment requires separate review and approval.","fontSize":16,"fontFamily":2,"strokeColor":"#000000","textAlign":"center","verticalAlign":"top"}
+  ],
+  "appState": {"viewBackgroundColor":"#ffffff","gridSize":null},
+  "files": {}
+}

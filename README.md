@@ -1,11 +1,17 @@
 # Copilot MCP Toolkit
 
-**Turn supported REST API operations into tools that AI assistants can use.**
-Copilot MCP Toolkit helps you prepare those tools, deploy them through Azure API
-Management (APIM), and check them in separately approved steps. You can also
-connect to an existing Model Context Protocol (MCP) server, or generate
-[MCP servers on Container Apps, App Service or Functions](docs/hosting-recipes.md),
-with APIM optional as a gateway.
+**Turn your existing REST API into an MCP server for AI assistants.**
+Copilot MCP Toolkit helps you expose selected API operations as Model Context
+Protocol (MCP) tools, whether the API is anonymous or uses a supported
+authentication scheme. Choose a hosting recipe to expose those tools natively
+through Azure API Management (APIM), or generate an MCP server for Azure
+Container Apps, Azure App Service or Azure Functions (preview), with APIM
+optionally serving as a gateway. Supported operations and authentication
+options vary by recipe.
+
+![Existing REST API to Copilot MCP Toolkit, with a choice of native APIM MCP or generated servers on Container Apps, App Service and Functions.](docs/images/toolkit-overview.svg)
+
+[Hosting recipes](docs/hosting-recipes.md) | [Editable diagram](docs/images/toolkit-overview.excalidraw)
 
 Finish a hosting journey with a private [deployment handover](docs/deployment-handover.md):
 two-tab offline HTML showing recorded outcomes and repeat-environment steps,

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="500" viewBox="0 0 1040 500" role="img" aria-labelledby="title description">
+  <title id="title">From an existing REST API to MCP tools</title>
+  <desc id="description">An anonymous or supported secured REST API feeds selected operations into Copilot MCP Toolkit. Choose one hosting recipe: native MCP in Azure API Management, or an MCP server on Azure Container Apps, Azure App Service, or Azure Functions preview. APIM can optionally front generated servers. Support varies by recipe; deployment requires separate review and approval.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8 Z" fill="#495057"/>
+    </marker>
+  </defs>
+  <rect width="1040" height="500" rx="12" fill="#ffffff"/>
+  <g font-family="Segoe UI, Arial, sans-serif" fill="#000000" text-anchor="middle">
+    <text x="520" y="30" font-size="22" font-weight="600">From your REST API to MCP tools</text>
+    <g stroke-width="2">
+      <rect x="20" y="160" width="230" height="140" rx="12" stroke="#0078D4" fill="#CFE4FA"/>
+      <rect x="310" y="160" width="250" height="140" rx="12" stroke="#5C2D91" fill="#E8DAEF"/>
+      <rect x="680" y="60" width="330" height="70" rx="12" stroke="#107C10" fill="#DFF6DD"/>
+      <rect x="680" y="150" width="330" height="70" rx="12" stroke="#107C10" fill="#DFF6DD"/>
+      <rect x="680" y="240" width="330" height="70" rx="12" stroke="#107C10" fill="#DFF6DD"/>
+      <rect x="680" y="330" width="330" height="70" rx="12" stroke="#107C10" fill="#DFF6DD"/>
+    </g>
+    <g font-size="18" font-weight="600">
+      <text x="135" y="202">Existing REST API</text>
+      <text x="435" y="202">Copilot MCP Toolkit</text>
+      <text x="845" y="89">Azure API Management</text>
+      <text x="845" y="179">Azure Container Apps</text>
+      <text x="845" y="269">Azure App Service</text>
+      <text x="845" y="359">Azure Functions (preview)</text>
+    </g>
+    <g font-size="16">
+      <text x="135" y="238">Anonymous or secured</text>
+      <text x="135" y="264">(supported auth)</text>
+      <text x="435" y="238">Select API operations</text>
+      <text x="435" y="264">Choose a hosting recipe</text>
+      <text x="845" y="114">Native MCP tools</text>
+      <text x="845" y="204">Generated MCP server</text>
+      <text x="845" y="294">Generated MCP server</text>
+      <text x="845" y="384">Generated MCP server</text>
+      <text x="520" y="445">APIM can optionally front the generated MCP servers.</text>
+      <text x="520" y="475">Support varies by recipe. Deployment requires separate review and approval.</text>
+    </g>
+  </g>
+  <g fill="none" stroke="#495057" stroke-width="2">
+    <path d="M250 230 H300" marker-end="url(#arrow)"/>
+    <path d="M560 230 H620"/>
+    <path d="M620 95 V365"/>
+    <path d="M620 95 H670" marker-end="url(#arrow)"/>
+    <path d="M620 185 H670" marker-end="url(#arrow)"/>
+    <path d="M620 275 H670" marker-end="url(#arrow)"/>
+    <path d="M620 365 H670" marker-end="url(#arrow)"/>
+  </g>
+</svg>
