@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-11-10.
+Last updated: 2026-11-11.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,35 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### Post-registration Entra SSO settings checkpoint (#6)
+
+New shared preparations use handoff version 3 and expose exact expected portal
+scope, actual registration URI/reference, endpoint, resource, tenant and app
+restrictions. Settings remain pending unless a separate private, explicitly
+operator-reported attestation matches all values. Attestation is never provider
+readback, consent or consumer acceptance. No provider update/readback adapter
+is implemented; the existing Developer Portal registration is the manual checkpoint.
+
+FCC and plugin HTML/JSON show pending/operator-attested states and retain their
+non-ready gates. Terminal onboarding requires stop or explicit draft-only
+continuation when settings are pending; the app/skill continuation carries the
+same review requirement. Historical version-1/2 preparations remain readable;
+original registration receipts, restrictions and consumed attempts are unchanged.
+Later evidence requires new preparations/exports, not rewritten history.
+
+Synthetic coverage exercises actual-result URI precedence, exact permission
+casing, missing/short/conflicting values, unsupported readback claims, app
+binding, attestation-bound approvals, legacy integrity and pause/resume without
+duplicate creation. No live portal changes or consumer verification are implied.
+Verification: **184/184** focused offline checks passed across registration,
+execution, FCC, consumer onboarding and CLI feedback. Asset inventory, syntax
+and strict public types also passed; no full-suite or live-provider run was made.
+Pre-merge review corrected the qualified-scope length bound and the packed
+consumer's expected settings gap. The seven focused SSO preparation checks
+(including maximum-length scope attestation) and fresh offline packed consumer
+then passed.
+See [settings completion](auth-registration.md#post-registration-settings-completion).
 
 ### CLI and README discoverability
 
@@ -1377,6 +1406,7 @@ Local implementation approval is not approval for live identities or tenant roll
 | AUTH12 | Approved additive Entra/APIM settings | One private change set applied and readback verified | One Graph PATCH and three ETag-guarded APIM policy updates; previous settings and all existing authorization checks preserved. Operator-reviewed merge, not a new general toolkit mutation capability |
 | AUTH13 | Fresh Entra metadata discovery after approved settings | One private authenticated discovery completed | Existing secretless public client, fresh in-memory sign-in and initialize/tools-list only. One controlled fixture tool captured; no tool execution, cache transfer or proof replay |
 | AUTH14 | FCC consent requested-resource permission | Owner manually corrected configuration; then reported successful FCC addition | AADSTS650057 and retained empty requiredResourceAccess identified a consent-path gap distinct from exposed-scope preauthorization. Supplied screenshot showed the resource app requesting its own delegated scope; no fresh Graph or consent-grant readback and no automated mutation |
+| AUTH15 | Post-registration SSO settings completion (#6) | Implemented/offline verified; live settings/consumer qualification outstanding | 184 focused checks passed. Version-3 preparation, exact qualified scope and app-binding review, separate operator attestation, visible pending/attested gates and explicit terminal draft-only choice. No provider update/readback, automatic widening or replacement registration; historical receipts stay unchanged |
 
 FCC7 validation: 97 focused offline checks passed across FCC preparation,
 auth-reference import, CLI feedback and fresh packed consumption, plus syntax

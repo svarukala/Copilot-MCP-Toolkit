@@ -176,6 +176,34 @@ for (const windows of [false, true]) for (const compatibility of [false, true]) 
   assert.equal(plan.bundle.evidence.consumerExecution, 'not-verified');
 });
 
+test('settings review uses the actual result URI without rewriting or replaying the registration', async t => {
+  const f = await fixture(t);
+  const actualUri = `api://auth-synthetic/${client}`;
+  const register = f.provider.register;
+  f.provider.register = async (...args) => ({ ...await register(...args), applicationIdUri: actualUri });
+  await f.signedIn();
+  const result = await f.run('register');
+  await f.run('close');
+  const original = await readFile(result.resultFile, 'utf8');
+  f.input.source.registrationResultFile = 'session/result.json'; await f.save();
+  const options = { workspaceRoot: f.root, config: path.join(f.root, 'registration.json'), output: path.join(f.root, 'auth.json') };
+  const pending = await planAuthRegistrationBundle(options);
+  assert.equal(pending.bundle.settingsReview.expected.portalScope, `${actualUri}/access_as_user`);
+  assert.notEqual(pending.bundle.settingsReview.expected.applicationIdUri, f.descriptor.inbound.applicationIdUri);
+  f.input.source.settingsAttestationFile = 'attestation.json';
+  await writeFile(path.join(f.root, 'attestation.json'), JSON.stringify({
+    schemaVersion: 1, kind: 'mcp-sso-settings-attestation', evidence: 'operator-attestation',
+    reviewedAt: '2026-01-02T03:04:05Z', settings: pending.bundle.settingsReview.expected,
+  }));
+  await f.save();
+  const attested = await planAuthRegistrationBundle(options);
+  await writeAuthRegistrationBundle({ ...options, approval: attested.approvalToken });
+  assert.equal(attested.bundle.settingsReview.status, 'operator-attested');
+  assert.equal(attested.bundle.evidence.executionReadiness, false);
+  assert.equal(await readFile(result.resultFile, 'utf8'), original);
+  assert.equal(f.calls.filter(call => typeof call === 'object').length, 1);
+});
+
 test('Windows verification uses the shared lock and existing account without login or registration', async t => {
   const f = await fixture(t, 'entra-sso', true);
   await f.run('initialize');

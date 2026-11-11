@@ -35,6 +35,14 @@ app tool must not impersonate a terminal. Do not copy caches or redirect challen
 The agent stops on a concrete blocker, an explicit user stop, or actual outputs,
 not merely on acknowledging the consumer choice.
 
+Before export, show the post-registration `settingsReview`: fully qualified
+portal scope using the actual registered URI, endpoint, resource, tenant and
+consumer app restrictions. Either import an explicitly owner-reported
+`source.settingsAttestationFile` through a new shared registration preparation,
+or obtain acknowledgment that the output is an **unverified local draft**.
+Never infer attestation from creation success or generated expected settings.
+See [settings completion](auth-registration.md#post-registration-settings-completion).
+
 To continue a previously stopped app conversation:
 
 > Continue with Cowork plugin onboarding for the MCP we just created. Reuse its
@@ -126,6 +134,11 @@ Resume uses saved inputs and retained auth state. Failed/unknown dispatches stay
 consumed. Declining close preserves the created reference and runtime for the next
 review. Changed input files stop continuation; they do not reset the auth target.
 Completed exports are hash-checked locally without contacting the provider.
+Before a new export with pending settings, the wizard explicitly offers
+**stop for settings review** or **export an unverified local draft only**.
+Stopping retains the same registration; resuming never creates another one.
+Later attestations require new reviewed preparations and export destinations,
+not edits to the saved session or historical results.
 Crashes that leave an incomplete output require review of that folder and a new
 export destination, not an overwrite. Do not edit toolkit source during a
 prepared/active provider operation.
@@ -139,13 +152,18 @@ clipboard fallback. No external assets/scripts/network requests are needed.
 `fcc-onboarding.json` preserves the existing FCC contract.
 `consumer-manifest.json` binds the files with hashes, not an authenticity claim.
 
-The four visible states are deliberately separate: **registration reference**,
-**endpoint configuration**, **draft generation**, and **consumer test**.
+The visible states are deliberately separate: **registration reference**,
+**portal settings**, **endpoint configuration**, **consent**, **package
+validation**, **draft generation**, and **consumer test**.
 A receipt is `created-unverified`; directory/endpoint compatibility and consumer
 acceptance remain unverified. Review the existing app's generated identifier URI,
 Web redirect and Microsoft token-store preauthorization separately, preserving
 unrelated audiences and clients. No app update, consent, redeployment, provider
 call, FCC submission or rollout is performed by the exporter.
+An `operator-attested` portal-settings state records a matching owner report,
+not provider readback or current consumer readiness. HTML prominently displays
+pending settings and the expected values even when a plugin starter is emitted.
+Export integrity checks are not WIQD/static package validation.
 
 Plugin output additionally contains `plugin/manifest.template.json` with a
 v1.28 `agentConnectors[].toolSource.remoteMcpServer`, actual `mcpServerUrl`,

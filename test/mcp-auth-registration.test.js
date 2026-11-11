@@ -10,6 +10,7 @@ import { planFccBundle, writeFccBundle, fccTokenStoreClientId } from '../src/mcp
 import { writeNewJsonBundle } from '../src/mcp-bundle-write.js';
 import { planAuthWiqdBundle, writeAuthWiqdBundle } from '../src/mcp-auth-wiqd.js';
 import { portalSsoScope, ssoScopeInstructions } from '../src/mcp-sso-scope.js';
+import { ssoSettingsReview } from '../src/mcp-sso-settings.js';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
 const resource = '22222222-2222-4222-8222-222222222222';
@@ -77,6 +78,7 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
   assert.equal(plan.bundle.readiness.status, 'blocked');
   assert.deepEqual(plan.bundle.readiness.gaps.map(g => g.code), [
     'PROVIDER_ISOLATION_UNQUALIFIED', 'OPERATOR_IDENTITY_UNVERIFIED', 'REGISTRATION_EXECUTION_UNIMPLEMENTED',
+    'SSO_SETTINGS_PENDING',
   ]);
   assert.deepEqual(plan.bundle.providerPreparation.action, {
     uses: 'oauth/register',
@@ -98,18 +100,109 @@ test('SSO preparation preserves the exact provider contract but cannot authentic
     assert.equal(f.descriptor.inbound.scope, 'access_as_user');
   });
 
-  await t.test('legacy shared-auth bundles still verify with their historical rendering and digest', async t => {
+  for (const version of [1, 2]) await t.test(`version ${version} shared-auth bundles retain historical rendering and digest`, async t => {
     const f = await fixture(t);
+    f.addReference(); await f.save();
     const { bundle } = await planAuthRegistrationBundle(f.options);
-    delete bundle.handoffVersion;
-    delete bundle.routes;
-    bundle.manualSetup.fields = bundle.manualSetup.fields.filter(field => !field.label.startsWith('Portal OAuth'));
-    bundle.manualSetup.fields.find(field => field.label.startsWith('API permission')).label = 'Delegated scope';
-    bundle.manualSetup.instructions = bundle.manualSetup.instructions.filter(item => !ssoScopeInstructions.includes(item));
+    delete bundle.settingsReview;
+    bundle.readiness.gaps = bundle.readiness.gaps.filter(gap => gap.code !== 'SSO_SETTINGS_PENDING');
+    bundle.routes.atk.gaps = bundle.routes.atk.gaps.filter(code => code !== 'SSO_SETTINGS_PENDING');
+    bundle.manualSetup.instructions = bundle.manualSetup.instructions.slice(0, 4);
+    if (version === 1) {
+      delete bundle.handoffVersion;
+      delete bundle.routes;
+      bundle.manualSetup.fields = bundle.manualSetup.fields.filter(field => !field.label.startsWith('Portal OAuth'));
+      bundle.manualSetup.fields.find(field => field.label.startsWith('API permission')).label = 'Delegated scope';
+    } else {
+      bundle.handoffVersion = 2;
+      bundle.manualSetup.instructions.push(...ssoScopeInstructions);
+    }
     delete bundle.contentDigest;
     bundle.contentDigest = hash(bundle);
     await writeFile(f.options.output, savedJson(bundle));
     assert.deepEqual(await f.importBundle(), bundle);
+  });
+
+  await t.test('settings attestation is separate, bound to actual values, and never implies provider or consumer verification', async t => {
+    const f = await fixture(t);
+    f.addReference();
+    f.config.registration.reference.applicationIdUri = `api://auth-synthetic/${resource}`;
+    await f.save();
+    const original = await writePreparation(f);
+    const originalBytes = await readFile(f.options.output, 'utf8');
+    const attestation = { schemaVersion: 1, kind: 'mcp-sso-settings-attestation',
+      evidence: 'operator-attestation', reviewedAt: '2026-01-02T03:04:05Z',
+      settings: original.plan.bundle.settingsReview.expected };
+    assert.equal(attestation.settings.portalScope, `api://auth-synthetic/${resource}/access_as_user`);
+    assert.equal(original.plan.bundle.settingsReview.status, 'pending');
+    assert.equal(original.plan.bundle.settingsReview.providerUpdate, 'unsupported-by-toolkit');
+    f.config.source.settingsAttestationFile = 'settings-attestation.json';
+    await writeFile(path.join(f.root, 'settings-attestation.json'), savedJson(attestation));
+    await f.save();
+    const options = { ...f.options, output: path.join(f.root, 'attested.json') };
+    const plan = await planAuthRegistrationBundle(options);
+    assert.equal(plan.bundle.settingsReview.status, 'operator-attested');
+    assert.equal(plan.bundle.settingsReview.providerReadback, 'not-performed');
+    assert.equal(plan.bundle.evidence.settings, 'not-verified');
+    assert.equal(plan.bundle.evidence.executionReadiness, false);
+    assert.equal(plan.bundle.registrationReference.status, 'provided-unverified');
+    assert.equal(plan.bundle.providerPreparation.action, null);
+    await writeAuthRegistrationBundle({ ...options, approval: plan.approvalToken });
+    assert.deepEqual(await withCliWorkspace(f.root, () => readAuthRegistrationBundle(options.output, f.descriptor)), plan.bundle);
+    assert.equal(await readFile(f.options.output, 'utf8'), originalBytes);
+    const fc = await fccOptions(f);
+    fc.config.source.authenticationBundleFile = 'attested.json';
+    await writeFile(fc.options.config, savedJson(fc.config));
+    const fcc = await planFccBundle(fc.options);
+    assert.equal(fcc.bundle.settingsReview.status, 'operator-attested');
+    assert.equal(fcc.bundle.evidence.consumerExecution, 'not-verified');
+    assert.ok(fcc.bundle.readiness.gaps.some(gap => gap.code === 'SSO_SETTINGS_OPERATOR_ATTESTED'));
+
+    const next = { ...options, output: path.join(f.root, 'next.json') };
+    const before = await planAuthRegistrationBundle(next);
+    attestation.reviewedAt = '2026-01-03T03:04:05Z';
+    await writeFile(path.join(f.root, 'settings-attestation.json'), savedJson(attestation));
+    await assert.rejects(writeAuthRegistrationBundle({ ...next, approval: before.approvalToken }),
+      { code: 'MCP_AUTH_REGISTRATION_APPROVAL_REQUIRED' });
+  });
+
+  await t.test('settings checkpoint rejects missing/contradictory values and cannot masquerade as provider readback', async t => {
+    const f = await fixture(t);
+    f.addReference();
+    const descriptor = { ...f.descriptor, inbound: { ...f.descriptor.inbound, scope: 'Weather.Read' } };
+    const review = ssoSettingsReview(descriptor, f.config.registration);
+    const original = { schemaVersion: 1, kind: 'mcp-sso-settings-attestation', evidence: 'operator-attestation',
+      reviewedAt: '2026-01-02T03:04:05Z', settings: review.expected };
+    for (const [field, value] of [
+      ['portalScope', 'Weather.Read'], ['portalScope', `${review.expected.applicationIdUri}/weather.read`],
+      ['portalScope', ''], ['registrationId', 'replacement'], ['applicationIdUri', 'api://other'],
+      ['endpoint', 'https://other.example.com/mcp'], ['resourceClientId', tenant], ['tenantId', resource],
+      ['targetAudience', 'AnyTenant'], ['applicableToApps', 'AnyApp'], ['appId', tenant],
+    ]) {
+      const changed = structuredClone(original); changed.settings[field] = value;
+      assert.throws(() => ssoSettingsReview(descriptor, f.config.registration, changed),
+        { code: value === '' ? 'MCP_SSO_SETTINGS_ATTESTATION' : 'MCP_SSO_SETTINGS_MISMATCH' }, field);
+    }
+    for (const mutate of [
+      value => { delete value.settings.portalScope; },
+      value => { value.evidence = 'provider-readback'; },
+      value => { value.providerUpdate = true; },
+    ]) {
+      const changed = structuredClone(original); mutate(changed);
+      assert.throws(() => ssoSettingsReview(descriptor, f.config.registration, changed), { code: 'MCP_SSO_SETTINGS_ATTESTATION' });
+    }
+    const missing = { ...f.config.registration }; delete missing.reference;
+    assert.equal(ssoSettingsReview(descriptor, missing).expected.portalScope, null);
+    assert.throws(() => ssoSettingsReview(descriptor, missing, original), { code: 'MCP_SSO_SETTINGS_INCOMPLETE' });
+    assert.throws(() => ssoSettingsReview(descriptor, { ...missing, reference: { registrationId,
+      applicationIdUri: `${review.expected.applicationIdUri}/Weather.Read` } }), { code: 'MCP_SSO_SETTINGS_SCOPE' });
+    const longest = { ...descriptor, inbound: { ...descriptor.inbound, scope: 'W'.repeat(128) } };
+    const longRegistration = { ...f.config.registration,
+      reference: { registrationId, applicationIdUri: `api://synthetic/${'a'.repeat(2032)}` } };
+    const longReview = ssoSettingsReview(longest, longRegistration);
+    assert.equal(longReview.expected.portalScope.length, 2177);
+    assert.equal(ssoSettingsReview(longest, longRegistration,
+      { ...original, settings: longReview.expected }).status, 'operator-attested');
   });
 
   await t.test('portal scope does not guess missing, malformed, duplicated or already-qualified values', () => {

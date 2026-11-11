@@ -53,7 +53,8 @@ async function prepare(options) {
     { code: 'WIQD_PROJECT_REVIEW_REQUIRED', message: 'Project contents were not inspected or changed. Review the actual app ID, both lifecycle files and all provisioning effects in WIQD.' },
     { code: 'USER_MANAGED_IDENTITY_REVIEW_REQUIRED', message: 'WIQD owns its normal user-profile authentication. Confirm its actual account and tenant; the toolkit neither authenticates nor isolates that profile.' },
     { code: 'CONSUMER_VERIFICATION_REQUIRED', message: 'A registration ID does not verify settings, consent, endpoint compatibility or FCC/plugin execution.' },
-    ...preparation.readiness.gaps.filter(gap => ['APP_ID_MISSING', 'SECRET_RESOLUTION_UNIMPLEMENTED'].includes(gap.code)),
+    ...preparation.readiness.gaps.filter(gap => ['APP_ID_MISSING', 'SECRET_RESOLUTION_UNIMPLEMENTED',
+      'SSO_SETTINGS_PENDING', 'SSO_SETTINGS_OPERATOR_ATTESTED'].includes(gap.code)),
   ];
   const attribution = ['--skill', 'wiqd', '--workflow', 'wiqd-core'];
   const context = ['--env', config.environment, '--path', wiqdProject];

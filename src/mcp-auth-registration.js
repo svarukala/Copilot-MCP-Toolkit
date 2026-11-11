@@ -10,6 +10,7 @@ import { secretIssues } from './validation.js';
 import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
 import { portalSsoScope, ssoScopeInstructions } from './mcp-sso-scope.js';
+import { ssoSettingsReview, ssoSettingsAttestationSchema } from './mcp-sso-settings.js';
 
 const maximumBytes = 1048576;
 const object = (properties, required = Object.keys(properties)) => ({
@@ -48,11 +49,12 @@ const registrationSchema = { oneOf: [
 ] };
 export const authRegistrationInputSchema = object({
   schemaVersion: { const: 1 }, source: object({ descriptorFile: text(2048),
-    registrationResultFile: text(2048) }, ['descriptorFile']),
+    registrationResultFile: text(2048), settingsAttestationFile: text(2048) }, ['descriptorFile']),
   operator: object({ tenantId: uuid, accountName: { ...text(254), format: 'email' } }),
   registration: registrationSchema,
   review: object({ metadataApprovedForExport: { const: true } }),
 });
+authRegistrationInputSchema.$defs = { settingsAttestation: ssoSettingsAttestationSchema };
 const ajv = new Ajv({ allErrors: true });
 addFormats(ajv);
 const validInput = ajv.compile(authRegistrationInputSchema);
@@ -129,10 +131,12 @@ export function authRegistrationAction(request, descriptor, { secretVariable = f
       ...(sso ? { applicationIdUri: 'MCP_AUTH_APPLICATION_ID_URI' } : {}) },
   };
 }
-function createBundle(request, descriptor, producer, handoffVersion = 2) {
+function createBundle(request, descriptor, producer, handoffVersion = 3, attestation = null) {
   checkedRequest(request, descriptor);
   requireAuth(validProducer(producer), 'BUNDLE_INVALID', 'Unsupported authentication preparation producer identity.');
   const r = request.registration, sso = r.type === 'entra-sso';
+  requireAuth(sso || attestation === null, 'INPUT', 'Settings attestation is supported only for Entra SSO.');
+  const settingsReview = sso && handoffVersion >= 3 ? ssoSettingsReview(descriptor, r, attestation) : null;
   const clientId = sso ? descriptor.inbound.clientId : r.clientId;
   const redirectUri = `https://teams.microsoft.com/api/platform/v1.0/${sso ? 'oAuthConsentRedirect' : 'oAuthRedirect'}`;
   const gaps = [
@@ -144,6 +148,10 @@ function createBundle(request, descriptor, producer, handoffVersion = 2) {
     message: 'ATK oauth/register requires a real M365 app ID even for AnyApp. Supply the intended app ID; never invent a dummy FCC app.' });
   if (!sso && r.credential.type !== 'none') gaps.push({ code: 'SECRET_RESOLUTION_UNIMPLEMENTED',
     message: 'The versioned Key Vault reference is retained but never fetched or converted to a provider secret. No runnable action is emitted.' });
+  if (settingsReview) gaps.push({ code: settingsReview.status === 'pending' ? 'SSO_SETTINGS_PENDING' : 'SSO_SETTINGS_OPERATOR_ATTESTED',
+    message: settingsReview.status === 'pending'
+      ? 'Complete the post-registration portal scope, tenant and app-binding review. A saved reference is not consumer-ready; only an explicitly unverified draft may be exported.'
+      : 'Settings are operator-attested only, not provider-verified. Consent, endpoint compatibility and actual consumer authentication remain unverified.' });
   const action = authRegistrationAction(request, descriptor);
   const authentication = { type: r.type, ...(r.reference ?? {}) };
   const fields = [
@@ -154,8 +162,9 @@ function createBundle(request, descriptor, producer, handoffVersion = 2) {
     field('M365 app ID', r.appId), field('Redirect URI', redirectUri),
     field(sso ? 'SSO registration ID' : 'OAuth client registration ID', r.reference?.registrationId),
     ...(sso ? [
-      field(handoffVersion === 2 ? 'API permission name (runtime scp)' : 'Delegated scope', descriptor.inbound.scope),
-      ...(handoffVersion === 2 ? [portalSsoScope(r.reference?.applicationIdUri ?? descriptor.inbound.applicationIdUri,
+      field(handoffVersion >= 2 ? 'API permission name (runtime scp)' : 'Delegated scope', descriptor.inbound.scope),
+      ...(handoffVersion >= 2 ? [portalSsoScope(handoffVersion >= 3 ? r.reference?.applicationIdUri
+        : r.reference?.applicationIdUri ?? descriptor.inbound.applicationIdUri,
         descriptor.inbound.scope)] : []),
       field('Endpoint Application ID URI', descriptor.inbound.applicationIdUri),
       field('Registration Application ID URI', r.reference?.applicationIdUri),
@@ -170,13 +179,14 @@ function createBundle(request, descriptor, producer, handoffVersion = 2) {
   ];
   const content = clean({
     schemaVersion: 1, kind: 'mcp-auth-registration-preparation', producer,
-    ...(handoffVersion === 2 ? { handoffVersion, routes: {
+    ...(handoffVersion >= 2 ? { handoffVersion, routes: {
       manualFcc: { status: 'manual-review-required', requiresAgentOrAppPackage: false,
         instruction: 'Choose existing registration reuse or direct Teams Developer Portal registration. APP_ID_MISSING and provider execution gaps describe ATK, not a universal FCC prerequisite. Review AnyApp breadth explicitly.' },
       atk: { status: 'separate-execution-review-required', gaps: gaps.map(gap => gap.code) },
     } } : {}),
     request, endpoint: { url: descriptor.endpoint, descriptorDigest: descriptor.descriptorDigest },
     readiness: { status: 'blocked', gaps },
+    ...(settingsReview ? { settingsReview } : {}),
     registrationReference: { status: r.reference ? 'provided-unverified' : 'missing',
       ...(r.reference ?? {}) },
     providerPreparation: { provider: '@microsoft/m365agentstoolkit-cli', reviewedVersion: '1.1.17',
@@ -189,6 +199,7 @@ function createBundle(request, descriptor, producer, handoffVersion = 2) {
         'Copy the saved registration ID unchanged into registration.reference, and for SSO include its generated Application ID URI. Create a fresh output; do not overwrite historical preparation.',
         'A supplied reference is not proof that settings, consent, scopes, endpoint audiences or client allowances are correct. Review those independently.',
         ...(sso && handoffVersion === 2 ? ssoScopeInstructions : []),
+        ...(settingsReview ? settingsReview.instructions : []),
       ] },
     consumers: {
       fcc: { authentication, submission: 'manual-only', configurationVerified: false },
@@ -212,9 +223,10 @@ export async function readAuthRegistrationBundle(filename, descriptor) {
   const bundle = await readJson(filename);
   requireAuth(bundle?.schemaVersion === 1 && bundle.kind === 'mcp-auth-registration-preparation'
     && validProducer(bundle.producer), 'BUNDLE_INVALID', 'Unsupported authentication preparation or producer identity.');
-  requireAuth(bundle.handoffVersion === undefined || bundle.handoffVersion === 2,
+  requireAuth(bundle.handoffVersion === undefined || [2, 3].includes(bundle.handoffVersion),
     'BUNDLE_INVALID', 'Unsupported authentication handoff version.');
-  const expected = createBundle(bundle.request, descriptor, bundle.producer, bundle.handoffVersion ?? 1);
+  const expected = createBundle(bundle.request, descriptor, bundle.producer, bundle.handoffVersion ?? 1,
+    bundle.settingsReview?.attestation ?? null);
   requireAuth(digest(bundle) === digest(expected), 'BUNDLE_INVALID',
     'Authentication preparation content, source descriptor or integrity differs. Preserve historical files and prepare a new reviewed bundle.');
   return bundle;
@@ -235,9 +247,15 @@ export async function loadAuthRegistration(config) {
     input.registration.reference = imported.reference;
     sourceResult = { resultFile, contentDigest: imported.contentDigest };
   }
+  let settingsAttestation = null;
+  if (input.source.settingsAttestationFile !== undefined) {
+    const filename = await assertProjectPath(path.resolve(path.dirname(configFile), input.source.settingsAttestationFile));
+    settingsAttestation = await readJson(filename);
+    requireAuth(settingsAttestation !== null, 'INPUT', 'The selected settings attestation file must contain an explicit operator attestation.');
+  }
   const info = await getLibraryInfo();
   const bundle = createBundle({ tenantId: input.operator.tenantId, registration: input.registration }, descriptor,
-    { name: info.name, version: info.version, buildId: info.contentDigest });
+    { name: info.name, version: info.version, buildId: info.contentDigest }, 3, settingsAttestation);
   return { configFile, descriptorFile, input, descriptor, bundle, sourceResult };
 }
 async function prepare(options) {

@@ -9,6 +9,7 @@ import { planMcpDiscovery } from '../src/mcp-discovery.js';
 import { boundedSnapshot, metadataDigest, savedJson } from '../src/anonymous-metadata.js';
 import { planConsumerBundle, writeConsumerBundle, readConsumerBundle, consumerNextSteps } from '../src/mcp-consumer.js';
 import { guidedOnboarding, continueConsumerSelection } from '../src/guided-onboarding.js';
+import { planAuthRegistrationBundle, writeAuthRegistrationBundle } from '../src/mcp-auth-registration.js';
 
 const tenant = '11111111-1111-4111-8111-111111111111';
 const client = '22222222-2222-4222-8222-222222222222';
@@ -79,7 +80,8 @@ function prompt(consumer, stopAt) {
   return { output: { write: value => { output += value; } }, get text() { return output; },
     ask: async () => assert.fail('Prepared inputs need no path questions'),
     choose: async (question, choices) => {
-      const value = question.startsWith('What would') ? consumer : ++reviews === stopAt ? 'stop' : 'approve';
+      const value = question.startsWith('What would') ? consumer : question.startsWith('Portal settings')
+        ? 'draft' : ++reviews === stopAt ? 'stop' : 'approve';
       assert.ok(choices.some(choice => choice.value === value)); return value;
     } };
 }
@@ -88,6 +90,8 @@ for (const consumer of ['fcc', 'plugin']) test(`${consumer} writes safe private 
   const plan = await planConsumerBundle(f.options);
   assert.equal(plan.manifest.states.consumerTest, 'not-verified');
   assert.equal(plan.manifest.states.registration, 'reference-provided-settings-unverified');
+  assert.equal(plan.manifest.states.settings, 'pending');
+  assert.ok(plan.manifest.gaps.some(g => g.code === 'SSO_SETTINGS_PENDING'));
   const result = await writeConsumerBundle({ ...f.options, approval: plan.approvalToken });
   const manifest = await withCliWorkspace(f.root, () => readConsumerBundle(result.outputPath));
   assert.equal(manifest.contentDigest, result.contentDigest);
@@ -97,6 +101,7 @@ for (const consumer of ['fcc', 'plugin']) test(`${consumer} writes safe private 
   assert.doesNotMatch(html, /<script>never execute/);
   assert.match(html, /&lt;script&gt;never execute/);
   assert.ok(html.includes(reference.registrationId));
+  assert.match(html, /STOP before consumer rollout/);
   assert.ok(!savedJson(manifest).includes(user)); assert.ok(!html.includes('operator@example.com'));
   assert.ok(!html.includes('discoveryPlan'));
   if (consumer === 'plugin') {
@@ -113,6 +118,44 @@ for (const consumer of ['fcc', 'plugin']) test(`${consumer} writes safe private 
   await assert.rejects(writeConsumerBundle({ ...f.options, approval: plan.approvalToken }), { code: 'MCP_CONSUMER_OUTPUT_EXISTS' });
   await writeFile(result.entryFile, 'changed');
   await assert.rejects(withCliWorkspace(f.root, () => readConsumerBundle(result.outputPath)), { code: 'MCP_CONSUMER_INTEGRITY' });
+});
+test('operator-attested settings remain distinct in plugin HTML and app-binding mismatch still fails', async t => {
+  const f = await fixture(t);
+  const options = { workspaceRoot: f.root, config: path.join(f.root, 'registration.json'), output: path.join(f.root, 'authentication.json') };
+  const initial = await planAuthRegistrationBundle(options);
+  f.registration.source.settingsAttestationFile = 'attestation.json';
+  await writeFile(path.join(f.root, 'attestation.json'), savedJson({
+    schemaVersion: 1, kind: 'mcp-sso-settings-attestation', evidence: 'operator-attestation',
+    reviewedAt: '2026-01-02T03:04:05Z', settings: initial.bundle.settingsReview.expected,
+  }));
+  f.fcc.source.authenticationBundleFile = 'authentication.json';
+  f.consumer.consumer = 'plugin'; f.consumer.pluginAppId = appId;
+  await f.save();
+  const authPlan = await planAuthRegistrationBundle(options);
+  await writeAuthRegistrationBundle({ ...options, approval: authPlan.approvalToken });
+  const plan = await planConsumerBundle(f.options);
+  assert.equal(plan.manifest.states.settings, 'operator-attested');
+  assert.equal(plan.manifest.states.consumerTest, 'not-verified');
+  const result = await writeConsumerBundle({ ...f.options, approval: plan.approvalToken });
+  assert.match(await readFile(result.entryFile, 'utf8'), /Operator-attested only; no provider readback/);
+  f.consumer.pluginAppId = tenant; await f.save();
+  await assert.rejects(planConsumerBundle({ ...f.options, output: path.join(f.root, 'different') }), { code: 'MCP_CONSUMER_APP_RESTRICTION' });
+});
+test('settings checkpoint stops before packaging and resume can explicitly select only an unverified draft', async t => {
+  const f = await fixture(t, { fresh: true });
+  const p = prompt('plugin'), select = p.choose;
+  p.choose = (question, choices) => question.startsWith('Portal settings') ? 'stop' : select(question, choices);
+  const stopped = await guidedOnboarding(p, f.guided, { provider: f.provider });
+  assert.equal(stopped.status, 'onboarding-paused');
+  assert.match(stopped.reason, /scope and app-binding review is pending/);
+  assert.ok(!(await readdir(f.guided.output)).includes('handover'));
+  const receiptFile = path.join(f.root, 'auth-session', 'result.json');
+  const before = await readFile(receiptFile, 'utf8');
+  const resumed = await guidedOnboarding(prompt('plugin'), { workspaceRoot: f.root, project: f.guided.output }, { provider: f.provider });
+  assert.equal(resumed.states.settings, 'pending');
+  assert.equal(resumed.executionReadiness, false);
+  assert.equal(f.calls.filter(call => call === 'register').length, 1);
+  assert.equal(await readFile(receiptFile, 'utf8'), before);
 });
 test('missing authentication/capture blocks plugin manifest without fabricating fields', async t => {
   const f = await fixture(t, { fresh: true, capture: false }); f.consumer.consumer = 'plugin'; await f.save();

@@ -1,9 +1,19 @@
 # Session handoff
 
-Last updated: 2026-11-10. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-11. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Post-registration SSO checkpoint (#6):** handoff version 3 separates pending
+  portal settings from operator-attested settings. It binds the actual registered
+  URI/fully qualified scope, endpoint, resource, tenant and app restrictions.
+  FCC/plugin outputs surface the gate; terminal onboarding offers stop or an
+  explicitly unverified draft. Provider update/readback is not implemented.
+  Attestation is a separate private input, never inferred from creation; old
+  results and version-1/2 preparation digests remain intact. Consent, endpoint
+  compatibility and actual consumer acceptance still require separate review.
+  See [settings completion](auth-registration.md#post-registration-settings-completion).
 
 - **Support descriptions reconciled:** hosting/scenario matrices, CLI guidance
   and agent discovery guidance distinguish anonymous/API-key support on all four

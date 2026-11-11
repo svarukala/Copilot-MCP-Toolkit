@@ -49,9 +49,10 @@ export function consumerNextSteps(workspaceRoot) {
       preparation: ['mcp-onboard-schema', 'mcp-auth-registration-schema', 'mcp-auth-execution-schema', 'mcp-fcc-schema', 'mcp-consumer-schema'],
       registration: ['mcp-auth-execution-status', 'mcp-auth-execution-plan', 'mcp-auth-execute'],
       referenceExport: ['mcp-auth-registration-plan', 'mcp-auth-registration-bundle'],
+      settingsCompletion: 'Review settingsReview against the existing registration in Developer Portal. Import a separate operator attestation through source.settingsAttestationFile, or explicitly acknowledge an unverified local draft. The toolkit does not update/read back provider settings.',
       consumerExport: ['mcp-consumer-plan', 'mcp-consumer-bundle'],
       boundaries: 'Use existing guarded commands with their own exact approvals. Login requires a real terminal and current identity review. Do not use the terminal-only wizard in noninteractive tools, fabricate approvals, rebuild the MCP or replay discovery/proof.',
-      doneWhen: 'The actual compatible registration reference and Application ID URI are imported and the requested files exist, or the user explicitly stops, or a specific blocker is reported. Publication and consumer testing are separate.',
+      doneWhen: 'The actual compatible registration reference and Application ID URI are imported, the settings checkpoint is operator-attested or explicitly left pending for an unverified draft, and the requested files exist; or the user stops or a specific blocker is reported. Neither draft export nor attestation establishes consumer readiness.',
     },
     effects: 'Separate reviewed registration and local handover; no deployment or proof replay.',
   };
@@ -66,6 +67,7 @@ function render(report) {
   const b = report.onboarding, plugin = report.consumer === 'plugin';
   const title = plugin ? 'Microsoft 365 plugin starter' : 'Federated connector setup';
   const steps = plugin ? [
+    'Complete the post-registration settings checkpoint below before treating this draft as consumer-ready. Check the fully qualified portal Scope and intended consumer app binding independently; a missing scope is not a proven explanation for an app/configuration lookup 404.',
     'Review the real registration reference and generated Application ID URI below. Preserve its tenant and app restrictions; do not register it again.',
     'Complete the separately reviewed Entra identifier URI, consent redirect and token-store preauthorization changes. Verify endpoint audience and allowed-client configuration without replacing unrelated settings.',
     'Use WIQD to create the intended plugin project. Merge the supplied connector into its manifest, preserving unrelated capabilities and its actual app ID. This starter does not create a WIQD project.',
@@ -83,9 +85,19 @@ function render(report) {
 <section class="panel" id="summary" role="tabpanel" aria-labelledby="tab-summary">
 <section class="card"><h2>Separate completion states</h2><dl>
 <dt>Registration</dt><dd>${report.states.registration === 'missing' ? 'Reference not supplied' : 'Reference saved; settings unverified'}</dd>
+<dt>Portal settings</dt><dd>${report.states.settings === 'operator-attested' ? 'Operator-attested only; no provider readback' : 'Pending / unverified; draft only'}</dd>
 <dt>Endpoint setup</dt><dd>Separate configuration review required</dd>
+<dt>Consent</dt><dd>Not verified</dd>
+<dt>Consumer package validation</dt><dd>Not performed; export integrity is not package validation</dd>
 <dt>Handover</dt><dd>Draft generated; not published</dd>
 <dt>Consumer test</dt><dd>Not verified</dd></dl></section>
+<section class="card"><h2>Required post-registration settings checkpoint</h2>
+<p class="notice">${report.states.settings === 'operator-attested'
+    ? 'An operator reported matching settings. The toolkit has not read them back or verified consumer authentication.'
+    : 'STOP before consumer rollout: portal settings and app binding are unverified. These files are a local draft only.'}</p>
+${table(Object.entries(b.settingsReview.expected).map(([label, value]) => ({ label, value, status: value === null ? 'missing or not applicable' : 'expected; not provider-verified' })))}
+${b.settingsReview.attestation ? `<p>Operator-reported review time: ${escape(b.settingsReview.attestation.reviewedAt)}. This is not a current provider observation.</p>` : ''}
+<ol>${b.settingsReview.instructions.map(step => `<li>${escape(step)}</li>`).join('')}</ol></section>
 <section class="card"><h2>${plugin ? 'Connector configuration' : 'FCC form fields'}</h2>${table(b.manualSetup.formFields)}</section>
 <section class="card"><h2>Shared secretless Entra registration</h2>${table(b.manualSetup.authenticationRegistration.fields)}
 <p>The auth config / SSO registration ID is not the Entra resource client ID or Teams app ID. Keep its punctuation and padding unchanged. Reuse a compatible registration; never broaden restrictions automatically.</p></section>
@@ -150,7 +162,9 @@ async function prepare(options, { writing = false } = {}) {
   const report = boundedSnapshot({
     schemaVersion: 1, kind: 'mcp-consumer-handover', consumer: input.consumer, onboarding: b,
     states: { registration: reference ? 'reference-provided-settings-unverified' : 'missing',
+      settings: b.settingsReview.status,
       endpointConfiguration: 'requires-separate-review',
+      consent: 'not-verified', packageValidation: 'not-performed',
       draft: 'generated-not-published', consumerTest: 'not-verified' },
     gaps, downloads: [...Object.keys(files), 'consumer-manifest.json'],
     executionReadiness: false, proofReplayAuthorized: false,

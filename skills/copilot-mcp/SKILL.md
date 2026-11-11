@@ -477,6 +477,13 @@ Use this explicit continuation:
    export the shared authentication bundle and reference it from the private
    FCC input using `source.authenticationBundleFile`. Never invent a reference
    or combine an explicit reference with result-file import.
+   Show `settingsReview` before consumer export: check the fully qualified portal
+   scope, actual registered URI, endpoint, resource, tenant and app binding in the
+   existing Developer Portal registration. The toolkit does not update/read back
+   these settings. Import `source.settingsAttestationFile` only from an explicit
+   owner report; never turn generated expectations into attestation. Otherwise
+   obtain acknowledgment of an unverified local draft. Read
+   `docs/auth-registration.md#post-registration-settings-completion`.
 5. Review and run `mcp-consumer-plan/bundle` for the chosen consumer. For Plugin,
    verify `plugin/manifest.template.json`, its observed tool-description file,
    HTML and integrity manifest exist. Branding/legal/app metadata can have
@@ -485,6 +492,8 @@ Use this explicit continuation:
    blocker and next action. Do not describe a blocked draft with no plugin
    manifest as plugin creation. Packaging, publication, directory/endpoint
    updates and actual consumer calls are still separately reviewed.
+   Operator attestation is not provider verification, consent or consumer
+   acceptance; preserve original results and write later evidence separately.
 
 Reuse a supplied compatible registration and import a newly created receipt,
 including its Application ID URI. Preserve tenant/app restrictions and consumed
