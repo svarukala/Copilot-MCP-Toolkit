@@ -1,5 +1,13 @@
 import { toolSchemaIssues } from './mcp-tools.js';
 export function standaloneCapabilities() { return {
+toolAnnotations: {
+      nativeApim: { apiVersion: '2025-09-01-preview', configuration: 'not-exposed-by-reviewed-public-tool-contract',
+        generatedHints: false, unannotatedMappedProof: 'generated-native-project-only-guarded-exception' },
+      proxy: { metadata: 'preserved-as-observed', generatedResponseRewrite: false,
+        toolkitToolFiltering: false, liveAnnotationFidelityVerified: false },
+      exports: 'all-observed-tools-without-safety-inference', advisoryOnly: true,
+      consumerPromptBehaviorVerified: false, historicalEvidenceModified: false,
+    },
 consumerOnboarding: {
       contractVersion: 1, commands: ['mcp-onboard-schema', 'mcp-onboard',
         'mcp-consumer-schema', 'mcp-consumer-plan', 'mcp-consumer-bundle'],

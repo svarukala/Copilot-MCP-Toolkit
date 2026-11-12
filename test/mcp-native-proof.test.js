@@ -1500,6 +1500,38 @@ test('mapped API-key re-list drift and failed ARM reads stop before dispatch wit
   });
 });
 
+test('native annotations are not invented from GET mappings and explicit annotations cannot use the unannotated exception', async t => {
+  const f = await fixture(t, input => {
+    input.operationIds = ['getSampleRecord'];
+    Object.assign(input.document.paths['/posts/1'].get,
+      { operationId: 'getSampleRecord', description: 'Retrieve a public synthetic record.' });
+  });
+  const resources = JSON.parse(f.review.files['infra/gateway.json']).resources.filter(resource => resource.type.endsWith('/tools'));
+  assert.equal(resources.length, 1);
+  assert.equal(resources[0].apiVersion, '2025-09-01-preview');
+  assert.deepEqual(Object.keys(resources[0].properties).sort(), ['description', 'displayName', 'operationId']);
+  const before = JSON.stringify(f.selection.capture);
+  assert.equal(Object.hasOwn(f.tool, 'annotations'), false);
+  assert.equal((await planMcpProjectProof(f.dir, f.selection)).operation.nativeGetMapping.annotations, 'absent');
+  assert.equal(JSON.stringify(f.selection.capture), before);
+  for (const annotations of [{}, { title: 'Read only' }, { readOnlyHint: false },
+    { readOnlyHint: true, destructiveHint: true }]) {
+    replaceCaptureTools(f, { tools: [{ ...f.tool, annotations }] });
+    const annotated = JSON.stringify(f.selection.capture);
+    await assert.rejects(planMcpProjectProof(f.dir, f.selection), { code: 'READ_ONLY_REVIEW_REQUIRED' });
+    assert.equal(JSON.stringify(f.selection.capture), annotated);
+  }
+  replaceCaptureTools(f, { tools: [{ ...f.tool,
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } }] });
+  const annotated = JSON.stringify(f.selection.capture);
+  const plan = await planMcpProjectProof(f.dir, f.selection);
+  assert.equal(plan.operation.nativeGetMapping, undefined);
+  assert.equal(plan.operation.safetyReview.verified, false);
+  assert.equal(JSON.stringify(f.selection.capture), annotated);
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.dependencies.calls.includes('tools/call'), false);
+});
+
 test('unannotated native fixed GET uses exact full or relative ARM mapping, unchanged capture and real one-call protocol', async t => {
   for (const relative of [false, true]) await t.test(relative ? 'relative' : 'canonical full ID', async t => {
     const f = await fixture(t);

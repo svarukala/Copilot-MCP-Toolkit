@@ -176,6 +176,8 @@ test('gateway recipe binds independent audiences, exact policy targets and both 
   assert.equal(api.properties.type, 'http');
   const policy = api.resources.find(r => r.type === 'policies').properties.value;
   assert.equal((policy.match(/<base \/>/g) ?? []).length, 4);
+  assert.match(policy, /<outbound><base \/><\/outbound>/);
+  assert.doesNotMatch(policy, /context\.Response|readOnlyHint|destructiveHint|idempotentHint|openWorldHint/);
   assert.match(policy, /exists-action="override"/);
   assert.match(policy, /output-token-variable-name="copilotGatewayToken"/);
   assert.doesNotMatch(policy, /set-body|Response.Body|<retry|set-header name="Authorization"/);

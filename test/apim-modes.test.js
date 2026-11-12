@@ -36,7 +36,7 @@ import { planMcpServerProvision, provisionMcpServer, planMcpServerCapture, planM
 
 import { executeMcpProjectForTest, planMcpProjectDiscovery, planMcpProjectProof, planMcpProjectQualification } from '../src/mcp-discovery-project.js';
 
-import { discoverMcpToolsForTest, runMcpReadOnlyProofForTest, runMcpQualifiedProof, runMcpAcceptedProof } from '../src/mcp-discovery.js';
+import { discoverMcpToolsForTest, planMcpDiscovery, runMcpReadOnlyProofForTest, runMcpQualifiedProof, runMcpAcceptedProof } from '../src/mcp-discovery.js';
 
 import { firstCallProfileBinding, tavilyFirstCallProfile } from '../src/mcp-tavily-qualification.js';
 
@@ -62,6 +62,8 @@ import { planMcpEvidenceExport, exportMcpEvidence, planMcpEvidenceRestore, resto
 
 import { readMcpDiagnosis } from '../src/mcp-diagnosis.js';
 
+import { planConsumerBundle, writeConsumerBundle } from '../src/mcp-consumer.js';
+
 import { InspectionError } from '../src/inspection-budget.js';
 
 const passthrough = '<policies><inbound /><backend><forward-request /></backend><outbound /></policies>';
@@ -69,6 +71,100 @@ const passthrough = '<policies><inbound /><backend><forward-request /></backend>
 const principalId = '88888888-8888-4888-8888-888888888888';
 
 const list = value => ({ value: structuredClone(value) });
+
+for (const version of [1, 2, 3]) for (const encoding of ['json', 'sse']) {
+  test(`proxy v${version} preserves backend annotation metadata through ${encoding} discovery and consumer export (synthetic only)`, async t => {
+    await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
+    const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'proxy-annotations-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const input = JSON.parse(await readFile(path.join(TOOLKIT_ROOT, 'examples', 'mcp', 'upstream-key.json')));
+    input.schemaVersion = version;
+    if (version === 3) {
+      input.experimentalProfile = 'owned-backend-routing-v1';
+      input.backend.endpoint += '/';
+      Object.assign(input.azure, { resourceGroupMode: 'existing', keyVaultMode: 'existing' });
+    } else if (encoding === 'sse') {
+      delete input.backend.apiKey.headerName;
+      input.backend.apiKey.queryParameterName = 'api_key';
+    }
+    const review = await prepareMcpServer(input);
+    const template = JSON.parse(review.files['infra/gateway.json']);
+    assert.ok(!template.resources.some(resource => resource.type.endsWith('/tools')));
+    const policies = template.resources.filter(resource => resource.type.endsWith('/policies'));
+    assert.equal(policies.length, 1);
+    const policy = policies[0].properties.value;
+    assert.match(policy, /<outbound><base \/><\/outbound>/);
+    assert.doesNotMatch(policy, /context\.Response|set-body|readOnlyHint|destructiveHint|idempotentHint|openWorldHint/);
+    assert.match(policy, /validate-azure-ad-token/);
+    assert.ok(policy.includes(input.inbound.clientId) && policy.includes(input.inbound.tenantId));
+    assert.match(policy, /<claim name="scp"/);
+
+    const makeTool = (name, annotations) => ({ name,
+      description: 'Read-only wording is not a safety declaration.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+      ...(annotations === undefined ? {} : { annotations }) });
+    const backend = { tools: [
+      makeTool('all_false', { title: 'Explicit false hints', readOnlyHint: false,
+        destructiveHint: false, idempotentHint: false, openWorldHint: false }),
+      makeTool('all_true', { title: 'Explicit true hints', readOnlyHint: true,
+        destructiveHint: true, idempotentHint: true, openWorldHint: true }),
+      makeTool('no_annotations'), makeTool('empty_annotations', {}),
+      makeTool('reviewed_lookup', { title: 'Lookup', readOnlyHint: true, destructiveHint: false,
+        idempotentHint: true, openWorldHint: false }),
+    ] };
+    const original = JSON.stringify(backend);
+    const identity = { discoveryClientId: input.inbound.allowedClientIds[0],
+      expectedUserId: '77777777-7777-4777-8777-777777777777' };
+    const network = observationTransport(review.descriptor, identity, backend);
+    const transport = network.mcpTransport;
+    const cursors = [];
+    network.mcpTransport = async (url, options) => {
+      const message = JSON.parse(options.body);
+      if (message.method !== 'tools/list') return transport(url, options);
+      assert.equal(url, review.descriptor.endpoint);
+      assert.ok(options.headers.Authorization, 'Gateway discovery retains caller authentication.');
+      network.calls.push(message.method);
+      cursors.push(message.params?.cursor);
+      assert.ok(message.params?.cursor === undefined || message.params.cursor === 'next-page');
+      const result = message.params?.cursor === 'next-page'
+        ? { tools: backend.tools.slice(2) } : { tools: backend.tools.slice(0, 2), nextCursor: 'next-page' };
+      const envelope = JSON.stringify({ jsonrpc: '2.0', id: message.id, result });
+      return new Response(encoding === 'sse' ? `event: message\ndata: ${envelope}\n\n` : envelope,
+        { headers: { 'Content-Type': encoding === 'sse' ? 'text/event-stream' : 'application/json' } });
+    };
+    const capture = await discoverMcpToolsForTest(review.descriptor, { ...identity,
+      approval: planMcpDiscovery(review.descriptor, identity),
+      allowNetwork: true, onDeviceCode() {} }, network);
+    assert.deepEqual(cursors, [undefined, 'next-page']);
+    assert.deepEqual(capture.tools, backend);
+    assert.equal(JSON.stringify(backend), original);
+    assert.equal(network.calls.includes('tools/call'), false);
+    const captureText = JSON.stringify(capture);
+    await writeFile(path.join(root, 'capture.json'), captureText);
+    await writeFile(path.join(root, 'descriptor.json'), JSON.stringify(review.descriptor));
+    const fcc = { schemaVersion: 1, connector: { displayName: 'Synthetic annotation review', description: 'Metadata fidelity only' },
+      source: { descriptorFile: 'descriptor.json', captureFile: 'capture.json' },
+      authentication: { type: 'entra-sso', registrationId: '+synthetic/annotation==',
+        applicationIdUri: input.inbound.applicationIdUri },
+      review: { metadataApprovedForExport: true, dataAccess: 'public-data', dataAccessReason: 'Synthetic test metadata only',
+        tools: backend.tools.map(tool => ({ name: tool.name, readOnly: true, reason: 'Synthetic contradictory review tests blocking behavior' })) } };
+    await writeFile(path.join(root, 'fcc.json'), JSON.stringify(fcc));
+    for (const consumer of ['fcc', 'plugin']) {
+      const config = path.join(root, `${consumer}-input.json`);
+      await writeFile(config, JSON.stringify({ schemaVersion: 1, consumer, fccConfig: 'fcc.json' }));
+      const options = { workspaceRoot: root, config, output: path.join(root, consumer) };
+      const plan = await planConsumerBundle(options);
+      assert.deepEqual(plan.manifest.onboarding.tools, backend.tools);
+      assert.equal(plan.manifest.executionReadiness, false);
+      assert.ok(plan.manifest.gaps.some(gap => gap.code === 'TOOL_NOT_READ_ONLY'));
+      const result = await writeConsumerBundle({ ...options, approval: plan.approvalToken });
+      assert.deepEqual(JSON.parse(await readFile(path.join(result.outputPath, 'fcc-onboarding.json'))).tools, backend.tools);
+      if (consumer === 'plugin') assert.deepEqual(
+        JSON.parse(await readFile(path.join(result.outputPath, 'plugin', 'tools', 'mcp-tools.json'))), backend);
+    }
+    assert.equal(await readFile(path.join(root, 'capture.json'), 'utf8'), captureText);
+  });
+}
 
 function runner(cfg, application, options = {}) {
   const calls = [];

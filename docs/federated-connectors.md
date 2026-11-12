@@ -251,6 +251,56 @@ not a deployed correction or consumer-label qualification. Container Apps behind
 an APIM gateway is explicitly recipe 2 in the [hosting backlog](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes).
 The new recipe does not yet feed this module's descriptor/capture workflow.
 
+2026-11-12 contract recheck (#7): the current ARM reference above still resolves
+to `2025-09-01-preview`, and the public REST specification's
+`ToolContractProperties` still lists only `displayName`, `description` and
+`operationId`. Native annotation configuration remains unsupported by the
+reviewed public contract, not implemented behind a guessed property or policy.
+`copilot-mcp capabilities` reports this limitation separately from proxy preservation.
+The existing unannotated, project-bound mapped-GET exception is unchanged;
+even an empty annotation object cannot use it. Explicitly annotated tools must
+pass the existing ordinary read-only proof gates. These are bounded eligibility
+checks, not verification of side effects, and do not renew consumed attempts.
+
+### APIM proxy annotation fidelity
+
+The #8 offline regression covers generated proxy versions 1/2/3 (version 3
+remains experimental), header/query Key Vault references where supported,
+paginated JSON/SSE `tools/list`, observed captures, and both FCC and plugin
+exports. It compares all tool definitions, including annotation `title`,
+`readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint`, explicit
+true/false values, empty annotations and absent annotations. Contradictory hints
+remain in blocked drafts; neither wording nor operator review overwrites them.
+JSON key order/whitespace may be canonicalized; values and absence are preserved.
+
+Generated proxy outbound policies retain `<base />` without reading or rewriting
+response bodies. The SDK Container Apps + APIM HTTP gateway recipe has the same
+property, and existing SDK tests exercise its backend metadata. These tests do
+**not** emulate APIM's runtime, inherited policies or portal configuration.
+The toolkit currently has no tool-inventory filtering configuration; FCC
+requires every observed tool to be reviewed. The APIM portal's documented tool
+selection is a separate capability, not a toolkit-verified filter.
+
+Live fidelity remains unqualified. A separately approved qualification should
+compare a backend definition snapshot with a fresh gateway `tools/list` capture,
+checking tool names, complete annotation values and absent fields. If the owner
+selects tools in APIM, compare retained definitions unchanged and excluded names
+absent, without treating that as authorization enforcement. Inspect inherited
+policies/diagnostics and follow the current
+[proxy prerequisites](https://learn.microsoft.com/en-us/azure/api-management/expose-existing-mcp-server),
+including its documented MCP version requirement and response-body logging
+restrictions. Synthetic transport versions do not establish gateway compatibility.
+No `tools/call` is needed to compare metadata; any proof or consumer exercise
+needs its own approval and must honor prior consumption.
+
+The earlier recipe-2 backlog paragraph is historical: the
+[hosting recipes](hosting-recipes.md) now include the SDK Container Apps + APIM
+gateway and a separately generated endpoint reference for subsequent discovery.
+That is an available architectural alternative, not a newly qualified repair
+for an existing native endpoint. Native APIM, external MCP proxy and SDK HTTP
+gateway evidence must remain distinct. All annotations are advisory, not
+authorization, proof of safety or a guarantee of fewer consumer prompts.
+
 Proof and consumer outcomes are not imported or inferred. This module never
 reads or modifies the project's locks or proof journal. Consumed/unknown calls
 remain consumed even when the bundle or destination changes.

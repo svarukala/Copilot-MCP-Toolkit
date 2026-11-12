@@ -1,6 +1,6 @@
 # Progress and scenario tracker
 
-Last updated: 2026-11-11.
+Last updated: 2026-11-12.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
@@ -8,6 +8,28 @@ not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
 
 ## Completed engineering work
+
+### APIM annotation contract and metadata fidelity (#7, #8)
+
+Native public-contract review still finds no supported annotation setter in
+`2025-09-01-preview`; native rendering and guarded mapped-GET proof semantics
+remain unchanged. Capabilities now distinguish that limitation from preservation
+of observed proxy metadata. Regression coverage exercises proxy v1/v2/v3
+generated policies, paginated JSON/SSE discovery, all five annotation fields,
+explicit false/absence, and FCC/plugin exports including contradictory blocked
+drafts. The SDK APIM gateway retains its no-response-rewrite policy.
+
+This is offline toolkit coverage, not APIM runtime or consumer qualification.
+Neither issue is closed by synthetic transports: #7 still needs a supported
+native mechanism; #8 still needs a separately approved gateway capture comparison.
+No tool filtering, annotation overlay, live deployment, proof execution,
+consumer submission or historical evidence mutation was added. See
+[contract recheck and fidelity limits](federated-connectors.md#apim-proxy-annotation-fidelity).
+
+Verification: **12/12** focused offline checks passed for proxy metadata,
+native annotation eligibility, the existing unannotated single-call/no-replay
+path, and SDK gateway policy/signature handling. Public documentation/schema
+reads were separate from tests; no Azure/M365/provider operation was executed.
 
 ### Post-registration Entra SSO settings checkpoint (#6)
 
@@ -1392,6 +1414,8 @@ Local implementation approval is not approval for live identities or tenant roll
 | FCC6 | Fresh secured FCC onboarding handoff | One private local draft written and readback verified | Supplied developer fields, original SSO reference and one actual captured tool; manual-checkpoints-required, not execution-ready. Privacy/terms URLs resolve to placeholder pages; legal review, explicit audience, human submission and consumer verification remain |
 | FCC7 | Retrospective: draft gaps, legal declarations and reference reuse | Implemented/offline verified | Missing developer fields produce blocked drafts instead of preventing preparation; declared placeholder policies block submission; existing SSO/OAuth references produce reuse instructions. Summaries expose policy status/expiry; human-wait guidance avoids duplicate sign-ins and repeated blocker messages. No live artifacts or resources changed |
 | FCC8 | Read-only tool classification in the consumer | Read-only support review complete; remediation not implemented | Retained Learn tools declare readOnlyHint true; native APIM tool has no annotations. Pinned/latest documented native tool contract has only displayName, description and operationId; no supported annotation setter qualified. Renderer matches that contract; export preserves received hints. See [review and alternatives](federated-connectors.md#native-apim-annotations-and-consumer-classification); no live changes or calls |
+| FCC9 | APIM proxy annotation fidelity (#8) | Offline regression coverage; live qualification pending | Proxy v1/v2/v3 generation, paginated JSON/SSE capture and FCC/plugin export preserve complete hints, explicit false and absence. Generated outbound policies do not rewrite responses; inherited policies/APIM filtering/runtime and consumer behavior are not verified |
+| FCC10 | Native APIM annotation support (#7) | Public-contract recheck complete; native setter blocked | 2026-11-12 ARM reference and public REST schema still expose only displayName, description and operationId. Capabilities disclose the limitation; unannotated mapping/no-replay guards are retained. Empty/partial/unsafe hints cannot use the unannotated exception; no overlay or guessed ARM field |
 | AUTH1 | Opaque authentication registration IDs | Implemented/offline verified | `2ffcda8`: leading punctuation, Base64 characters and trailing padding preserved; 35 FCC tests plus packed test |
 | AUTH2 | Shared local SSO/custom OAuth preparation | Implemented/offline verified | Closed schema/plan/bundle, explicit restrictions, PKCE or versioned Key Vault reference; 38 auth tests plus 35 FCC tests, syntax/types; no provider execution |
 | AUTH3 | SSO registration execution adapter | Implemented; one private Linux/ATK SSO registration created | Public ATK 1.1.17 returned a strictly parsed created-unverified receipt after identity review; consumed reservation retained. Broader provider qualification, resource settings and FCC execution remain separate |
