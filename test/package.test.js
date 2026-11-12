@@ -501,7 +501,8 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
   assert.deepEqual(fccPlan.result.bundle.manualSetup.formFields.at(-1),
     { label: 'SSO registration ID', value: null, status: 'missing' });
   assert.deepEqual(fccPlan.result.bundle.readiness.gaps.map(gap => gap.code),
-    ['CAPTURE_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_AUDIENCE_MISSING']);
+    ['SSO_SETTINGS_PENDING', 'CAPTURE_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_AUDIENCE_MISSING']);
+  assert.match(fccPlan.stderr, /Settings: pending; provider readback: not performed/);
   invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', 'wrong'], [1]);
   assert.ok(!(await readdir(fccWorkspace)).includes('prepared.json'));
   const fccWritten = invoke(['mcp-fcc-bundle', ...fccArgs, '--approve', fccPlan.result.approvalToken]).result;

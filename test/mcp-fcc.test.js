@@ -61,7 +61,8 @@ async function fixture(t, { auth = 'anonymous', capture = true, tools = [tool], 
 test('FCC exports all observed tool schemas faithfully, without discovery identity or live authority', async t => {
   const f = await fixture(t, { auth: 'entra' });
   const plan = await planFccBundle(f.options);
-  assert.equal(plan.bundle.readiness.status, 'manual-checkpoints-required');
+  assert.equal(plan.bundle.readiness.status, 'blocked');
+  assert.ok(plan.bundle.readiness.gaps.some(gap => gap.code === 'SSO_SETTINGS_PENDING'));
   assert.deepEqual(plan.bundle.tools, [tool]);
   assert.equal(plan.bundle.evidence.discovery.status, 'valid');
   assert.equal(plan.bundle.evidence.proofReplayAuthorized, false);
@@ -191,7 +192,7 @@ test('FCC existing SSO and OAuth references never instruct duplicate registratio
     assert.match(registration.instruction, /do not create another registration/);
     assert.match(registration.instruction, /consumed registration attempts/);
     assert.equal(registration.status, 'manual-checkpoint');
-    assert.deepEqual(plan.bundle.checklist.slice(0, steps.length), steps);
+    assert.deepEqual(plan.bundle.checklist.filter(step => step.id !== 'sso-settings').slice(0, steps.length), steps);
     assert.equal(plan.bundle.authentication.registrationId, '+existing-reference==');
     delete f.config.authentication.registrationId; await f.save();
     const missing = await planFccBundle(f.options);
@@ -272,7 +273,7 @@ test('FCC-only SSO preparation needs no WIQD project or consumer app ID and reta
   assert.ok(restrictions.instruction.includes('not an FCC prerequisite'));
   assert.equal(setup.authenticationRegistration.fields.some(field => field.label === 'M365 app ID'), false);
   assert.deepEqual(plan.bundle.readiness.gaps.map(gap => gap.code).sort(),
-    ['CAPTURE_MISSING', 'SSO_AUDIENCE_MISSING', 'SSO_REGISTRATION_MISSING']);
+    ['CAPTURE_MISSING', 'SSO_AUDIENCE_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_SETTINGS_PENDING']);
   assert.deepEqual(plan.bundle.tools, []);
   assert.equal(plan.bundle.readiness.status, 'blocked');
   assert.deepEqual(setup.formFields.at(-1),
@@ -291,7 +292,7 @@ test('FCC reports SSO registration, audience and allowed-client gaps without cha
   const original = await readFile(path.join(f.root, 'descriptor.json'), 'utf8');
   const plan = await planFccBundle(f.options);
   assert.deepEqual(plan.bundle.readiness.gaps.map(g => g.code).sort(),
-    ['SSO_AUDIENCE_MISMATCH', 'SSO_CLIENT_MISSING', 'SSO_REGISTRATION_MISSING']);
+    ['SSO_AUDIENCE_MISMATCH', 'SSO_CLIENT_MISSING', 'SSO_REGISTRATION_MISSING', 'SSO_SETTINGS_PENDING']);
   assert.equal(await readFile(path.join(f.root, 'descriptor.json'), 'utf8'), original);
   delete f.config.authentication.applicationIdUri; await f.save();
   assert.ok((await planFccBundle(f.options)).bundle.readiness.gaps.some(g => g.code === 'SSO_AUDIENCE_MISSING'));
@@ -547,7 +548,7 @@ test('FCC concurrent writers do not overwrite and leave no staging files', async
 });
 
 test('FCC CLI keeps JSON parseable, provides exact stderr approval and rejects unrelated effect flags', async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { auth: 'entra' });
   const cli = path.join(TOOLKIT_ROOT, 'bin', 'copilot-mcp.js');
   const invoke = args => spawnSync(process.execPath, [cli, ...args, '--json'], { encoding: 'utf8', timeout: 30000 });
   assert.equal(JSON.parse(invoke(['mcp-fcc-schema']).stdout).properties.schemaVersion.const, 1);
@@ -557,6 +558,8 @@ test('FCC CLI keeps JSON parseable, provides exact stderr approval and rejects u
   const plan = JSON.parse(planned.stdout);
   assert.ok(planned.stderr.includes(plan.approvalToken));
   assert.match(planned.stderr, /Legal policies: not-reviewed/);
+  assert.match(planned.stderr, /Settings: pending; provider readback: not performed/);
+  assert.ok(planned.stderr.includes(`Portal scope: api://${resource}/access_as_user`));
   assert.ok(planned.stderr.includes(`expires: ${plan.bundle.evidence.discovery.expiresAt}`));
   assert.match(planned.stderr, /zero gaps is NOT execution readiness/);
   for (const extra of [['--allow-network'], ['--allow-cloud'], ['--interactive'], ['--project', f.root], ['--approve', 'bad']]) {

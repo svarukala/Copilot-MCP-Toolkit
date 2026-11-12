@@ -4,6 +4,13 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+Post-registration settings update (#6): the narrow shared-auth preparation now
+includes a mandatory review checkpoint with exact portal scope and app-binding
+expectations. Separate operator attestation can record completion, but no
+provider update/readback, automatic WIQD adapter or consumer readiness is added.
+The manual WIQD handoff surfaces pending/attested settings as remaining gates.
+This does not close H1/H3 or qualify the historical consumer packages.
+
 2026-11-10 consolidation: the tracker now preserves historical WeatherAPI
 standalone v1.29 WIQD package/provisioning and earlier v1.28 starter reports.
 They do not resolve the registration URI/resource or token-store allowed-client

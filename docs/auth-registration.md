@@ -45,20 +45,94 @@ preparation format, create an app, or require a later portal restriction change.
 
 ## Local workflow
 
-New preparations include `handoffVersion: 2`: route-specific guidance and a
+New preparations include `handoffVersion: 3`: a distinct post-registration
+`settingsReview` checkpoint in addition to route-specific guidance and a
 **Portal OAuth scope (fully qualified)** field shared with FCC preparation.
 For a short permission `access_as_user`, use the supplied registered Application
 ID URI followed by `/access_as_user` in the portal. Keep the runtime's short
 `scp` check unchanged. The registration reference URI takes precedence over
-the descriptor URI, but neither is independently verified by local preparation.
-Missing or malformed values are not guessed. Previously written version-1
-preparations still verify against their original rendering and digest.
+the descriptor URI; a missing registration URI now leaves the portal field
+missing rather than substituting the descriptor URI. Neither is independently
+verified by local preparation. Missing or malformed values are not guessed.
+Previously written version-1 and version-2 preparations still verify against
+their original rendering and digest.
 
 If `AADSTS650053` says the custom permission was requested on Microsoft Graph,
 check the portal Scope resource first. A scope-only correction does not require
 Graph permissions, another app, an image rebuild or another provider proof.
 Other `invalid_client` errors require their own diagnosis. Never provide tokens,
 authorization codes, secrets or a full callback URL for troubleshooting.
+
+### Post-registration settings completion
+
+ATK creation can return a reference while the portal Scope is incomplete.
+The reviewed MicrosoftEntra creation action omits scopes; another creation
+`scope` argument is not a fix. The toolkit has no supported settings update or
+readback adapter. Use the existing registration in Teams Developer Portal,
+with separate approval for any changes. Do not register again, change app/tenant
+restrictions or replay a consumed creation attempt.
+
+The plan's `settingsReview.expected` lists the exact reference, actual registered
+Application ID URI, fully qualified portal scope, endpoint/base URL, resource
+client ID, tenant, target audience, applicable apps and app ID. Permission casing
+is preserved: `Weather.Read` in a runtime `scp` claim is different from the portal
+scope `api://auth-synthetic/22222222-2222-4222-8222-222222222222/Weather.Read`.
+When importing `source.registrationResultFile`, the actual result URI takes
+precedence over the descriptor URI; a different endpoint audience remains its
+own configuration gate.
+
+Settings remain `pending` until an owner explicitly reports a matching review.
+To record that report, create a **new private** attestation file. Its schema is
+available at `$defs.settingsAttestation` in `mcp-auth-registration-schema`.
+This synthetic example is a shape, not evidence to copy or submit:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "mcp-sso-settings-attestation",
+  "evidence": "operator-attestation",
+  "reviewedAt": "2026-01-02T03:04:05Z",
+  "settings": {
+    "registrationId": "+synthetic/reference==",
+    "applicationIdUri": "api://auth-synthetic/22222222-2222-4222-8222-222222222222",
+    "portalScope": "api://auth-synthetic/22222222-2222-4222-8222-222222222222/Weather.Read",
+    "endpoint": "https://synthetic.example.com/mcp",
+    "resourceClientId": "22222222-2222-4222-8222-222222222222",
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "targetAudience": "HomeTenant",
+    "applicableToApps": "SpecificApp",
+    "appId": "33333333-3333-4333-8333-333333333333"
+  }
+}
+```
+
+In a new copy of the registration config, add
+`source.settingsAttestationFile: "settings-attestation.json"` alongside the
+descriptor and either the original result file or the existing explicit
+reference. Paths are relative to that config. Review `mcp-auth-registration-plan`
+and write a **new** bundle using its exact approval. Missing/contradictory fields,
+short scopes, changed casing or restrictions fail explicitly. `appId: null` is
+allowed only when the expected AnyApp registration has no app binding. Do not
+infer attestation from generated expected values or an earlier creation approval.
+
+The new bundle reports `operator-attested`, **not provider-verified**:
+`providerReadback` remains `not-performed`. Attestation timestamps describe
+operator-reported history, not current platform validity. Changing the evidence
+invalidates the export approval. Original registration results and earlier
+preparations are never rewritten: `created-unverified`, `provided-unverified`
+and `evidence.settings: "not-verified"` retain their original meaning.
+
+FCC, consumer HTML/JSON and the manual WIQD handoff surface this checkpoint.
+Without an attestation, local drafts remain possible but explicitly unverified.
+The terminal wizard offers stop or draft-only export, never a consumer-ready
+success. To add evidence after pausing, preserve that session and use explicit
+plan/bundle commands with new inputs/outputs; changing its saved inputs is rejected.
+Consent, endpoint compatibility, static package validation and actual consumer
+acceptance remain separate even after attestation. An app/auth-configuration
+lookup 404 (`M365AppNotFoundError`) is a separate finding from an incomplete
+Scope; no causal connection or successful post-correction consumer test is implied.
+
+### Prepare and export
 
 Use an existing private workspace containing a toolkit-generated or referenced
 `server/mcp-server.json` descriptor. No installed-code directory, credentials,

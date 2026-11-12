@@ -72,7 +72,10 @@ async function loadInput(configFile) {
   const { contentDigest: derivedFccDigest, ...sourceBinding } = fcc.binding;
   const binding = { configFile, inputDigest: digest(input), fcc: sourceBinding,
     registrationConfig, registration: digest({ input: registration.input, descriptor: registration.descriptor,
-      sourceResult: registration.sourceResult }), executionDigest: execution ? digest(execution) : null };
+      sourceResult: registration.sourceResult,
+      ...(registration.input.source.settingsAttestationFile
+        ? { settingsAttestation: registration.bundle.settingsReview.attestation } : {}) }),
+    executionDigest: execution ? digest(execution) : null };
   return { input, fccConfig, fcc, registrationConfig, registration, authExecutionConfig, authProject, binding };
 }
 function paused(project, reason, extra = {}) {
@@ -145,6 +148,8 @@ async function continueOnboarding(p, options, session, dependencies) {
   const authentication = await readAuthRegistrationBundle(authBundleFile, current.registration.descriptor);
   ensure(digest(authentication.request.registration) === digest(current.registration.input.registration),
     'REFERENCE', 'The saved authentication bundle does not match the selected registration.');
+  ensure(digest(authentication.settingsReview?.attestation ?? null) === digest(current.registration.bundle.settingsReview?.attestation ?? null),
+    'CHANGED', 'Settings attestation differs from the saved preparation. Preserve it and export a new preparation through explicit reviewed commands.');
   const fccInput = await readControl(current.fccConfig);
   fccInput.source = { descriptorFile: current.fcc.binding.descriptorFile,
     ...(current.fcc.binding.captureFile ? { captureFile: current.fcc.binding.captureFile } : {}),
@@ -156,6 +161,15 @@ async function continueOnboarding(p, options, session, dependencies) {
     ...(session.consumer === 'plugin' && current.input.pluginAppId ? { pluginAppId: current.input.pluginAppId } : {}) });
   const operation = { workspaceRoot: options.workspaceRoot, config: consumerFile, output: path.join(project, 'handover') };
   const plan = await planConsumerBundle(operation);
+  if (plan.manifest.states.settings === 'pending') {
+    p.output.write(`\nRequired post-registration settings checkpoint:\n${savedJson(plan.manifest.onboarding.settingsReview)}\n`);
+    const choice = await p.choose('Portal settings are unverified. How should onboarding continue?', [
+      { value: 'stop', label: 'Stop for the existing-registration settings review (no new registration)' },
+      { value: 'draft', label: 'Export an explicitly unverified local draft only; not consumer-ready' },
+    ]);
+    if (choice !== 'draft' || p.signal?.aborted) return paused(project,
+      'Portal scope and app-binding review is pending. Reuse this registration; record any later attestation in a separate file and export a new preparation. No consumer readiness or retry is authorized.');
+  }
   if (!await approve(p, plan)) return paused(project, 'Stopped before local consumer export.');
   const result = await writeConsumerBundle({ ...operation, approval: plan.approvalToken });
   await writeControl(completedFile, result, { create: true });

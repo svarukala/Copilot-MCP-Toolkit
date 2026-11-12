@@ -153,6 +153,7 @@
     "src/mcp-resume.js",
     "src/mcp-server.js",
     "src/mcp-sso-scope.js",
+    "src/mcp-sso-settings.js",
     "src/mcp-status.js",
     "src/mcp-tavily-qualification.js",
     "src/mcp-terminal-handoff.js",

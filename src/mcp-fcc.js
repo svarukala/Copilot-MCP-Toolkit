@@ -11,6 +11,7 @@ import { RESTRICTED_DISCOVERY_CLIENT_ID } from './contract.js';
 import { readAuthRegistrationBundle, registrationIdSchema, validApplicationIdUri } from './mcp-auth-registration.js';
 import { writeNewJsonBundle } from './mcp-bundle-write.js';
 import { portalSsoScope, ssoScopeInstructions } from './mcp-sso-scope.js';
+import { ssoSettingsReview } from './mcp-sso-settings.js';
 
 export const fccTokenStoreClientId = RESTRICTED_DISCOVERY_CLIENT_ID;
 const maximumBytes = 1048576;
@@ -165,7 +166,7 @@ function manualSetup(input, descriptor) {
         field('Tenant ID', descriptor.inbound.tenantId),
         field('Resource application client ID', descriptor.inbound.clientId),
         field('API permission name (runtime scp)', descriptor.inbound.scope),
-        portalSsoScope(auth.applicationIdUri ?? descriptor.inbound.applicationIdUri, descriptor.inbound.scope),
+        portalSsoScope(auth.applicationIdUri, descriptor.inbound.scope),
         field('Endpoint Application ID URI', descriptor.inbound.applicationIdUri),
         field('Registration Application ID URI', auth.applicationIdUri),
         field('Web consent redirect URI', 'https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect'),
@@ -184,7 +185,7 @@ function manualSetup(input, descriptor) {
       'Missing developer fields and declared placeholder policies block submission, not local draft writing. Never invent developer names or legal URLs to fill gaps. Finalize policies before submission; this offline planner does not fetch or verify pages.',
       'A registration reference is caller-supplied, not verified by this bundle. Do not substitute an app/client ID, invent an ID or include credentials.',
       'After registration or metadata changes, update the private input and review a new plan/output. Never overwrite historical bundles or reuse their approvals.',
-      ...(isSso ? ssoScopeInstructions : []),
+      ...(isSso ? ssoScopeInstructions.filter((_, index) => index !== 1) : []),
     ],
   };
 }
@@ -223,6 +224,16 @@ export async function prepareFccInput(config) {
     'OAuth onboarding is form/reference-only. OAuth discovery and capture import are not supported; do not substitute an anonymous capture.');
   const gaps = [];
   const gap = (code, message) => gaps.push({ code, message });
+  const settingsReview = input.authentication.type === 'entra-sso'
+    ? authenticationBundle?.settingsReview ?? ssoSettingsReview(descriptor, {
+      ...authenticationBundle?.request.registration,
+      reference: { registrationId: input.authentication.registrationId,
+        applicationIdUri: input.authentication.applicationIdUri },
+    }) : null;
+  if (settingsReview) gap(settingsReview.status === 'pending' ? 'SSO_SETTINGS_PENDING' : 'SSO_SETTINGS_OPERATOR_ATTESTED',
+    settingsReview.status === 'pending'
+      ? 'Post-registration scope, endpoint, tenant and app-binding settings are pending. Review the existing registration in Developer Portal; this export is an unverified draft, not consumer-ready.'
+      : 'Settings are operator-attested, not independently read back. Consent and actual consumer authentication remain unverified.');
   for (const key of ['name', 'websiteUrl', 'privacyPolicyUrl', 'termsOfUseUrl']) {
     if (input.connector.developer?.[key] === undefined) {
       gap('DEVELOPER_METADATA_MISSING', `Supply connector.developer.${key} from an owner-approved source; do not invent a value.`);
@@ -282,6 +293,7 @@ export async function prepareFccInput(config) {
         endpointApplicationIdUri: descriptor.inbound.applicationIdUri, scope: descriptor.inbound.scope,
         tokenStoreClientId: fccTokenStoreClientId },
     } : {}) },
+    ...(settingsReview ? { settingsReview } : {}),
     manualSetup: { ...manualSetup(input, descriptor), ...(authenticationBundle ? {
       sharedRegistration: { contentDigest: authenticationBundle.contentDigest,
         referenceStatus: authenticationBundle.registrationReference.status,
@@ -298,7 +310,9 @@ export async function prepareFccInput(config) {
       submission: gaps.length ? 'blocked' : 'manual-checkpoints-required',
       rollout: 'separate-explicit-review-required',
     },
-    checklist: [...authenticationChecklist(input.authentication), ...checklist],
+    checklist: [...(settingsReview ? [{ id: 'sso-settings', status: settingsReview.status,
+      instruction: settingsReview.instructions.join(' ') }] : []),
+    ...authenticationChecklist(input.authentication), ...checklist],
     references: {
       setup: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/connectors/set-up-custom-federated-connectors',
       sso: 'https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/plugin-authentication-entra-sso',
