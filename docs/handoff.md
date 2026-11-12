@@ -1,9 +1,19 @@
 # Session handoff
 
-Last updated: 2026-11-11. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-12. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Annotation follow-up (#7/#8):** offline proxy policy/discovery/export coverage
+  now checks all hints, explicit false and absence through JSON/SSE pagination
+  into FCC/plugin drafts. This is not a real APIM fidelity claim. The current
+  documented native tool contract still has no annotation setter; capabilities
+  state that limitation without changing mapped-proof/no-replay guards.
+  Live gateway comparison and consumer behavior remain unverified; seek a
+  supported native API before implementing native hints. No cloud or consumer
+  operation is authorized by these notes. See
+  [annotation limits](federated-connectors.md#apim-proxy-annotation-fidelity).
 
 - **Post-registration SSO checkpoint (#6):** handoff version 3 separates pending
   portal settings from operator-attested settings. It binds the actual registered

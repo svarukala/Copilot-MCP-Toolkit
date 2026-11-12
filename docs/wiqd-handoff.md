@@ -4,6 +4,14 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+Annotation follow-up (#7/#8): observed proxy tool annotations, including explicit
+false values and absence, are retained in FCC and plugin metadata under offline
+regression coverage. Native APIM's reviewed public contract still has no
+annotation setter. Do not infer hints from GET, rewrite historical tool files,
+or advertise WIQD/consumer read-only classification as verified. Actual gateway
+fidelity and consumer behavior remain separate qualification gates; this adds
+no automated WIQD handoff.
+
 Post-registration settings update (#6): the narrow shared-auth preparation now
 includes a mandatory review checkpoint with exact portal scope and app-binding
 expectations. Separate operator attestation can record completion, but no
