@@ -54,6 +54,10 @@ test('CLI welcome never appears in noninteractive, help, version or JSON output'
     assert.doesNotMatch(result.stdout + result.stderr, /Welcome to Copilot MCP Toolkit|REST APIs -> MCP tools/);
     if (args[0] === '--help' && !args.includes('--json')) {
       assert.match(result.stdout, /Choose your next task/);
+      assert.match(result.stdout, /Recommended path:/);
+      assert.match(result.stdout, /Entra for MCP callers; anonymous or Key Vault API-key REST backend/);
+      assert.match(result.stdout, /Scanning stays off by default/);
+      assert.match(result.stdout, /consumer acceptance remain separate gates/);
       for (const command of ['mcp-provision-plan/provision', 'mcp-execution-schema/plan',
         'mcp-validation-schema/plan/start/next', 'mcp-session-plan/session',
         'mcp-handover-schema/plan/bundle', 'mcp-onboard-schema', 'mcp-consumer-schema/plan/bundle']) {

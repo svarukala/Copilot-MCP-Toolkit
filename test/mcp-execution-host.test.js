@@ -94,12 +94,14 @@ test('new host plans default to no scanner but retain image binding, smoke, push
       if (explicit) f.config.scanGate = false;
       else delete f.config.scanGate;
       delete f.config.scannerImage;
+      f.config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
       await f.save();
       f.findings.push({ Severity: 'CRITICAL' }, { Severity: 'UNKNOWN' });
       const { plan, result } = await execute(f);
       assert.equal(result.status, 'passed', JSON.stringify(result));
       assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
-      assert.deepEqual(plan.scope.scanPolicy, { enabled: false });
+      assert.deepEqual(plan.scope.scanPolicy, { enabled: false,
+        unscannedRiskAcknowledgement: 'unscanned-deployment-risk-v1' });
       assert.equal(plan.scope.config.scanGate, false);
       assert.equal(plan.scope.downloads.scannerImage, undefined);
       assert.equal(plan.scope.downloads.database, undefined);
@@ -113,6 +115,7 @@ test('new host plans default to no scanner but retain image binding, smoke, push
       assert.equal(scan.value.critical, undefined);
       const review = JSON.parse(await readFile(result.imageReviewFile));
       assert.equal(review.input.schemaVersion, 2);
+      assert.equal(review.input.unscannedRiskAcknowledgement, f.config.unscannedRiskAcknowledgement);
       assert.equal(review.result.status, 'passed-image-review-without-vulnerability-scan');
       assert.deepEqual(review.result.scan, { image: result.containerImage, status: 'not-run' });
       const releaseConfig = path.join(f.root, 'release.json');
@@ -130,9 +133,17 @@ test('scan opt-in needs a scanner pin and changes the reviewed approval', async 
   const strict = await planHostExecution(f.options);
   delete f.config.scanGate;
   await f.save();
+  await assert.rejects(planHostExecution(f.options), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+  f.config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
+  await f.save();
   const disabled = await planHostExecution(f.options);
   assert.notEqual(strict.approvalToken, disabled.approvalToken);
   assert.equal(disabled.scope.downloads.scannerImage, undefined);
+  f.config.unscannedRiskAcknowledgement = 'yes';
+  await f.save();
+  await assert.rejects(planHostExecution(f.options));
+  f.config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
+  await f.save();
   const count = f.calls.length;
   await assert.rejects(runHostExecution({ ...f.options, ...flags, approval: strict.approvalToken }, f.dependencies));
   assert.equal(f.calls.length, count);
@@ -149,6 +160,8 @@ test('historical host descriptions with no scan flag remain strict and byte-comp
   delete f.config.scanGate;
   assert.deepEqual(describeHostExecution(source, f.config, { historical: true }), strict);
   assert.deepEqual(describeHostExecution(source, f.config).scanPolicy, { enabled: false });
+  f.config.scanGate = false;
+  assert.deepEqual(describeHostExecution(source, f.config, { historical: true }).scanPolicy, { enabled: false });
 });
 
 test('disabling scanning does not skip image export integrity or nonroot smoke failures', async t => {
@@ -156,6 +169,7 @@ test('disabling scanning does not skip image export integrity or nonroot smoke f
     const f = await fixture(t), docker = f.dependencies.dockerRequest;
     delete f.config.scanGate;
     delete f.config.scannerImage;
+    f.config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
     await f.save();
     f.dependencies.dockerRequest = async (...args) => {
       if (failure === 'integrity' && args[1].endsWith('/get')) return response(Buffer.from('invalid archive'));

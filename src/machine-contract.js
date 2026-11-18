@@ -28,11 +28,19 @@ export async function getLibraryInfo({ signal } = {}) {
   }
   const hash = createHash('sha256');
   let pkg;
-  for (const file of [...inventory.files, 'library-assets.json'].sort()) {
+  const files = [...inventory.files, 'library-assets.json'].sort();
+  for (let offset = 0; offset < files.length; offset += 4) {
     if (signal?.aborted) throw Object.assign(new Error('Build inspection aborted.'), { code: 'ABORTED' });
-    const bytes = file === 'library-assets.json' ? inventoryBytes : await readAsset(file);
-    if (file === 'package.json') pkg = JSON.parse(bytes);
-    hash.update(`${file}\0${bytes.length}\0`); hash.update(bytes);
+    const batch = files.slice(offset, offset + 4);
+    // Keep every path/byte check fresh; settle bounded reads before returning an error.
+    const assets = await Promise.allSettled(batch.map(file =>
+      file === 'library-assets.json' ? inventoryBytes : readAsset(file)));
+    for (const [index, result] of assets.entries()) {
+      if (result.status === 'rejected') throw result.reason;
+      const file = batch[index], bytes = result.value;
+      if (file === 'package.json') pkg = JSON.parse(bytes);
+      hash.update(`${file}\0${bytes.length}\0`); hash.update(bytes);
+    }
   }
   return { name: pkg.name, version: pkg.version, libraryContractVersion: 1, mcpServerContractVersion: 1,
     experimental: true, contentDigest: `sha256:${hash.digest('hex')}`, files: inventory.files };

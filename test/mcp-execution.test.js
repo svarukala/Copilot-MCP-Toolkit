@@ -352,6 +352,12 @@ for (const gateway of [false, true]) for (const key of [false, true]) {
     const f = await setup(t, `container-apps-${gateway ? 'apim' : 'direct'}${key ? '-api-key' : ''}`,
       gateway ? 'container-apps-apim-create-v2' : 'container-apps-create-v2');
     f.input.host.scanGate = gateway;
+    if (!gateway && !key) {
+      delete f.input.host.unscannedRiskAcknowledgement;
+      await f.rewrite();
+      await assert.rejects(planExecution(f.options), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+      f.input.host.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
+    }
     if (gateway) f.input.host.scannerImage = syntheticHostScannerImage;
     else delete f.input.host.scannerImage;
     f.input.limits.maximumAzureCommands = 200;

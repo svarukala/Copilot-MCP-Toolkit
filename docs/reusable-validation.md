@@ -189,6 +189,9 @@ New runs default `host.scanGate` to false: no scanner/database downloads or
 SBOM generation, and evidence explicitly records `not-run`. To opt in, set
 `host.scanGate: true` with a pinned `host.scannerImage`. Image integrity,
 nonroot smoke and all identity/deployment/proof protections remain mandatory.
+When off, new grants require
+`host.unscannedRiskAcknowledgement: "unscanned-deployment-risk-v1"`; the default
+does not supply this acknowledgement or silently enable a scanner.
 See [optional image scanning](../README.md#optional-image-scanning).
 The existing recipe must admit at least four MCP POSTs per minute and
 `minimumProofDelayMs` must be 65000. The wait covers the aggregate initialization,

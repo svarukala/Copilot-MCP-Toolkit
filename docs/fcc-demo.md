@@ -138,7 +138,7 @@ their separate reviews. Tenant-wide rollout is never an implicit default.
 
 The 2026-10-15 pilot reached admin registration and enabled rollout after actual
 tool discovery and private bundle writing; consumer execution is tracked
-separately in [the progress tracker](progress-tracker.md). During registration:
+separately in [the repository progress tracker](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/progress-tracker.md). During registration:
 
 - The admin form rejected a reserved brand word in the display name. Use an
   organization/data-source-specific name and replan the bundle to a new output

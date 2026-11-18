@@ -10,6 +10,7 @@ import { writeNewJsonBundle } from './mcp-bundle-write.js';
 import { imageReviewSchema, reviewImage } from './mcp-image-review.js';
 import { updateSchemas, reviewUpdate } from './mcp-update-review.js';
 import { lifecycleSchemas, reviewLifecycle } from './mcp-lifecycle-review.js';
+import { requireUnscannedRisk } from './mcp-scan-policy.js';
 
 export const recipeReviewSchema = { oneOf: [imageReviewSchema, ...updateSchemas, ...lifecycleSchemas] };
 const digest = value => metadataDigest(boundedSnapshot(value));
@@ -28,6 +29,7 @@ async function prepare(options) {
   const project = await readRecipeProject(options.project);
   const input = await readControl(path.resolve(options.config));
   const result = review(project, input);
+  if (input.kind === 'image-qualification' && input.schemaVersion === 2) requireUnscannedRisk(input);
   const outputPath = await assertProjectPath(path.resolve(options.output));
   requireReview(path.extname(outputPath).toLowerCase() === '.json' && (await lstat(path.dirname(outputPath))).isDirectory(),
     'OUTPUT', 'Select a new .json file in an existing private directory.');

@@ -30,6 +30,9 @@ behavior or authorize cloud execution.
   scanner reports may be substituted; the record expires after 24 hours.
   The new deployment inherits that policy and cannot switch an enabled parent
   to disabled. Historical parents without a scan flag remain strict.
+  New deployment configs for an unscanned parent require
+  `unscannedRiskAcknowledgement: "unscanned-deployment-risk-v1"`.
+  This separate acknowledgement neither edits nor reauthorizes the parent.
   Missing, modified, incomplete or stale evidence blocks.
 - Historical source is read without regeneration or resealing. Its deployment
   template and runtime configuration must match the **current trusted compiler**.

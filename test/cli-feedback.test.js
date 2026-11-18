@@ -4,6 +4,24 @@ import assert from 'node:assert/strict';
 
 import { withCliFeedback, configureCliFeedback, cliStage, cliInspectionStep, cliPlanSummary } from '../src/cli-feedback.js';
 
+test('unscanned review reports the bound acknowledgement only on stderr without modifying evidence', async t => {
+  const stderr = [], stdout = [];
+  t.mock.method(process.stderr, 'write', value => { stderr.push(String(value)); return true; });
+  t.mock.method(process.stdout, 'write', value => { stdout.push(String(value)); return true; });
+  const plan = { bundle: { result: { policy: { scanGate: false,
+    unscannedRiskAcknowledgement: 'unscanned-deployment-risk-v1' } } } };
+  const before = JSON.stringify(plan);
+  await withCliFeedback(async () => {
+    configureCliFeedback('mcp-recipe-review-plan', { summary: true });
+    cliPlanSummary(plan);
+    return 0;
+  });
+  assert.deepEqual(stdout, []);
+  assert.equal(JSON.stringify(plan), before);
+  assert.match(stderr.join(''), /not-run, not clean/);
+  assert.match(stderr.join(''), /Acknowledgement: unscanned-deployment-risk-v1/);
+});
+
 test('public generation summary puts exposure and aggregate rate limits on stderr without changing the plan', async t => {
   const output = [];
   t.mock.method(process.stderr, 'write', value => { output.push(value); return true; });

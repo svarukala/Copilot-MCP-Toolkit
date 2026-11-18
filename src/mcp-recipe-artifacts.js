@@ -8,6 +8,7 @@ import { boundedSnapshot, metadataDigest, savedJson } from './anonymous-metadata
 import { prepareMcpServer, createMcpServerProject } from './mcp-server.js';
 import { secretIssues } from './validation.js';
 import { resolveNpmRegistryUrl } from './npm-registry.js';
+import { requireUnscannedRisk, unscannedRiskBinding } from './mcp-scan-policy.js';
 
 const digest = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 function requireArtifact(ok, message) {
@@ -77,7 +78,8 @@ async function prepareRelease(options) {
   const gateway = project.input.recipe === 'container-apps-apim-v1';
   requireArtifact(onlyKeys(config, functions ? ['schemaVersion', 'accountName', 'sourceArchiveSha256']
     : ['schemaVersion', 'accountName', 'containerImage', ...(gateway ? ['backendOrigin'] : []),
-      ...(Object.hasOwn(config, 'imageReviewFile') ? ['imageReviewFile'] : [])])
+      ...(Object.hasOwn(config, 'imageReviewFile') ? ['imageReviewFile'] : []),
+      ...(Object.hasOwn(config, 'unscannedRiskAcknowledgement') ? ['unscannedRiskAcknowledgement'] : [])])
     && config.schemaVersion === 1 && typeof config.accountName === 'string'
     && /^[A-Za-z0-9][A-Za-z0-9_.+@-]{0,253}$/.test(config.accountName)
     && !secretIssues(savedJson(config)), 'Release input requires an explicit nonsecret account and immutable artifact reference.');
@@ -94,6 +96,8 @@ async function prepareRelease(options) {
     imageQualification = await readImageReview(
       path.resolve(path.dirname(path.resolve(options.config)), config.imageReviewFile), project, config.containerImage);
   }
+  requireUnscannedRisk({ ...unscannedRiskBinding(imageQualification?.policy ?? {}),
+    ...unscannedRiskBinding(config) }, imageQualification?.policy.scanGate !== false);
   if (gateway) {
     const origin = new URL(config.backendOrigin);
     requireArtifact(origin.protocol === 'https:' && origin.origin === config.backendOrigin && !origin.port
@@ -117,6 +121,7 @@ async function prepareRelease(options) {
     artifact: functions ? { sourceArchiveSha256: config.sourceArchiveSha256 }
       : { image: config.containerImage, imageSourceCorrespondence: 'operator-asserted-not-verified' },
     ...(imageQualification ? { imageQualification } : {}),
+    ...unscannedRiskBinding(config),
     templateHashes: Object.fromEntries(templates.map(([name, bytes]) => [name, digest(bytes)])),
     parameters, execution: 'operator-reviewed-not-executed', readiness: 'requires-live-prerequisite-review',
     checkpoints: [

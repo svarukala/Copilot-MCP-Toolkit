@@ -7,6 +7,7 @@ import { compileHostingRecipe, planHostingRecipe, writeHostingRecipe } from '../
 import { planRecipeRelease } from '../src/mcp-recipe-artifacts.js';
 import { planRecipeReview, writeRecipeReview } from '../src/mcp-recipe-review.js';
 import { reviewImage } from '../src/mcp-image-review.js';
+import { boundedSnapshot, metadataDigest } from '../src/anonymous-metadata.js';
 const hash = `sha256:${'a'.repeat(64)}`;
 const build = { builderImage: `node:22-bookworm-slim@${hash}`,
   runtimeImage: `gcr.io/distroless/nodejs22-debian12:nonroot@${hash}`, platform: 'linux/amd64' };
@@ -79,9 +80,34 @@ test('unscanned review requires explicit versioned not-run evidence and preserve
     scan: { image: f.qualification.image, status: 'not-run' },
     sbom: { image: f.qualification.image, status: 'not-run' } };
   assert.equal(reviewImage(project, q).policy.scanGate, false);
+  const historical = reviewImage(project, q);
+  await writeFile(f.options.config, JSON.stringify(q));
+  await assert.rejects(planRecipeReview(f.options), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+  q.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
+  await writeFile(f.options.config, JSON.stringify(q));
+  const acknowledged = await planRecipeReview(f.options);
+  assert.equal(acknowledged.bundle.result.policy.unscannedRiskAcknowledgement, q.unscannedRiskAcknowledgement);
+  const { unscannedRiskAcknowledgement, ...legacy } = q;
+  assert.deepEqual(reviewImage(project, legacy), historical);
+  const { contentDigest, ...legacyBody } = { ...acknowledged.bundle, input: legacy, result: historical };
+  const legacyBytes = JSON.stringify({ ...legacyBody, contentDigest: metadataDigest(boundedSnapshot(legacyBody)) });
+  await writeFile(f.options.output, legacyBytes);
+  const releaseConfig = path.join(f.root, 'legacy-release.json');
+  const releaseInput = { schemaVersion: 1, accountName: 'owner@example.com',
+    containerImage: q.image, imageReviewFile: f.options.output };
+  await writeFile(releaseConfig, JSON.stringify(releaseInput));
+  const releaseOptions = { ...f.options, config: releaseConfig, output: path.join(f.root, 'legacy-release') };
+  await assert.rejects(planRecipeRelease(releaseOptions), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+  releaseInput.unscannedRiskAcknowledgement = unscannedRiskAcknowledgement;
+  await writeFile(releaseConfig, JSON.stringify(releaseInput));
+  const release = await planRecipeRelease(releaseOptions);
+  assert.equal(release.review.unscannedRiskAcknowledgement, unscannedRiskAcknowledgement);
+  assert.equal(release.review.imageQualification.policy.unscannedRiskAcknowledgement, undefined);
+  assert.equal(await readFile(f.options.output, 'utf8'), legacyBytes);
   for (const mutate of [
     v => { delete v.scanGate; },
     v => { v.scanGate = true; },
+    v => { v.unscannedRiskAcknowledgement = 'yes'; },
     v => { v.scan.critical = 0; },
     v => { v.sbom.reportDigest = hash; },
     v => { v.smoke.status = 'failed'; },

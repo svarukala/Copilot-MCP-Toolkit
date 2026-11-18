@@ -12,6 +12,7 @@ import { readAzureIdentity } from './azure-identity.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { buildFiles, describeHostExecution, runRecoveredImageHost } from './mcp-execution-host.js';
 import { inspectBuildRecovery } from './mcp-build-recovery.js';
+import { unscannedRiskSchema, requireUnscannedRisk, unscannedRiskBinding } from './mcp-scan-policy.js';
 
 const location = { type: 'string', minLength: 1, maxLength: 1024 };
 export const recoveredImageSchema = {
@@ -25,6 +26,7 @@ export const recoveredImageSchema = {
     accountName: { type: 'string', format: 'email', maxLength: 254 },
     scannerImage: { type: 'string', pattern: '^aquasec/trivy@sha256:[a-f0-9]{64}$' },
     scanGate: { type: 'boolean', default: false },
+    unscannedRiskAcknowledgement: unscannedRiskSchema,
     expiresAt: { type: 'string', format: 'date-time' },
     maximumMs: { type: 'integer', minimum: 60000, maximum: 3600000 },
     localEngineTrusted: { const: true },
@@ -65,7 +67,8 @@ function continuationClaimPath(recovery, workspaceRoot) {
     : `${prefix}.recovered-image.json`;
 }
 function continuationDescription(source, oldConfig, input, { historical = false } = {}) {
-  const original = describeHostExecution(source, { ...oldConfig, ...Object.fromEntries(
+  const { unscannedRiskAcknowledgement: oldAcknowledgement, ...parentConfig } = oldConfig;
+  const original = describeHostExecution(source, { ...parentConfig, ...unscannedRiskBinding(input), ...Object.fromEntries(
     ['scannerImage', 'expiresAt', 'maximumMs', 'azureIdentityProject'].filter(key => input[key] !== undefined)
       .map(key => [key, input[key]])), scanGate: input.scanGate ?? historical });
   const { scannerImage, database, javaDatabase } = original.downloads;
@@ -173,6 +176,7 @@ async function prepare(options) {
   const configPath = await assertProjectPath(path.resolve(options.config)), input = await readControl(configPath);
   requireRecovered(valid(input) && path.isAbsolute(input.recoveryOutput) && path.isAbsolute(input.azureIdentityProject),
     'RECOVERED_IMAGE_CONFIG_INVALID');
+  requireUnscannedRisk(input);
   requireRecovered(Date.parse(input.expiresAt) > Date.now() && Date.parse(input.expiresAt) <= Date.now() + 86400000,
     'RECOVERED_IMAGE_EXPIRED');
   const source = await readRecipeProject(options.project);
@@ -210,7 +214,7 @@ async function prepare(options) {
       'Recheck the sealed lineage, source, same private Azure identity, exact engine and recovered image ID/owner. No sign-in, shared cache use or account switching.',
       config.scanGate
         ? 'Download the exact pinned Trivy image and named scanner databases. Scan the actual exported image with fresh zero-critical/high results and retain bounded reports privately.'
-        : 'Vulnerability scan gate is disabled. No scanner/database downloads or SBOM generation; record scanning as not-run, never as clean. Image integrity and nonroot smoke remain required.',
+        : 'Vulnerability scan gate is disabled. Explicit unscanned-deployment-risk-v1 acknowledgement accepts possible vulnerable components. No scanner/database downloads or SBOM generation; record scanning as not-run, never as clean. Image integrity and nonroot smoke remain required.',
       'Run nonroot network-disabled smoke with a synthetic backend key if needed. No provider request or real secret resolution during smoke.',
       'Add only an absent unique local tag to the reviewed image, obtain a transient ACR token in memory and push once. Never overwrite an existing local tag, delete the original image or perform Docker login.',
       'Use existing create-only app/gateway stages, absence and registry-digest rechecks, conditional writes, readiness polling and one bounded public health GET. Preserve unrelated resources and inherited policies.',

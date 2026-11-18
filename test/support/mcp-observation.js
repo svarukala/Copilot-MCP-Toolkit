@@ -1,3 +1,29 @@
+export async function diagnoseObservation(t, run, guard) {
+  let guardMs = 0, maximumGuardMs = 0, guardCalls = 0;
+  const measuredGuard = async () => {
+    const started = performance.now();
+    try { return await guard(); }
+    finally {
+      const elapsed = performance.now() - started;
+      guardMs += elapsed;
+      maximumGuardMs = Math.max(maximumGuardMs, elapsed);
+      guardCalls++;
+    }
+  };
+  const report = failure => t.diagnostic(JSON.stringify({
+    syntheticObservation: true, guardCalls,
+    guardMs: Math.round(guardMs), maximumGuardMs: Math.round(maximumGuardMs), ...failure,
+  }));
+  try {
+    const result = await run(measuredGuard);
+    report({ outcome: result.status ?? 'observed', ...(result.errorCode ? { errorCode: result.errorCode } : {}) });
+    return result;
+  } catch (error) {
+    report({ errorCode: error.code, diagnostics: error.diagnostics });
+    throw error;
+  }
+}
+
 export function observationTransport(descriptor, identity, tools) {
   const { tenantId, clientId, applicationIdUri, scope } = descriptor.inbound;
   const calls = [];

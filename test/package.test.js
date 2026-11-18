@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { TOOLKIT_ROOT } from '../src/config.js';
+import { getLibraryInfo } from '../src/machine-contract.js';
 
 // Allow full-suite contention while retaining each subprocess's shorter deadline.
 test('fresh offline packed consumer runs its own CLI skill and evidence journey with all runtime networking and subprocesses denied', { timeout: 600000 }, async t => {
@@ -45,6 +46,12 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
     [npm, 'pack', ...offline, '--json', '--pack-destination', root],
     { cwd: TOOLKIT_ROOT, encoding: 'utf8', timeout: 60000 }))[0];
   const paths = pack.files.map(f => f.path);
+  for (const name of ['handoff', 'progress-tracker', 'wiqd-handoff', 'extraction']) {
+    assert.ok(!paths.includes(`docs/${name}.md`), `Maintainer history must not ship: ${name}`);
+    assert.ok((await readFile(path.join(TOOLKIT_ROOT, 'docs', `${name}.md`))).length > 0);
+  }
+  assert.ok(paths.includes('docs/consumer-handoff.md'));
+  assert.ok(paths.includes('docs/images/toolkit-overview.svg'));
   assert.ok(paths.includes('skills/copilot-mcp/SKILL.md'));
   assert.ok(paths.includes('skills/copilot-mcp/references/api-discovery.md'));
   assert.ok(paths.includes('examples/mcp/container-apps-query-dates.json'));
@@ -94,6 +101,16 @@ test('fresh offline packed consumer runs its own CLI skill and evidence journey 
   assert.match(skill, /^---\r?\nname: copilot-mcp\r?\n/);
   assert.match(skill, /same engine|same `copilot-mcp`|same.*engine/is);
   const inventory = JSON.parse(await readFile(path.join(installed, 'library-assets.json')));
+  assert.deepEqual(paths.filter(name => name.startsWith('docs/')).sort(),
+    inventory.files.filter(name => name.startsWith('docs/')));
+  for (const name of ['README.md', ...inventory.files.filter(name => name.startsWith('docs/') && name.endsWith('.md'))]) {
+    const markdown = await readFile(path.join(installed, name), 'utf8');
+    for (const [, target] of markdown.matchAll(/\]\(([^)\s]+)\)/g)) {
+      if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(target)) continue;
+      const location = path.posix.normalize(path.posix.join(path.posix.dirname(name), target.split('#')[0]));
+      assert.ok(paths.includes(location), `${name} links to missing packed asset ${target}`);
+    }
+  }
   for (const file of [...inventory.files, 'library-assets.json']) {
     assert.deepEqual(await readFile(path.join(installed, file)), await readFile(path.join(TOOLKIT_ROOT, file)), file);
   }
@@ -478,6 +495,7 @@ process.stdout.write(JSON.stringify({reviewDigest:review.reviewDigest,info:await
     { cwd: consumer, encoding: 'utf8', timeout: 30000 }));
   assert.equal(publicResult.reviewDigest, plan.result.reviewDigest);
   assert.equal(publicResult.info.contentDigest, cap.toolkit.buildId);
+  assert.equal(publicResult.info.contentDigest, (await getLibraryInfo()).contentDigest);
   assert.equal(invoke(['mcp-server-create', ...base, '--config', config, '--output', project, '--approve', 'wrong'], [1]).result.success, false);
   assert.ok(!(await readdir(workspace)).includes('server'));
   invoke(['mcp-server-create', ...base, '--config', config, '--output', project, '--approve', plan.result.reviewDigest]);

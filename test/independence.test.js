@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import * as api from 'copilot-mcp-toolkit';
 import { TOOLKIT_ROOT } from '../src/config.js';
@@ -59,4 +60,37 @@ test('capabilities and public build identity describe this independent package a
   assert.equal(lock.name, pkg.name);
   assert.equal(lock.packages[''].name, pkg.name);
   assert.equal(pkg.dependencies.yaml, undefined);
+});
+
+test('bounded build inspection preserves serial digest ordering and detects changed or missing assets', async t => {
+  await mkdir(path.join(TOOLKIT_ROOT, '.test-output'), { recursive: true });
+  const root = await mkdtemp(path.join(TOOLKIT_ROOT, '.test-output', 'build-identity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'src'));
+  for (const file of ['machine-contract.js', 'validation.js']) {
+    await copyFile(path.join(TOOLKIT_ROOT, 'src', file), path.join(root, 'src', file));
+  }
+  await writeFile(path.join(root, 'src', 'config.js'),
+    `import { fileURLToPath } from 'node:url'; export const TOOLKIT_ROOT = fileURLToPath(new URL('..', import.meta.url));`);
+  await writeFile(path.join(root, 'src', 'help.js'), 'export const commandFamilies = {};');
+  await writeFile(path.join(root, 'src', 'standalone-capabilities.js'), 'export const standaloneCapabilities = () => ({});');
+  await writeFile(path.join(root, 'package.json'), '{"type":"module","name":"synthetic","version":"0.0.0"}\n');
+  const files = ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'package.json'];
+  for (const file of files.filter(file => file.endsWith('.txt'))) await writeFile(path.join(root, file), `${file}\n`);
+  await writeFile(path.join(root, 'library-assets.json'), JSON.stringify({ schemaVersion: 1, files }));
+  const hash = createHash('sha256');
+  for (const file of [...files, 'library-assets.json'].sort()) {
+    const bytes = await readFile(path.join(root, file));
+    hash.update(`${file}\0${bytes.length}\0`); hash.update(bytes);
+  }
+  const expected = `sha256:${hash.digest('hex')}`;
+  const { getLibraryInfo } = await import(pathToFileURL(path.join(root, 'src', 'machine-contract.js')).href);
+  const inspections = await Promise.all([getLibraryInfo(), getLibraryInfo()]);
+  assert.ok(inspections.every(info => info.contentDigest === expected));
+  await writeFile(path.join(root, 'a.txt'), 'z.txt\n');
+  assert.notEqual((await getLibraryInfo()).contentDigest, expected);
+  await rm(path.join(root, 'b.txt'));
+  await assert.rejects(getLibraryInfo(), { code: 'ENOENT' });
+  await mkdir(path.join(root, 'b.txt'));
+  await assert.rejects(getLibraryInfo(), { code: 'ASSETS' });
 });

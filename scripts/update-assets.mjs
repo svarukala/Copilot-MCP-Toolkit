@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,7 +16,20 @@ async function collect(directory) {
     else throw new Error('Runtime inventory refuses nonregular entries.');
   }
 }
-for (const directory of ['src', 'bin', 'skills', 'examples', 'docs']) await collect(directory);
+for (const directory of ['src', 'bin', 'skills', 'examples']) await collect(directory);
+const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+for (const entry of pkg.files.filter(name => name.startsWith('docs/'))) {
+  const relative = entry.replace(/\/$/, '');
+  if (!/^docs\/[A-Za-z0-9._/-]+$/.test(relative)
+    || relative.split('/').some(part => !part || part === '.' || part === '..')) {
+    throw new Error('Packaged docs must be explicit safe files/directories, not patterns.');
+  }
+  const stat = await lstat(path.join(root, relative));
+  if (stat.isDirectory()) await collect(relative);
+  else if (stat.isFile()) files.push(relative);
+  else throw new Error('Runtime inventory refuses nonregular packaged docs.');
+}
+if (new Set(files).size !== files.length) throw new Error('Runtime inventory refuses overlapping asset selections.');
 const expected = `${JSON.stringify({ schemaVersion: 1, files: files.sort() }, null, 2)}\n`;
 const inventory = path.join(root, 'library-assets.json');
 if (args[0] === '--check') {

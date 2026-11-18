@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "kind": "mcp-consumer-handoff",
+  "producer": {
+    "name": "copilot-mcp-toolkit",
+    "version": "0.1.0",
+    "buildDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "endpoint": {
+    "url": "https://mcp.example.com/mcp",
+    "transport": "streamable-http",
+    "protocolVersion": "2025-06-18"
+  },
+  "authentication": {
+    "type": "entra",
+    "tenantId": "22222222-2222-4222-8222-222222222222",
+    "resourceClientId": "33333333-3333-4333-8333-333333333333",
+    "resourceIdentifier": "api://33333333-3333-4333-8333-333333333333",
+    "scope": "Mcp.Read",
+    "allowedClientIds": ["44444444-4444-4444-8444-444444444444"]
+  },
+  "observation": {
+    "capturedAt": "2026-01-01T00:00:00.000Z",
+    "expiresAt": "2026-01-02T00:00:00.000Z",
+    "captureDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "sourceDescriptorDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "toolsDigest": "sha256:89f9e542106ec9eaa0ac5d3f3e4c793bec6f041c5d41b53b97f1c7374eede831",
+    "provenance": "producer-asserted-observation-not-attestation"
+  },
+  "tools": [{
+    "name": "read_record",
+    "description": "Retrieve a synthetic record.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "id": { "type": "string" } },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "annotations": { "readOnlyHint": true, "destructiveHint": false }
+  }],
+  "readiness": {
+    "status": "consumer-unverified",
+    "executionReadiness": false,
+    "proofReplayAuthorized": false,
+    "limitations": [
+      "consumer-acceptance-unverified",
+      "auth-compatibility-unverified",
+      "provenance-not-attested",
+      "metadata-untrusted"
+    ]
+  },
+  "integrity": {
+    "algorithm": "sha256",
+    "canonicalization": "bounded-snapshot-json-v1",
+    "contentDigest": "sha256:9e654bd1fcc437513f325a9f0b0816958265a1c70a778bcc73ffc627520a7fb6"
+  }
+}
