@@ -42,12 +42,42 @@ Service or Functions from a prepared hosting recipe file, with a narrower
 read-only feature set. **Saving files does not deploy an endpoint or make it available in
 Microsoft 365 Copilot.**
 
+[Recommended path](#recommended-path) |
 [Quick start](#quick-start) |
 [Video demo](#video-demo-weather-api-to-mcp-in-github-copilot-app) |
 [FSI demo idea](#fsi-demo-idea-public-exchange-rates) |
 [What is supported](#what-is-supported) |
 [Optional image scanning](#optional-image-scanning) |
 [Disclaimer](#disclaimer-ai-generated-code-and-user-responsibility)
+
+## Recommended path
+
+Start with **selected, bounded REST GET operations -> direct Azure Container
+Apps MCP service -> one reviewed proof -> local FCC/plugin draft**.
+
+1. Prepare a supported OpenAPI 3.0.x JSON document (or bounded REST definition)
+   and select fixed GET operations. Use [the direct ACA recipe](docs/container-apps-recipe.md)
+   and `mcp-container-apps-schema/plan/create` to review and save source.
+2. Keep **Entra authentication for MCP callers** separate from the REST backend:
+   start with an anonymous backend or a **Key Vault API-key reference**.
+   Existing Azure resources, Entra applications, consent and least-privilege
+   identity permissions are prerequisites, not automatically created by this path.
+3. Review the [bounded execution plan](docs/reusable-validation.md#choose-the-entry-point)
+   using `mcp-execution-schema/plan`. Approve the exact identity, resources,
+   downloads, costs and one proof before `mcp-execution-start/run`.
+   Scanning stays off by default; review the [unscanned policy](#optional-image-scanning).
+   Generation alone authorizes none of these effects.
+4. After authenticated discovery and the bounded proof, use `mcp-onboard` or
+   `mcp-consumer-schema/plan/bundle` for a **private FCC/plugin draft**.
+   Registration settings, consent, package validation and actual consumer
+   acceptance remain separate gates. No WIQD publication is performed.
+
+This is the recommended supported toolkit path, not production certification
+or demonstrated Microsoft 365/Cowork compatibility. It does not expose arbitrary
+OpenAPI operations. Recovery, evidence restoration, diagnostics and APIM gateway
+variants are **advanced** alternatives; ACA OAuth/OBO backends are **pilots**,
+Basic/username-password support is **design-only**, and App Service/Functions
+deployment and FCC submission remain **manual**. Existing commands remain available.
 
 ## Video demo: Weather API to MCP in GitHub Copilot app
 
@@ -64,6 +94,23 @@ executions and recovered-image continuations.** This is a toolkit policy, not
 an MCP or Azure Container Apps requirement. With the gate off, the runner does
 not download Trivy or its databases, run vulnerability scanning, or generate a
 scanner SBOM. Evidence says `not-run`, never "clean" or vulnerability-qualified.
+
+New unscanned plans require this explicit risk acknowledgement in the host or
+recovered-image configuration (and in a deployment-only configuration when its
+parent was unscanned):
+
+```json
+{
+  "scanGate": false,
+  "unscannedRiskAcknowledgement": "unscanned-deployment-risk-v1"
+}
+```
+
+`scanGate` may still be omitted; it defaults to false. The acknowledgement has
+no default. It records acceptance that vulnerable components may be deployed,
+is bound to the exact approval and retained evidence, and never starts a scan.
+Deployment-only configurations inherit the gate and take only the acknowledgement,
+not a `scanGate` override. `--summary` exposes this risk on stderr; JSON stays on stdout.
 
 To enable the blocking scan gate, add these fields to your host configuration
 (`host` inside an `mcp-execution` config), or your `mcp-recovered-image` config:
@@ -93,7 +140,12 @@ does not convert old failures into successes, release consumed claims, or
 authorize another deployment. The deployment-only verified-image continuation
 inherits its parent's scan policy and cannot turn an enabled gate off.
 Manual image review supports a version-2 `scanGate: false` record with explicit
-`not-run` scan/SBOM fields; version-1 scanned reviews remain strict.
+`not-run` scan/SBOM fields; newly prepared reviews also require the acknowledgement.
+Legacy reviews remain readable without inventing acknowledgement. A new release
+using an unacknowledged legacy unscanned review requires
+`unscannedRiskAcknowledgement` in its release config, without editing that review.
+Version-1 scanned reviews remain strict. Schemas retain legacy structural shapes;
+new-plan admission enforces the acknowledgement separately.
 See [image review](docs/hosting-recipes.md#bundled-container-runtime).
 
 ## Disclaimer, AI-generated code and user responsibility
@@ -398,10 +450,10 @@ Testing support is narrower than generation support. Read the
 | Connect through a custom federated connector | [FCC onboarding](docs/federated-connectors.md) |
 | Understand sign-in and registration options | [Authentication guide](docs/auth-registration.md) |
 | Use explicit commands and approvals | [CLI reference](docs/cli-contract.md) |
-| See completed work, limitations and backlog | [Progress tracker](docs/progress-tracker.md) |
+| See completed work, limitations and backlog | [Repository progress tracker](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/progress-tracker.md) |
 | Develop, test or contribute fixes | [Development guide](docs/development.md) |
 | Use the library from code | [Library API](docs/api.md) |
-| Continue toolkit integration development | [Handoff](docs/handoff.md) and [WIQD proposal](docs/wiqd-handoff.md) |
+| Continue toolkit integration development | Repository [handoff](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/handoff.md) and [WIQD proposal](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/wiqd-handoff.md) |
 
 Contributions should include relevant tests and contain only synthetic examples,
 not real customer data or credentials. Tests are offline and do not contact

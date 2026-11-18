@@ -1,9 +1,47 @@
 # Session handoff
 
-Last updated: 2026-11-12. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-18. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **Offline test reliability:** the default-concurrency full suite reproduced
+  creation/execution failures and a packed-consumer timeout. Eleven isolated
+  copies of the same creation fixture then failed with `DISCOVERY_TIMEOUT`,
+  while four passed: repeated local integrity guards were exhausting the real
+  MCP time budget under contention. `npm test` now caps ordinary concurrency
+  at four (fewer on small machines) and runs packaging separately. Scheduling
+  alone left one full-suite SDK failure; build inspection now also uses bounded
+  parallel reads while preserving fresh checks and exact hash ordering.
+  Production deadlines and no-retry guards are unchanged. The inventory fixture
+  is fixed. Final `npm test` passed **1,318/1,318** on Windows Node 26.13.0:
+  1,317 ordinary tests plus one isolated packed consumer, no failures or skips.
+  It still took about 60.4 minutes; Node 22/24 CI runtime/qualification remains
+  separate. The optional synthetic pressure harness preserves the reproduction.
+  See the tracker for failed intermediate runs and exact validation commands.
+  The user requested review, commit, push and merge on 2026-11-18. Local review
+  found no blocking issue; check the integration PR for current CI/merge status.
+  No publication or live cloud/provider action was performed.
+
+- **H2 public-contract review:** current Microsoft/WIQD documentation explicitly
+  supports secretless Entra SSO authoring and an SSO auth-config reference in a
+  Cowork connector. This is not a tested integration. Preserve the direct-ACA
+  v2 resource-GUID audience, short scope and explicit client allowlist; review
+  the actual registered URI, token-store caller, preauthorization, redirect,
+  consent and consumer app binding independently. The current settings
+  attestation does not cover all these gates. WIQD source validation, package
+  upload validation and DevPreview-only offline packaging are distinct.
+  No adapter, provider action or historical schema upgrade was performed. See
+  [the compatibility matrix and next boundary](wiqd-handoff.md#h2-public-contract-review-2026-11-17).
+
+- **2026-11-17 local product improvements:** the recommended direct-ACA path
+  separates caller Entra from backend anonymous/API-key auth. Scanning remains
+  default-off; new unscanned authority requires the explicit versioned risk
+  acknowledgement, without rewriting historical receipts or consumed claims.
+  Package documentation selection and runtime inventory share an allowlist;
+  this operational history remains in Git rather than the distributable.
+  H1 has an internal local contract/validator, not a WIQD exporter or consumer
+  qualification. See the [current assessment and validation ledger](progress-tracker.md#product-improvement-sequence-2026-11-17).
 
 - **Annotation follow-up (#7/#8):** offline proxy policy/discovery/export coverage
   now checks all hints, explicit false and absence through JSON/SSE pagination

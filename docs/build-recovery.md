@@ -307,6 +307,9 @@ Vulnerability scanning is off by default. To enable it, set `scanGate: true`
 and provide a digest-pinned `aquasec/trivy@sha256:...` `scannerImage`.
 Omission or `false` skips scanner/database downloads and SBOM generation and
 records them as `not-run`, not as passed vulnerability qualification.
+New unscanned continuations require
+`unscannedRiskAcknowledgement: "unscanned-deployment-risk-v1"` in this config;
+it is never inherited as approval from the failed parent. Scanning stays off.
 
 `--project` now selects the **successful recovery's source**, which may be the
 newly generated replacement. `--output` is a new sibling continuation directory

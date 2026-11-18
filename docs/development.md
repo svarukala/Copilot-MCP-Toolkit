@@ -42,6 +42,61 @@ configured. Do not replace feed failures with a public-registry fallback.
 Use [validation readiness](validation-readiness.md) to pin the checkout/package/
 skill baseline and record separate platform and consumer acceptance.
 
+### Test scheduling and timing diagnostics
+
+`npm test` runs ordinary test files with at most four concurrent processes (fewer
+on small machines), waits for their cleanup, then runs the packed-consumer test
+alone. Both phases run even if an ordinary assertion fails; either phase failing
+makes the command fail. Test-name/reporter options passed after `npm test --` are
+forwarded to both phases. For a targeted check, use native `node --test` with the
+specific files instead of running the entire suite.
+
+This boundary follows a reproduced Windows Node 26 contention failure, not a
+production timeout relaxation. Eleven isolated concurrent copies of the direct
+ACA header-key creation case all failed with `DISCOVERY_TIMEOUT`; the identical
+four-process experiment passed 4/4. Local integrity guards took about 17-22
+seconds in aggregate on the failing proofs, with individual guards around
+5.6 seconds, competing with the real 15-second MCP exchange budget. Four-process
+proof guards totalled about 8.7 seconds. The packed consumer also exceeded its
+600-second outer timeout in the uncapped suite, while its isolated baseline
+passed in 353 seconds. Its private cache/install/runtime journey now runs without
+competing test files.
+
+Scheduling alone still left one SDK session failure in a full rerun. Build
+inspection now also reads at most four assets concurrently, with fresh
+path/type/size/byte validation for every asset on every inspection. It waits for
+the entire batch to settle before returning a failure and hashes bytes in the
+original filename order. There is no cross-call cache or relaxed missing-file
+handling. Eight local inspection samples improved from 378-526 ms to 123-139 ms;
+this is not a whole-suite performance guarantee. Production deadlines,
+per-request integrity validation, consumed-attempt handling and timeout
+assertions are unchanged. The deliberate eleven-process stress case can still
+exhaust deadlines; it is not the supported default scheduling policy.
+
+Creation-journey fixtures report bounded synthetic guard timings and sanitized
+failure codes/stages. No provider output, token or response body is logged.
+For deliberate stress investigation, `node test\support\creation-pressure.mjs 11`
+runs eleven isolated copies of the direct-ACA header-key case; use `4` or `1`
+for a bounded comparison. This can deliberately fail under contention and is
+not part of the normal gate or an automatic retry. Every copy uses a fresh
+synthetic workspace, never an existing proof. Arbitrary host contention can still exhaust
+real deadlines, so retain failure diagnostics rather than retrying silently.
+Local Node 26 observations do not qualify the Node 22/24 CI matrix.
+
+## Package documentation boundary
+
+`package.json.files` explicitly selects shipped user guides and images.
+`scripts/update-assets.mjs` uses that same documentation selection for the runtime
+inventory. Operational handoff, progress history, WIQD proposal and extraction
+history remain in Git but do not ship; links to them use repository URLs.
+Missing inventoried files still fail closed. There is no missing-file fallback.
+
+The inventory/build digest describes shipped assets, not repository-only history.
+Changing this selection creates a new build identity; retained manifests and
+approvals are never rewritten to match it. `test/package.test.js` checks
+documentation inclusion/exclusion, inventory bytes and checkout/installed build
+identity. The package remains private; packing is not publication.
+
 ## Container Apps recipe development
 
 `src/mcp-container-apps.js` is the internal CLI generator; it is not a new root

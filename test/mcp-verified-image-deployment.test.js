@@ -37,6 +37,7 @@ async function fixture(t, { oci = true, scanGate = true } = {}) {
   const host = { schemaVersion: 1, azureIdentityProject: path.join(root, 'identity'),
     accountName: 'operator@example.com', dockerSocket: String.raw`\\.\pipe\docker_engine`,
     localEngineTrusted: true, scanGate, scannerImage: `aquasec/trivy@sha256:${'c'.repeat(64)}`, imageRepository: 'reviewed/mcp',
+    ...(!scanGate ? { unscannedRiskAcknowledgement: 'unscanned-deployment-risk-v1' } : {}),
     expiresAt: new Date(Date.now() + 3600000).toISOString(), downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true };
   const old = { workspaceRoot: root, project, config: path.join(root, 'host.json'), output: path.join(root, 'old') };
@@ -62,6 +63,7 @@ async function fixture(t, { oci = true, scanGate = true } = {}) {
     expiresAt: new Date(Date.now() + 1800000).toISOString(), deploymentOnlyReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true };
   const options = { workspaceRoot: root, project, config: path.join(root, 'deploy.json'), output: path.join(root, 'deploy') };
+  if (!scanGate) config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
   const save = () => writeFile(options.config, JSON.stringify(config));
   await save();
   const run = synthetic.dependencies.runAzure;
@@ -90,9 +92,16 @@ async function execute(f) {
 test('deployment-only inherits a disabled parent scan gate without claiming clean findings', async t => {
   const f = await fixture(t, { scanGate: false });
   const retained = await snapshot(f.old.output);
+  delete f.config.unscannedRiskAcknowledgement;
+  await f.save();
+  await assert.rejects(planVerifiedImageDeployment(f.options), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+  assert.equal(f.calls.length, 0);
+  f.config.unscannedRiskAcknowledgement = 'unscanned-deployment-risk-v1';
+  await f.save();
   const { plan, result } = await execute(f);
   assert.equal(result.status, 'passed', JSON.stringify(result));
-  assert.deepEqual(plan.scope.scanPolicy, { enabled: false });
+  assert.deepEqual(plan.scope.scanPolicy, { enabled: false,
+    unscannedRiskAcknowledgement: 'unscanned-deployment-risk-v1' });
   assert.equal((await json(result.imageReviewFile)).result.scan.status, 'not-run');
   assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
   assert.deepEqual(await snapshot(f.old.output), retained);

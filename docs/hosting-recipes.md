@@ -487,17 +487,22 @@ hours. This version-1 scanned review remains strict, including for historical
 evidence. Other findings remain visible; no exception is silently granted.
 
 For a review without vulnerability scanning, use `schemaVersion: 2`,
-`scanGate: false`, and a current `reviewedAt` timestamp instead. Retain the same
+`scanGate: false`, `unscannedRiskAcknowledgement: "unscanned-deployment-risk-v1"`,
+and a current `reviewedAt` timestamp instead. Retain the same
 image, source, build, builder and successful smoke fields, but use
 `scan: { "image": "<same digest-pinned image>", "status": "not-run" }` and
 the same shape for `sbom`. Do not supply zero finding counts or fabricated report
 digests. The result is `passed-image-review-without-vulnerability-scan`, with a
 24-hour review expiry, not a clean scan. New host runners generate this record
-automatically by default. See [opting in](../README.md#optional-image-scanning).
+automatically under the explicitly acknowledged default-off policy.
+Legacy version-2 reviews remain readable without inventing acknowledgement.
+See [opting in and acknowledgement](../README.md#optional-image-scanning).
 
 A release config may supply `imageReviewFile`, resolved relative to that config.
 The review is revalidated against source, image and freshness; invalid evidence
-blocks preparation. Release without it remains explicitly unqualified and
+blocks preparation. A new release using a legacy unscanned review without the
+acknowledgement must supply it in the new release config, not alter old evidence.
+Release without an image review remains explicitly unqualified and
 operator-reviewed, not authorization to deploy. Imported evidence is an
 operator declaration, not proof the scanner ran or a verified signed build
 attestation. No scan, image build/push, registry login or provider call is

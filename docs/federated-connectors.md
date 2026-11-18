@@ -248,7 +248,7 @@ refresh. No such change, tool execution or fresh endpoint request occurred here.
 generates a bounded SDK-based server with reviewed read-only annotations and
 direct Entra-protected hosting files. This is local source/runtime coverage,
 not a deployed correction or consumer-label qualification. Container Apps behind
-an APIM gateway is explicitly recipe 2 in the [hosting backlog](progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes).
+an APIM gateway is explicitly recipe 2 in the [repository hosting backlog](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/progress-tracker.md#b2-b5-alternative-mcp-hosting-recipes).
 The new recipe does not yet feed this module's descriptor/capture workflow.
 
 2026-11-12 contract recheck (#7): the current ARM reference above still resolves

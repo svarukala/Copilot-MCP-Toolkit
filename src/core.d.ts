@@ -102,6 +102,8 @@ export interface RecoveredImageConfig {
   accountName: string;
   /** Disabled by default for new plans; true requires scannerImage. */
   scanGate?: boolean;
+  /** Required for new unscanned plans; never inferred from historical evidence. */
+  unscannedRiskAcknowledgement?: 'unscanned-deployment-risk-v1';
   scannerImage?: string;
   expiresAt: string;
   maximumMs?: number;
@@ -157,6 +159,8 @@ export interface VerifiedImageDeploymentConfig {
   expiresAt: string;
   maximumMs?: number;
   deploymentOnlyReviewed: true;
+  /** Required when the inherited parent scan policy is disabled. */
+  unscannedRiskAcknowledgement?: 'unscanned-deployment-risk-v1';
   resourceCeilingsReviewed: true;
   createOnlyReviewed: true;
 }

@@ -14,7 +14,9 @@ async function fixture(t, script) {
   const filename = path.join(root, 'scripts', script);
   await copyFile(path.join(TOOLKIT_ROOT, 'scripts', script), filename);
   const run = (...args) => {
-    const result = spawnSync(process.execPath, [filename, ...args], { encoding: 'utf8', timeout: 30000 });
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, [filename, ...args], { encoding: 'utf8', timeout: 30000, env });
     assert.equal(result.error, undefined);
     return result;
   };
@@ -23,9 +25,14 @@ async function fixture(t, script) {
 
 test('inventory check is read-only, rejects drift and accepts explicit regeneration', async t => {
   const { root, run } = await fixture(t, 'update-assets.mjs');
+  await writeFile(path.join(root, 'package.json'), JSON.stringify({ files: ['src/', 'docs/public.md'] }));
+  await writeFile(path.join(root, 'docs', 'public.md'), '# Public guide\n');
+  await writeFile(path.join(root, 'docs', 'history.md'), '# Repository-only history\n');
   assert.equal(run().status, 0);
   const file = path.join(root, 'library-assets.json');
   const baseline = await readFile(file, 'utf8');
+  assert.ok(JSON.parse(baseline).files.includes('docs/public.md'));
+  assert.ok(!JSON.parse(baseline).files.includes('docs/history.md'));
   assert.equal(run('--check').status, 0);
   await writeFile(path.join(root, 'src', 'new.js'), 'export const synthetic = true;\n');
   const stale = run('--check');
@@ -38,6 +45,11 @@ test('inventory check is read-only, rejects drift and accepts explicit regenerat
   const refreshed = await readFile(file, 'utf8');
   assert.notEqual(run('--unknown').status, 0);
   assert.equal(await readFile(file, 'utf8'), refreshed);
+  for (const files of [['docs/*.md'], ['docs/../README.md'], ['docs/public.md', 'docs/']]) {
+    await writeFile(path.join(root, 'package.json'), JSON.stringify({ files }));
+    assert.notEqual(run().status, 0);
+    assert.equal(await readFile(file, 'utf8'), refreshed);
+  }
 });
 
 test('syntax gate includes nested source, CLI and maintenance scripts without executing them', async t => {
@@ -55,4 +67,39 @@ test('syntax gate includes nested source, CLI and maintenance scripts without ex
     await writeFile(file, 'export const synthetic = true;\n');
   }
   assert.equal(run().status, 0);
+});
+
+test('offline runner finishes ordinary cleanup before packaging and preserves failures', async t => {
+  const { root, run } = await fixture(t, 'test-offline.mjs');
+  await mkdir(path.join(root, 'test'));
+  await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
+  const ordinary = path.join(root, 'test', 'ordinary.test.js');
+  await writeFile(ordinary, `
+    import test from 'node:test';
+    import { writeFile } from 'node:fs/promises';
+    test('synthetic ordinary phase', t => {
+      t.after(() => writeFile(new URL('../ordinary-finished', import.meta.url), 'done'));
+    });
+  `);
+  await writeFile(path.join(root, 'test', 'package.test.js'), `
+    import test from 'node:test';
+    import assert from 'node:assert/strict';
+    import { readFile } from 'node:fs/promises';
+    test('synthetic packed phase', async () => {
+      assert.equal(await readFile(new URL('../ordinary-finished', import.meta.url), 'utf8'), 'done');
+    });
+  `);
+  const passed = run();
+  assert.equal(passed.status, 0, passed.stdout + passed.stderr);
+  assert.match(passed.stdout, /synthetic ordinary phase/);
+  assert.match(passed.stdout, /synthetic packed phase/);
+  await writeFile(ordinary, `
+    import test from 'node:test';
+    import assert from 'node:assert/strict';
+    test('synthetic failure', () => assert.fail('Expected offline runner fixture failure'));
+  `);
+  const failed = run();
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /Expected offline runner fixture failure/);
+  assert.match(failed.stdout, /synthetic packed phase/);
 });

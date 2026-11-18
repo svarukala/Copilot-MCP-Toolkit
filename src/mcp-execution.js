@@ -15,6 +15,7 @@ import { hostExecutionSchema, describeHostExecution, planHostExecution, runHostE
 import { planExecutionSession, createExecutionProofApproval } from './mcp-execution-session.js';
 import { createExecutionProtocolAdapter } from './mcp-execution-protocol.js';
 import { dockerFailureDiagnostic } from './mcp-execution-docker.js';
+import { requireUnscannedRisk } from './mcp-scan-policy.js';
 
 const object = (properties, required = Object.keys(properties)) =>
   ({ type: 'object', additionalProperties: false, properties, required });
@@ -81,7 +82,10 @@ async function prepare(options) {
   const config = await assertProjectPath(path.resolve(options.config));
   const input = checked(await readControl(config), valid);
   future(input.expiresAt);
-  if (input.host) future(input.host.expiresAt);
+  if (input.host) {
+    future(input.host.expiresAt);
+    requireUnscannedRisk(input.host);
+  }
   check(!await hostIdentityLocked(input.host), 'IDENTITY_LOCKED',
     'The selected private Azure identity has a host execution lock. Preserve it and resolve its owner before starting another grant.');
   input.scenarioFile = await assertProjectPath(path.resolve(path.dirname(config), input.scenarioFile));
@@ -137,7 +141,7 @@ async function prepare(options) {
       'SDK host downloads, scanner and resource ceilings are defined by the host configuration and sealed source. No arbitrary shell, secret export, app registration, consent or consumer publication.',
       ...(hosting ? [input.host.scanGate === true
         ? 'Vulnerability scanning is enabled: complete fresh image-bound reports with zero critical/high findings and no unknown severity are required.'
-        : 'Vulnerability scanning is disabled: no scanner/database downloads or SBOM generation; results record not-run, not clean. Image integrity and nonroot smoke remain required.'] : []),
+        : 'Vulnerability scanning is disabled: explicit unscanned-deployment-risk-v1 acknowledgement accepts possible vulnerable components. No scanner/database downloads or SBOM generation; results record not-run, not clean. Image integrity and nonroot smoke remain required.'] : []),
       ...(secretGrant ? ['The exact generated APIM secret-access template grants Key Vault Secrets User only on the selected secret to the selected APIM system identity. No broader role grant is permitted.']
         : ['No role grants are authorized by this profile.']),
       'Cloud resource sizes/targets are bounded by the reviewed definition, not a currency billing cap. Resources can continue charging after the execution expires.',

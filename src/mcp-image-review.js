@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { boundedSnapshot, metadataDigest } from './anonymous-metadata.js';
+import { unscannedRiskSchema, unscannedRiskBinding } from './mcp-scan-policy.js';
 
 const object = properties => ({ type: 'object', additionalProperties: false, properties, required: Object.keys(properties) });
 const digest = { type: 'string', pattern: '^sha256:[a-f0-9]{64}$' };
@@ -33,14 +34,16 @@ const scannedImageReviewSchema = object({
     status: { const: 'passed' }, evidenceDigest: digest }),
   sbom: object({ image, reportDigest: digest }),
 });
-export const imageReviewSchema = { oneOf: [scannedImageReviewSchema, object({
+const unscannedImageReviewSchema = object({
   ...scannedImageReviewSchema.properties,
   schemaVersion: { const: 2 },
   scanGate: { const: false },
   reviewedAt: timestamp,
   scan: object({ image, status: { const: 'not-run' } }),
   sbom: object({ image, status: { const: 'not-run' } }),
-})] };
+});
+unscannedImageReviewSchema.properties.unscannedRiskAcknowledgement = unscannedRiskSchema;
+export const imageReviewSchema = { oneOf: [scannedImageReviewSchema, unscannedImageReviewSchema] };
 const ajv = new Ajv(); addFormats(ajv);
 const valid = ajv.compile(imageReviewSchema);
 export function reviewImage(project, input) {
@@ -72,7 +75,8 @@ export function reviewImage(project, input) {
     sourceHashes: Object.fromEntries(['Dockerfile', 'package-lock.json', 'runtime-config.json', 'server.js', 'runtime.js']
       .map(name => [name, project.manifest.files[name]])),
     build: input.build, builder: input.builder, scan: input.scan, smoke: input.smoke, sbom: input.sbom,
-    policy: disabled ? { scanGate: false, maximumAgeHours: 24 } : { maximumCritical: 0, maximumHigh: 0, maximumAgeHours: 24 },
+    policy: disabled ? { scanGate: false, maximumAgeHours: 24, ...unscannedRiskBinding(input) }
+      : { maximumCritical: 0, maximumHigh: 0, maximumAgeHours: 24 },
     expiresAt: new Date(Math.min(scanned, database) + 86400000).toISOString(),
     imageSourceCorrespondence: 'operator-evidence-not-cryptographically-attested',
     limitations: ['Imported metadata and digests are operator assertions, not verification of scanner execution, file copies or signed build provenance.',

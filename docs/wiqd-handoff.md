@@ -4,6 +4,80 @@ Status: design recommendation, 2026-10-14. No handoff command, adapter or WIQD
 extension is implemented by this document. Track work in
 [progress-tracker.md](progress-tracker.md).
 
+2026-11-17: H1 now has a [version-1 local design](consumer-handoff.md), internal
+validator and synthetic contract fixtures. It has no export command, WIQD
+adapter or public root API. Provenance stays unattested and freshness cannot
+authorize execution. The H2 public-contract review below identifies a documented
+secretless SSO route, not verified interoperability. H3 export and H6 real
+consumer acceptance remain incomplete; synthetic checks do not qualify them.
+
+## H2 public-contract review (2026-11-17)
+
+**Result: documented compatibility is feasible; runtime compatibility remains
+unverified.** Microsoft Learn now explicitly describes WIQD Entra SSO authoring
+and mapping an SSO auth configuration to a Cowork remote MCP connector. The
+absence of a `microsoftEntra` connector enum is not evidence that a client secret
+is required. This review read public documentation and local source only. It
+did not invoke WIQD, inspect credentials, obtain tokens, register anything,
+upload a package or call a consumer.
+
+| Boundary | Public contract | Toolkit mapping and remaining gate |
+| --- | --- | --- |
+| Entra SSO registration | An existing Entra resource application's client ID selects the SSO auth configuration. Registration returns an auth config ID and Application ID URI; resource setup must still be completed. | `mcp-auth-registration` already distinguishes resource client ID, registration ID, endpoint URI and returned registration URI. `mcp-auth-wiqd` is human-only guidance, not an executing adapter. Reuse an existing reference; never recreate a consumed registration to fill settings. |
+| Declarative-agent MCP action | Learn documents `wiqd agent add action` with `--mcp-auth-type entra-sso` and `--mcp-client-id`, or `agent add auth` for an existing plugin. API-plugin runtime auth uses `OAuthPluginVault` and `reference_id`. | This establishes a documented secretless authoring route, not installed CLI behavior or bounded provisioning. Review the selected WIQD version and full project effects before any separately approved invocation. |
+| Cowork standalone connector | Learn's LOB walkthrough maps the SSO auth config ID to `remoteMcpServer.authorization.referenceId`; WIQD's connector reference uses `OAuthPluginVault`. | Keep root `agentConnectors` fields separate from API-plugin runtime fields. The same vault enum can refer to SSO or custom OAuth: inspect the registration's actual mode, not the enum alone. No automatic adapter or format migration is implemented. |
+| Resource and caller configuration | Retain existing `identifierUris`, add the returned URI, configure the consent redirect and preauthorize the Enterprise token-store client for the exact delegated permission. | Separately review the public token-store client `ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b` in the endpoint's explicit allowed-client set. A toolkit discovery-client success does not prove this caller is allowed. No automatic expansion of caller, tenant or app restrictions. |
+| Token audience and scope | Entra's claims reference says v2 `aud` is the resource API client ID; v1 can use the resource URI. The SSO page also requires reviewing the returned URI as an API audience. | Direct ACA's `createTokenVerifier` deliberately requires v2, the resource GUID audience, tenant issuer, `azp` allowlist and short `scp`. Keep those checks. Use the actual registered URI when configuring the fully qualified requested scope; do not replace the GUID audience with a URI, accept v1 automatically or broaden audiences to reconcile documentation. The resource must issue v2 tokens; actual consumer issuance remains unverified. |
+| Post-registration checkpoint | Scope, organization/app restrictions, resource registration, redirect, preauthorization and endpoint validation all matter after creation. | Version-3 `settingsReview` binds reference/URI/scope/endpoint/resource/tenant/app restrictions. Its operator attestation does **not** attest redirect URIs, Entra preauthorization, token version, endpoint caller configuration, consent or successful sign-in. These remain separate gates, not inferred completed settings. |
+| Backend credentials | Cowork does not currently accept API-key connector auth; Learn documents Entra callers with an adapter holding the separate backend key. | The recommended direct-ACA path fits this separation: caller SSO, backend Key Vault reference. A shared backend key does not provide per-user data filtering. Do not present the key as a consumer credential or imply the golden path implements OBO. |
+| DCR | WIQD documents no Entra RFC 7591 registration endpoint. Omitting connector authorization for a DCR server is not Entra SSO configuration. | Do not use DCR, anonymous fallback or a new client secret as a workaround for an SSO settings mismatch. |
+| Tool descriptions and package version | WIQD documents numbered manifest 1.29 with optional tool-description schema fields, while Cowork still requires a tool-description file for verification. The existing toolkit starter is pinned to 1.28. | Preserve observed tools and include the referenced file; do not treat URL-only schema validity as acceptance. No silent upgrade of historical starters or conflation with API-plugin dynamic tool discovery. |
+| Validation and offline packaging | WIQD source validation is offline but incomplete for connector/package contents. Default/package validation uploads a ZIP. New `plugin package --offline` is documented for a bounded DevPreview connector/skill-only subset. | Do not run package validation as an offline check. Offline packaging is a candidate for a separately scoped adapter, not proof it accepts the toolkit's numbered starter or that Cowork accepts the package. Existing `ConnectionVault` references are a distinct DevPreview path, not automatic SSO registration. |
+
+### Recommended next implementation boundary
+
+H3 should remain a local exporter, after consumer agreement on H1: read a bound
+capture and descriptor, preserve their exact provenance/freshness and write a
+new private bounded artifact. Keep consumer-specific auth config IDs and
+returned registration settings in separately reviewed mapping inputs rather
+than inserting credentials, registration authority or provider assumptions into
+the consumer-neutral v1 contract.
+
+An eventual WIQD mapping must distinguish declared endpoint requirements from
+the actual consumer registration, report unresolved URI/scope/client/app
+relationships explicitly, and never repair them by silently changing deployment
+configuration. Two registered identifier URIs are not inherently incompatible;
+their presence and scope relationship need resource-owner verification. The
+current local settings attestation cannot supply that provider verification.
+
+Before calling H2 operationally qualified, obtain agreement on the intended
+consumer surface and pinned WIQD capability, then separately review resource
+settings, auth configuration restrictions and consumer app identity. H6 needs a
+fresh approved end-to-end attempt with independent registration, package and
+consumer outcomes. No historical proof, publication or login authorization is
+renewed by this review. A new exporter, adapter, credential workflow or live
+journey was not implemented here.
+
+### Sources and confidence
+
+Public documentation retrieved on 2026-11-17:
+
+- [Microsoft: Configure Microsoft Entra SSO authentication](https://learn.microsoft.com/plugins/plugin-authentication-entra-sso).
+- [Microsoft: Build a Copilot Cowork plugin for a line-of-business API](https://learn.microsoft.com/copilot/cowork/cowork-connect-lob-api).
+- [Microsoft: Access token claims reference](https://learn.microsoft.com/en-us/entra/identity-platform/access-token-claims-reference).
+- [Microsoft: Set up custom federated connectors](https://learn.microsoft.com/microsoft-365/copilot/connectors/set-up-custom-federated-connectors).
+- [WIQD plugin reference](https://microsoft.github.io/wiqd/getting-started/plugin-reference/).
+- [WIQD plugin concepts and offline packaging](https://microsoft.github.io/wiqd/concepts/plugins/).
+
+Local implementation comparison: `src/mcp-auth-registration.js`,
+`src/mcp-sso-settings.js`, `src/mcp-auth-wiqd.js` and
+`src/recipes/container-apps/runtime.js`. Documentation is contract evidence,
+not observed provider behavior. The installed WIQD version and package
+acceptance were not tested; the existing historical `guidanceVersion: 0.18.0`
+was not rewritten from newer documentation.
+
+## Earlier milestones
+
 Annotation follow-up (#7/#8): observed proxy tool annotations, including explicit
 false values and absence, are retained in FCC and plugin metadata under offline
 regression coverage. Native APIM's reviewed public contract still has no

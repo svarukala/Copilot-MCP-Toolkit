@@ -124,7 +124,8 @@ async function continuation(f, recovery, suffix = 'continuation', scanGate = tru
     schemaVersion: 1, recoveryOutput: f.options.output, recoveryApproval: recovery.plan.approvalToken,
     sourceManifestDigest: recovery.plan.scope.sourceManifestDigest,
     azureIdentityProject: f.oldPlan.scope.effective.identityProject, accountName: f.config.accountName,
-    ...(scanGate ? { scanGate: true, scannerImage: f.oldPlan.scope.config.scannerImage } : {}),
+    ...(scanGate ? { scanGate: true, scannerImage: f.oldPlan.scope.config.scannerImage }
+      : { unscannedRiskAcknowledgement: 'unscanned-deployment-risk-v1' }),
     expiresAt: new Date(Date.now() + 1800000).toISOString(),
     localEngineTrusted: true, exclusiveControlReviewed: true, downloadsReviewed: true,
     resourceCeilingsReviewed: true, createOnlyReviewed: true, qualificationPushDeploymentReviewed: true,
@@ -142,11 +143,18 @@ test('new recovered-image continuation defaults to scanning off without weakenin
     const f = await fixture(t, example), recovery = await execute(f);
     const retained = await snapshot(f.old.output);
     const prepared = await continuation(f, recovery, 'no-scan', false);
+    const missing = { ...prepared.config };
+    delete missing.unscannedRiskAcknowledgement;
+    await save(prepared.options.config, missing);
+    await assert.rejects(planRecoveredImage(prepared.options), { code: 'UNSCANNED_RISK_ACKNOWLEDGEMENT_REQUIRED' });
+    await save(prepared.options.config, prepared.config);
     assert.equal(prepared.plan.scope.config.scanGate, false);
     assert.deepEqual(prepared.plan.scope.downloads, {});
     const result = await prepared.run();
     assert.equal(result.status, 'passed', JSON.stringify(result));
     assert.equal((await json(result.imageReviewFile)).input.scan.status, 'not-run');
+    assert.equal((await json(result.imageReviewFile)).input.unscannedRiskAcknowledgement,
+      'unscanned-deployment-risk-v1');
     assert.equal(result.observedMilestones.zeroCriticalHighScan, 'not-run');
     assert.deepEqual(await snapshot(f.old.output), retained);
     assert.equal(f.calls.some(call => call.route?.includes('-scan') || call.route?.includes('-sbom')), false);

@@ -18,6 +18,7 @@ import { assertCompatibleGlobalPolicy, assertSafeDiagnostics, collectionItems, p
 import { executionDockerRequest, executionJson, executionProgress, executionTar, executionTarFile,
   executionImageLimit, executionImageBinding, executionPushResult, dockerFailureDiagnostic } from './mcp-execution-docker.js';
 import { publicHttpsTransport } from './anonymous-network.js';
+import { unscannedRiskSchema, requireUnscannedRisk, unscannedRiskBinding } from './mcp-scan-policy.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
 const bytesDigest = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -40,6 +41,7 @@ export const hostExecutionSchema = object({
 }, {
   scanGate: { type: 'boolean', default: false,
     description: 'Opt in to vulnerability scanning and its blocking policy. Disabled by default for new plans.' },
+  unscannedRiskAcknowledgement: unscannedRiskSchema,
   scannerImage: { type: 'string', pattern: '^aquasec/trivy@sha256:[a-f0-9]{64}$' },
   azureIdentityProject: { type: 'string', minLength: 1, maxLength: 1024,
     description: 'Absolute path to an existing project-private selected Azure identity; omission selects the source project.' },
@@ -97,7 +99,8 @@ export function describeHostExecution(source, config, { historical = false } = {
     localScanner: { memoryBytes: 1073741824, nanoCpus: 1000000000 },
     localSmoke: { memoryBytes: 536870912, nanoCpus: 1000000000 },
     maximumContainerPids: 128, invoiceCapEnforceable: false },
-    scanPolicy: scanEnabled ? { critical: 0, high: 0, maximumAgeHours: 24 } : { enabled: false },
+    scanPolicy: scanEnabled ? { critical: 0, high: 0, maximumAgeHours: 24 }
+      : { enabled: false, ...unscannedRiskBinding(config) },
   });
 }
 
@@ -130,6 +133,7 @@ async function prepare(options) {
   const input = await readControl(configPath);
   const config = { ...input, scanGate: input.scanGate ?? false };
   requireHost(valid(config));
+  requireUnscannedRisk(config);
   const output = await assertProjectPath(path.resolve(options.output));
   requireHost((await lstat(path.dirname(output))).isDirectory()
     && output !== source.projectDir && !output.startsWith(source.projectDir + path.sep));
@@ -166,7 +170,7 @@ async function prepare(options) {
       'Build only current-generator-matched sealed source on the trusted Docker engine; download the reviewed build images and pinned npm dependencies.',
       config.scanGate
         ? 'Scan the actual exported image and retain raw scanner files privately; enforce fresh zero-critical/high results and reject unknown severity.'
-        : 'Vulnerability scan gate is disabled. No scanner/database downloads, vulnerability assessment or SBOM generation; image review explicitly records not-run, not a clean scan.',
+        : 'Vulnerability scan gate is disabled. Explicit unscanned-deployment-risk-v1 acknowledgement: vulnerable components may be deployed. No scanner/database downloads, vulnerability assessment or SBOM generation; image review explicitly records not-run, not a clean scan.',
       'Run nonroot network-disabled health smoke with a synthetic key only when required.',
       'Obtain a transient ACR token in memory; push only the unique source/run-bound repository tag; never perform Docker login.',
       'Create the exact absent app and generated gateway children only, with last-moment absence checks and conditional PUT headers. Never update, grant roles, register apps, resolve secrets or delete cloud resources.',
@@ -728,7 +732,7 @@ const runHostEngine = (options, dependencies = {}, continuation) => scoped(optio
             build: source.input.imageBuild, builder: { run: `host-${(recoveredBuild
               ? scope.config.recoveryApproval.split(':').at(-1) : deployedImage
                 ? scope.config.oldHostApproval.split(':').at(-1) : owner).slice(0, 32)}`, evidenceDigest: built.buildEvidenceDigest },
-            ...(scan.status === 'not-run' ? { scanGate: false, reviewedAt: scan.recordedAt,
+            ...(scan.status === 'not-run' ? { scanGate: false, ...unscannedRiskBinding(scope.config), reviewedAt: scan.recordedAt,
               scan: { image, status: 'not-run' }, sbom: { image, status: 'not-run' } } : {
             scan: { image, scanner: 'Trivy pinned execution', databaseUpdatedAt: scan.databaseUpdatedAt, scannedAt: scan.scannedAt,
               critical: scan.critical, high: scan.high, medium: scan.medium, low: scan.low, reportDigest: scan.reportDigest },

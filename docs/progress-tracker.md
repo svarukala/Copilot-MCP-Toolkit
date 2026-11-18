@@ -1,11 +1,147 @@
 # Progress and scenario tracker
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-18.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
 not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
+
+## Product improvement sequence (2026-11-17)
+
+Approved scope: local/offline improvements only. `scanGate` remains **false by
+default**, as explicitly reaffirmed by the user. No login, deployment, registry
+access, consumer action or publication is authorized by this work.
+
+**Final local gate (2026-11-18): 1,318/1,318 passed**, comprising 1,317 ordinary
+tests and one isolated packed-consumer test, with no failures, cancellations or
+skips. Asset/syntax/type checks and 28 focused checks also passed. This is
+Windows Node 26.13.0 evidence, not a fresh Node 22/24 CI result or a guarantee
+under arbitrary host overload. The changes were reviewed for integration on
+2026-11-18; GitHub CI and merge status are separate from this local evidence.
+
+| Task | Goal and likely files | Safety / compatibility risks | Acceptance and targeted checks | Status |
+| --- | --- | --- | --- | --- |
+| P0 / D | Assess baseline and investigate intermittent creation tests; execution tests and synthetic fixtures | Source/build hashes must stay stable during tests; never relax production deadlines or hide failure with concurrency settings | Record exact runtime/commands/outcomes; reproduce before claiming a root-cause fix | Contention reproduced; bounded scheduling, isolated packaging and fresh batched reads implemented; final full local gate 1,318/1,318 passed |
+| A | Prioritize a supported direct-ACA journey; README, help, guided tests | Caller Entra is not backend OAuth; drafts are not consumer acceptance | Help/README agree; existing commands/menu numbering remain; guided help checks | Implemented/offline verified |
+| B | Bind explicit unscanned-risk acknowledgement to new plans/reviews; host, execution, recovery, verified deployment and image review | Preserve default-off, legacy hashes/readers, inherited strict policies and consumed claims | Missing/wrong acknowledgement fails before effects; plan/evidence/summary expose it; strict and historical cases remain valid | Implemented/offline verified |
+| C | Select public package docs; package.json, inventory generator, packed test, links | Missing inventoried files break installed runtime identity; no silent missing-file fallback | Packed bytes/inventory/build identity agree; operational history stays in Git but not tarball | Implemented/offline verified |
+| E / H1 | Define bounded versioned consumer-neutral local metadata contract; internal schema/validator, synthetic example, tests, design guide | Metadata is untrusted/sensitive; hashes are not authenticity or execution authority | Version/size/tampering/auth/freshness/schema-fidelity tests; no new public API or exporter | Implemented/offline verified; consumer contract agreement still required |
+| H2 | Reconcile WIQD/Microsoft SSO contracts with registration and endpoint validation; `docs/wiqd-handoff.md` | A vault enum is not an auth mode; operator attestation does not prove provider configuration or consumer acceptance | Cite public contracts, preserve v2 audience/client/scope checks, enumerate unmapped registration and consumer gates | Public-contract review complete; secretless route documented, installed WIQD and live interoperability unverified |
+
+Continuation: full `npm test` at default concurrency completed in
+**3,737.953 seconds**: **1,316 tests, 1,305 passed, 10 failed, 1 cancelled by
+timeout**, no skips. Shipped source/assets stayed unchanged during the run;
+repository-only H2 notes do not participate in the shipped inventory. The
+machine reports 12 available processors and 32 GiB RAM; a mid-run observation
+found about 4 GiB free. This is diagnostic context, not by itself a root cause.
+The inventory fixture omitted the now-required package documentation selection;
+it is corrected and its two development tests pass, including selection/drift
+and unsafe/overlapping-path checks. Four execution tests and five creation tests
+failed or reported unknown; the packed-consumer test exceeded its 600-second
+outer deadline.
+
+Focused diagnosis reproduced the direct-ACA header-key failure in **11/11**
+separate processes using independent temporary workspaces and synthetic
+transports. All reported `DISCOVERY_TIMEOUT` at `tools/list` or `tools/call`;
+proof guard time totalled **17.2-22.2 seconds**, individual guards **5.6-6.0
+seconds**, competing with the unchanged **15-second** MCP budget. The identical
+four-process comparison passed **4/4**, with **8.7-8.8 seconds** aggregate proof
+guard time. This establishes resource contention in repeated local integrity
+checks as a reproducible cause, without requiring cross-test fixture collisions.
+It does not prove that every historical failure had that cause.
+
+`npm test` now caps ordinary file concurrency at four (or fewer on smaller
+machines) and runs the packed consumer in a separate phase after ordinary
+processes and cleanup finish. Both phases still report failures; there are no
+silent retries, removed tests, changed production deadlines, relaxed integrity
+checks or reduced consumed-attempt protection. A scheduling regression checks
+phase completion and nonzero failure propagation. Synthetic creation diagnostics
+and `test/support/creation-pressure.mjs` retain a bounded reproduction path.
+The final revised gate passed after the additional inspection optimization below.
+
+Baseline: local Windows Node **26.13.0**. The unchanged-code command
+`node --test --test-reporter=dot test\mcp-execution.test.js test\mcp-execution-host.test.js`
+was stopped after over 18 minutes with one execution-test process still active
+and no final summary. This is an incomplete run, not a pass or a reproduced
+assertion failure. The isolated bounded check
+`node --test --test-timeout=90000 --test-name-pattern='CLI execution plan/start/run' test\mcp-execution.test.js`
+passed **1/1** in 26.9 seconds. This does not establish that the last CLI test
+caused the slow run. Historical concurrency failures remain unexplained; CI
+Node 22/24 evidence below is separate. No concurrency default or production
+timeout was changed during that initial investigation. The later isolated-process
+reproduction above is the evidence for the test-scheduling change; production
+timeouts remain unchanged.
+
+Validation ledger (all local/offline, Windows Node 26.13.0):
+
+| Exact command | Result |
+| --- | --- |
+| `node scripts\update-assets.mjs` | Regenerated inventory from reviewed shipped assets; 175 entries |
+| `npm run check:assets` | Passed |
+| `npm run check` | Passed |
+| `npm run test:types` | Passed |
+| `node --test test\mcp-consumer-handoff.test.js test\cli-feedback.test.js test\guided.test.js` | 21/21 passed |
+| `node --test --test-name-pattern='new host plans\|scan opt-in\|historical host descriptions\|disabling scanning\|SDK complete bounded journey\|new recovered-image\|deployment-only inherits\|deployment-only cannot use not-run\|unscanned review' test\mcp-execution-host.test.js test\mcp-execution.test.js test\mcp-build-recovery.test.js test\mcp-verified-image-deployment.test.js test\recipe-review.test.js` | Initially 17/20 passed; two integrity/smoke fixtures omitted the new acknowledgement (plus their parent failure). Both fixtures corrected; see rerun below. All four full synthetic SDK journeys passed under default file concurrency. |
+| `node --test --test-name-pattern='disabling scanning\|historical host descriptions\|unscanned review\|zero high policy failure\|unknown push outcome\|synthetic handoff\|handoff rejects\|handoff detects' test\mcp-execution-host.test.js test\recipe-review.test.js test\mcp-consumer-handoff.test.js test\cli-feedback.test.js` | 11/11 passed, including both corrected fixtures, strict policy/no-replay and legacy manual review/new release acknowledgement |
+| `node --test test\package.test.js` | Passed twice; final run 1/1 in 353.0 seconds, including shipped Markdown links, omission of history, byte inventory and checkout/installed build identity |
+| `npm test` (original default-concurrency command) | 1,316 tests: 1,305 passed, 10 failed, 1 timeout; 3,737.953 seconds. Inventory fixture fixed; timing investigation recorded above. |
+| `node test\support\creation-pressure.mjs 11` | Equivalent harness first run from ignored `.test-output`: 0/11 passed, all `DISCOVERY_TIMEOUT`; 144.805 seconds. Independent synthetic roots, no unrelated test files. |
+| `node test\support\creation-pressure.mjs 4` | Equivalent harness first run from ignored `.test-output`: 4/4 passed; 87.296 seconds. Same code, case and production deadlines. |
+| `node --test test\development.test.js test\mcp-consumer-handoff.test.js test\cli-feedback.test.js test\guided.test.js` | Final rerun 24/24 passed; 10.592 seconds. Initial scheduling regression exposed inherited Node test context in its subprocess fixture; the fixture now clears that runner-only variable. |
+| `npm test` (bounded scheduling, before batched asset reads) | Ordinary phase: 1,315/1,316 passed, one SDK session outcome unknown, 4,165.326 seconds. Isolated package: 1/1 passed in 282.812 seconds. Concurrency limiting alone was insufficient; this is not a full pass. |
+| `node --test test\independence.test.js` (batched asset reads) | 4/4 passed, including original serial digest ordering, unchanged-byte parity, fresh mutation detection and missing/nonregular asset rejection in a private synthetic fixture. |
+| `node test\support\creation-pressure.mjs 11` (batched asset reads) | 0/11 passed under deliberate excessive contention, 99.461 seconds. Batching improves cost but does not make eleven concurrent integrity-heavy journeys safe within the fixed production budget. |
+| `node --test --test-concurrency=4 --test-name-pattern='SDK complete bounded journey\|creation runner\|OAuth v3 binds' test\mcp-execution.test.js test\mcp-validation-journey.test.js` (batched asset reads) | 9/9 passed; 383.331 seconds, covering all four SDK host/backend journeys, all four creation cases and the OAuth v3 journey. |
+| `node --test test\development.test.js test\independence.test.js test\mcp-consumer-handoff.test.js test\cli-feedback.test.js test\guided.test.js` (final) | 28/28 passed; 5.987 seconds. Asset, syntax, public type and whitespace checks also passed before the final full gate. |
+| `npm test` (final, bounded scheduling and batched reads; completed 2026-11-18) | Ordinary: 1,317/1,317 passed in 3,383.215 seconds. Packed consumer: 1/1 passed in 242.569 seconds. Total 1,318 passed, zero failures/cancellations/skips; summed phase duration about 60.4 minutes. |
+
+The bounded full rerun left one SDK session failure, so scheduling alone is not
+reported as a complete fix. Inspection identified repeated sequential reads of
+every shipped asset. `getLibraryInfo` now reads batches of at most four, still
+performing each path/type/size/byte check freshly, waiting for all reads in a
+batch to settle and hashing in the exact original filename order. No caching,
+skipped integrity check or deadline increase is introduced. Eight local
+inspection samples fell from **378-526 ms** sequential to **123-139 ms** batched.
+Those are microbenchmarks, not a whole-suite speed guarantee. Focused SDK and
+creation verification passed 9/9 before final whole-suite validation.
+
+The final full-suite pass does not erase the incomplete baseline or failed
+intermediate runs above. The local gate still took about an hour; it does not
+establish that this change fits the existing 45-minute CI job on every supported
+runner. The Node 22/24 Windows/Linux CI matrix remains to be run. No dependencies were
+downloaded or restored in this checkout; the packed test installed only from
+its private integrity-verified local cache. No cloud/provider/Microsoft 365
+operation was performed. No PR, publication or live acceptance was attempted.
+
+Changed file groups: README/help/guided checks (A); `mcp-scan-policy` and
+host/execution/recovery/verified-image/manual-review/release paths, public config
+types, feedback, examples and existing tests (B); package selection/inventory
+generator, packed tests and guide links (C); `mcp-consumer-handoff`, its synthetic
+example/test and design guide (E). Handoff/progress notes retain the limitations.
+The continuation also changes `scripts/test-offline.mjs` and `package.json`
+(bounded ordinary scheduling and isolated packaging), `src/machine-contract.js`
+(bounded fresh reads with unchanged digest framing), `test/development.test.js`
+and `test/independence.test.js` (inventory/scheduling/hash regressions),
+`test/mcp-validation-journey.test.js`, `test/support/mcp-observation.js` and
+`test/support/creation-pressure.mjs` (synthetic diagnostics/reproduction), and
+`docs/development.md` plus the three continuity documents (verified evidence and
+H2 mapping). No remaining current-run temporary fixture directories were found;
+older unrelated test output is preserved and diagnostics stay ignored/local.
+Legacy descriptions and image-review outputs omit acknowledgement when it was
+absent originally. New admissions require the versioned literal, not a generic
+org-policy engine. Deployment-only inheritance cannot switch an enabled gate off.
+
+Implemented capability, synthetic/offline validation and live qualification
+remain separate. H1 cannot close H2 authentication mapping or H6 consumer
+acceptance. Subsequent exporter/adapter work, organization policy enforcement
+and live qualification remain proposed follow-ups. Prioritize agreement on the
+H1 contract, then a separately scoped local H3 exporter/H4 consumer mapping;
+only afterward consider a fresh explicitly approved H6 acceptance journey. The
+[H2 public-contract matrix](wiqd-handoff.md#h2-public-contract-review-2026-11-17)
+now distinguishes the documented SSO route from endpoint/registration
+qualification and actual consumer acceptance. Public-documentation reads were
+separate from offline tests and involved no cloud/provider execution.
 
 ## Completed engineering work
 
@@ -2011,8 +2147,8 @@ See [the proposal](wiqd-handoff.md) for acceptance criteria and ownership.
 
 | ID | Priority | Work | Owner | Status | Depends on / completion gate |
 | --- | --- | --- | --- | --- | --- |
-| H1 | P0 | Define versioned consumer-neutral handoff and privacy/freshness rules | MCP Toolkit | Proposed | Review current contracts; agree bounded schema before implementation |
-| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Shared auth preparation/execution here; WIQD owns consumer mapping | Provider contract inspected; consumer compatibility unverified | AUTH3/AUTH4 implementation does not qualify the Linux provider or establish live auth/package compatibility; AUTH5 remains narrow reference metadata |
+| H1 | P0 | Define versioned consumer-neutral handoff and privacy/freshness rules | MCP Toolkit | Local design/internal validator and synthetic checks implemented | Agree consumer-side contract; no exporter/adapter or live compatibility implied. See [version 1](consumer-handoff.md) |
+| H2 | P0 | Verify secretless Entra to WIQD/Cowork credential-registration compatibility | Shared auth preparation/execution here; WIQD owns consumer mapping | Public-contract mapping reviewed 2026-11-17; installed WIQD and consumer compatibility unverified | Documented SSO route uses an auth-config reference; resource URI, v2 audience, token-store caller, scope/consent and app restrictions still require qualification. AUTH3/AUTH4 do not establish live auth/package compatibility; AUTH5 remains narrow reference metadata |
 | H3 | P1 | Implement reviewed local handoff export and offline contract tests | MCP Toolkit | Not started | H1; no login, discovery, proof replay or evidence renewal during export |
 | H4 | P1 | Document synthetic WIQD consumption with existing skills | WIQD workflow guidance + MCP docs | Not started | H1, H2; observed tools mapped to required package artifact, not invented |
 | H5 | P1 | Address Cowork-specific metadata/validation gaps upstream | WIQD | Proposed | Confirm each gap against current behavior before proposing fixes |

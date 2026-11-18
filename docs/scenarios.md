@@ -3,7 +3,7 @@
 Support is scenario-specific, not every combination of host, authentication and
 operation. Generation, automated execution and live/consumer qualification are
 separate. See [backend OAuth/OBO pilots](backend-oauth.md) for the ACA-only
-profiles and [the tracker](progress-tracker.md#scenario-and-runtime-qualification)
+profiles and [the repository tracker](https://github.com/svarukala/Copilot-MCP-Toolkit/blob/main/docs/progress-tracker.md#scenario-and-runtime-qualification)
 for historical runtime observations.
 
 | Scenario | Inbound | Backend | Supported boundary |

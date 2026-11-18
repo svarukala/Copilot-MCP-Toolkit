@@ -11,6 +11,7 @@ import { planHostingRecipe } from './mcp-container-apps.js';
 import { readAzureIdentity } from './azure-identity.js';
 import { getLibraryInfo } from './machine-contract.js';
 import { describeHostExecution, runVerifiedImageHost } from './mcp-execution-host.js';
+import { unscannedRiskSchema, requireUnscannedRisk, unscannedRiskBinding } from './mcp-scan-policy.js';
 
 const digest = value => metadataDigest(boundedSnapshot(value));
 const bytesDigest = value => `sha256:${createHash('sha256').update(value).digest('hex')}`;
@@ -32,6 +33,7 @@ export const verifiedImageDeploymentSchema = {
     deploymentOnlyReviewed: { const: true },
     resourceCeilingsReviewed: { const: true },
     createOnlyReviewed: { const: true },
+    unscannedRiskAcknowledgement: unscannedRiskSchema,
   },
   required: ['schemaVersion', 'oldHostOutput', 'oldHostApproval', 'sourceManifestDigest', 'containerImage',
     'azureIdentityProject', 'accountName', 'expiresAt', 'deploymentOnlyReviewed', 'resourceCeilingsReviewed', 'createOnlyReviewed'],
@@ -184,6 +186,7 @@ async function prepare(options) {
   requireEvidence(Date.parse(config.expiresAt) > Date.now() && Date.parse(config.expiresAt) <= Date.now() + 86400000,
     'VERIFIED_IMAGE_APPROVAL_EXPIRED');
   const evidence = await inspectEvidence(source, config, workspaceRoot);
+  requireUnscannedRisk(config, evidence.description.scanPolicy.enabled !== false);
   const evidenceTime = evidence.description.scanPolicy.enabled === false ? Date.parse(evidence.scan.recordedAt)
     : Math.min(Date.parse(evidence.scan.scannedAt), Date.parse(evidence.scan.databaseUpdatedAt));
   requireEvidence(Date.parse(config.expiresAt) <= evidenceTime + 86400000, 'VERIFIED_IMAGE_APPROVAL_EXCEEDS_SCAN');
@@ -199,7 +202,8 @@ async function prepare(options) {
     effective: { maximumMs: config.maximumMs ?? 900000, maximumCommandMs: 60000,
       maximumCloudReads: 160, maximumPolls: 90, pollIntervalMs: 5000 },
     readback: evidence.description.readback, ceilings: evidence.description.ceilings,
-    scanPolicy: evidence.description.scanPolicy,
+    scanPolicy: { ...evidence.description.scanPolicy,
+      ...(evidence.description.scanPolicy.enabled === false ? unscannedRiskBinding(config) : {}) },
   };
   const scope = {
     schemaVersion: 1, kind: 'mcp-verified-image-deployment-plan', workspaceRoot, project: source.projectDir,
@@ -212,7 +216,7 @@ async function prepare(options) {
     effects: [
       'Independent expiring direct-ACA create-only authority; the consumed parent is evidence, never resumed or reauthorized.',
       evidence.description.scanPolicy.enabled === false
-        ? 'Read retained source, image-integrity and smoke chain. Preserve the parent scan-gate-disabled policy and not-run evidence; no vulnerability qualification is claimed.'
+        ? 'Read retained source, image-integrity and smoke chain. Explicit unscanned-deployment-risk-v1 acknowledgement accepts possible vulnerable components. Preserve the parent scan-gate-disabled policy and not-run evidence; no vulnerability qualification is claimed.'
         : 'Read retained source, build/scan/smoke chain and private reports; require fresh zero-critical/high scan and scanner database.',
       'Recheck the exact OCI manifest digest in ACR once with the same private Azure identity immediately before create.',
       'Create only the exact absent app with the unchanged trusted template, identity and resource ceilings; no roles, keys or unrelated resources.',

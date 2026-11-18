@@ -48,6 +48,20 @@ No automatic login, build, deployment, discovery or tool calls from the menu.
 schema: complete bounded MCP input schema. capabilities: supported contracts/build.
 Container Apps uses its separate mcp-container-apps-schema, not the APIM schema.
 
+Recommended path:
+  Supported OpenAPI 3.0.x JSON / bounded REST -> selected fixed GETs -> direct ACA.
+  Entra for MCP callers; anonymous or Key Vault API-key REST backend.
+  Review/save source: mcp-container-apps-schema/plan/create.
+  Review exact identity, prerequisites, costs and one proof: mcp-execution-schema/plan.
+  Separately approve mcp-execution-start/run; generation grants no execution.
+  After discovery/proof: mcp-onboard or mcp-consumer-schema/plan/bundle for a local draft.
+  Scanning stays off by default; unscanned risk needs explicit review.
+  Registration/settings/consent/package/consumer acceptance remain separate gates.
+  No automatic FCC submission, WIQD publication or consumer-readiness claim.
+  See README Recommended path and docs/container-apps-recipe.md.
+Advanced: recovery, evidence restoration, diagnostics and APIM gateway variants.
+Pilots: ACA OAuth/OBO backends. Design-only: Basic/username-password backends.
+
 Choose your next task (commands below still require their own inputs/reviews):
   Deploy supported APIM projects: mcp-resume -> mcp-provision-plan/provision.
   Plan a fresh supported journey: mcp-execution-schema/plan; see docs/reusable-validation.md.
@@ -172,6 +186,8 @@ Container generation emits a minimal nonroot Dockerfile only when imageBuild
 provides reviewed builder/runtime digests and platform. No mutable base fallback.
 Image review binds source/image and smoke, not attestation. New host plans default
 scanGate to false (scan/SBOM not-run); opt in with scanGate:true and scannerImage.
+New unscanned plans require unscannedRiskAcknowledgement:"unscanned-deployment-risk-v1".
+This does not enable scanning. Historical evidence is not retroactively acknowledged.
 Historical version-1 scanned reviews remain strict.
 Release may reference imageReviewFile; stale or failing qualification is refused.
 Review kinds also cover preserving Container Apps/Entra updates, readiness,

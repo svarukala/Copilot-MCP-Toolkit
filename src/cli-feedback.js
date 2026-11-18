@@ -121,6 +121,12 @@ const date = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT[\d:.]+Z$/.
 export function cliPlanSummary(plan) {
   const state = context.getStore();
   if (!state?.summary || state.closed || !plan || typeof plan !== 'object') return;
+  const scanPolicy = plan.hostReview?.scanPolicy ?? plan.scope?.scanPolicy
+    ?? plan.bundle?.result?.policy ?? plan.review?.imageQualification?.policy;
+  if (scanPolicy?.enabled === false || scanPolicy?.scanGate === false) {
+    const acknowledgement = plan.review?.unscannedRiskAcknowledgement ?? scanPolicy.unscannedRiskAcknowledgement;
+    writeFeedback(state, `[unscanned deployment risk]\nScanning/SBOM: not-run, not clean; vulnerable components may be deployed.\nAcknowledgement: ${safe(acknowledgement ?? 'absent in historical evidence')}\nImage integrity, nonroot smoke and no-replay guards still apply.\n`);
+  }
   const settings = plan.bundle?.settingsReview ?? plan.bundle?.preparation?.settingsReview;
   if (settings) writeFeedback(state, `[SSO settings checkpoint]\nSettings: ${safe(settings.status)}; provider readback: not performed.\nPortal scope: ${safe(settings.expected.portalScope ?? 'missing')}\nReview the existing registration and app binding in Developer Portal. Pending settings permit only an explicitly unverified local draft; operator attestation is not consumer readiness.\n`);
   if (state.command === 'mcp-build-recovery-plan' && plan.scope?.kind === 'mcp-build-recovery-plan') {

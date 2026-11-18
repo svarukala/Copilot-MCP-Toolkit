@@ -11,7 +11,7 @@ import { readMcpServerProject } from '../src/mcp-lifecycle.js';
 import { prepareMcpServer } from '../src/mcp-server.js';
 import { executeMcpProjectForTest } from '../src/mcp-discovery-project.js';
 import { discoverMcpToolsForTest, runMcpReadOnlyProofForTest } from '../src/mcp-discovery.js';
-import { observationTransport } from './support/mcp-observation.js';
+import { observationTransport, diagnoseObservation } from './support/mcp-observation.js';
 import { selectMockAzureIdentity } from './support/azure-identity.js';
 import { compileHostingRecipe } from '../src/mcp-container-apps.js';
 import { toolDefinitions } from '../src/recipes/container-apps/runtime.js';
@@ -76,8 +76,9 @@ async function setup(t, example = 'existing-anonymous', scenario = 'existing-mcp
     };
     return { fixture, deps: { sessionDependencies: fixture,
       mcpProjectOperation: (dir, opts, proof, guard) => executeMcpProjectForTest(dir, opts, proof,
-        (source, execution, internalGuard, hooks) => (proof ? runMcpReadOnlyProofForTest : discoverMcpToolsForTest)(
-          source, execution, { ...fixture, beforeRequest: internalGuard, ...hooks }), undefined, guard) } };
+        (source, execution, internalGuard, hooks) => diagnoseObservation(t,
+          measuredGuard => (proof ? runMcpReadOnlyProofForTest : discoverMcpToolsForTest)(
+            source, execution, { ...fixture, beforeRequest: measuredGuard, ...hooks }), internalGuard), undefined, guard) } };
   };
   return { root, run, input, definition, options, active, json, start, rewrite, step, checkpoint, artifact, transport };
 }

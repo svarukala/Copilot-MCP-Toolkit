@@ -23,6 +23,7 @@
     "dockerSocket": "\\\\.\\pipe\\dockerDesktopLinuxEngine",
     "localEngineTrusted": true,
     "scanGate": false,
+    "unscannedRiskAcknowledgement": "unscanned-deployment-risk-v1",
     "imageRepository": "synthetic-mcp",
     "expiresAt": "2099-01-01T00:00:00.000Z",
     "downloadsReviewed": true,
