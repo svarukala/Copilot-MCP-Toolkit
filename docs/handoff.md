@@ -1,9 +1,30 @@
 # Session handoff
 
-Last updated: 2026-11-18. This is the starting point for a new MCP Toolkit session.
+Last updated: 2026-11-19. This is the starting point for a new MCP Toolkit session.
 It contains public engineering context only, not credentials or execution authority.
 
 ## Decisions and current baseline
+
+- **CI runtime budget review (2026-11-19):** the unchanged local full gate passed
+  1,318/1,318 in 56.5 minutes; repeated project/path/evidence filesystem checks
+  dominate the ordinary phase, including a 46-minute file. The previous PR #17
+  Node 22/24 matrix did pass in 10-23 minutes per job; local Node 26 is separate
+  evidence. The full four-job PR/main/manual gate is retained with a 90-minute
+  outer job budget, not relaxed test or production deadlines. The test runner
+  now reports phase elapsed seconds and actual exit status on stderr. No
+  coverage reduction, retry, fixture reuse or integrity cache was added.
+  Final `npm run validate` **failed** after 56.7 minutes: 1,317 passed and one
+  Windows `EPERM` atomic-rename failure during synthetic lifecycle identity
+  setup (zero cancelled/skipped). The isolated lifecycle diagnostic passed 7/7;
+  that does not clear the failed gate. File-lock/permission cause is unresolved;
+  do not add retries or weaken persistence checks. Static checks and scheduler
+  regressions passed. At the measurement checkpoint, the revised CI matrix was
+  pending and unqualified; no network operation had been performed. The user
+  subsequently requested code review and merge. Direct review found no blocking
+  defect in the scoped budget/diagnostics change; fresh full PR CI is required
+  before merge. Check the integration PR for its subsequent CI/merge outcome;
+  that does not erase the local `EPERM` observation.
+  See the [measurements and verification ledger](progress-tracker.md#ci-runtime-budget-review-2026-11-19).
 
 - **Offline test reliability:** the default-concurrency full suite reproduced
   creation/execution failures and a packed-consumer timeout. Eleven isolated
