@@ -18,7 +18,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         node: [22, 24]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    # Full offline gate on every PR; measured local runs take 56-61 minutes.
+    # This outer budget does not change any test or production deadline.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -1,11 +1,182 @@
 # Progress and scenario tracker
 
-Last updated: 2026-11-18.
+Last updated: 2026-11-19.
 
 This is the single progress index for the independent toolkit. Update statuses
 with concrete commits/checks as work lands. "Implemented/offline verified" does
 not mean deployed, authenticated, provider-compatible or verified in Cowork.
 Historical observations are not fresh approvals or independent-runtime evidence.
+
+## CI runtime budget review (2026-11-19)
+
+Scope: offline measurement and CI/test-runner diagnostics only. Scanning policy,
+production timeouts, MCP deadlines, source/evidence checks, approval gates and
+no-replay behavior are unchanged. No registry access, cloud/provider/Microsoft
+365 operation, login, package upload or publication is authorized or performed.
+
+| Phase | Goal / evidence | Status |
+| --- | --- | --- |
+| Diagnose | Measure the unchanged full suite, static checks and slow files; profile representative synthetic cases | Complete; current Windows Node 26.13.0 full baseline passed 1,318/1,318 in 3,388.475 seconds wall time |
+| Smallest safe change | Keep every test and all four matrix entries on every PR; increase only the job budget to 90 minutes and report phase elapsed time/exit status on stderr | Implemented; focused regression passed; complete post-change gate failed as detailed below |
+| Validate | Static checks, scheduler failure-path regression, slow files and complete intended gate; no silent retry | Full command completed with one Windows atomic-rename failure; reliability qualification blocked. Revised Node 22/24 matrix not run in this offline task |
+
+### Measurements and cause
+
+The local host reported 12 available processors and about 4.14 GiB free memory
+at the start. Neither that snapshot nor Node 26 timing explains hosted-runner
+performance on its own. The baseline uses the unchanged four-process cap and
+isolated packed consumer.
+
+| Baseline measurement | Elapsed seconds | Result |
+| --- | ---: | --- |
+| `npm run check:assets` | 2.080 | Exit 0 |
+| `npm run check` | 10.240 | Exit 0 |
+| `npm run test:types` | 3.190 | Exit 0 |
+| Ordinary phase, 58 test files | 3,156.371 | 1,317 passed; 0 failed/cancelled/skipped |
+| Isolated packed-consumer phase | 231.000 | 1 passed; 0 failed/cancelled/skipped |
+| Entire `npm test` including runner/npm overhead | 3,388.475 | Exit 0; 1,318 passed |
+
+| Slow ordinary file | In-process elapsed seconds | Tests passed |
+| --- | ---: | ---: |
+| `apim-modes.test.js` | 2,759.740 | 120 |
+| `mcp-native-proof.test.js` | 2,104.830 | 276 |
+| `mcp-build-recovery.test.js` | 1,109.592 | 49 |
+| `mcp-execution.test.js` | 849.310 | 28 |
+| `mcp-execution-host.test.js` | 487.413 | 67 |
+| `mcp-validation-journey.test.js` | 483.127 | 25 |
+| `mcp-validation.test.js` | 424.092 | 21 |
+
+Concurrent file durations overlap; do not sum them as wall time. Static checks
+are negligible relative to the ordinary phase. The packed consumer is only
+3.85 minutes and already isolated; eliminating its setup could not make the
+52.6-minute ordinary phase fit 45 minutes, even if removing coverage were allowed.
+The longest file is already scheduled first and exceeds 45 minutes on this host.
+Holding measured file costs constant, merely reordering files still has a
+lower bound of about 49.8 minutes including packaging. This is a scheduling
+bound for those observations, not a prediction under changed contention.
+
+A focused, serial synthetic experiment ran the first-call Tavily passed case
+and controlled-delegated literal-quote rejection case: **16/16 passed** including
+subtests, 0 failed/cancelled/skipped, 188.875 seconds wall time (Node reported
+188.588). Read-only filesystem instrumentation recorded 130,365 / 423,523
+`lstat` calls, 28,329 / 97,493 `realpath` calls and 6,064 / 23,534 `readFile`
+calls respectively. Their process lifetimes were 42.778 / 145.582 seconds;
+instrumentation has overhead and these are not an uninstrumented speedup claim.
+
+Source tracing confirms `preflightMcpProof` replans and verifies the current
+project in its guard; `verifyNativeGetMapping` invokes the guard around each
+synthetic identity/read operation. Project readers inspect current files,
+ancestor paths and retained evidence. Negative policy matrices intentionally
+repeat these checks. This identifies repeated filesystem validation as a major
+measured cost, not a network wait or one repeated package assembly. The study
+does not identify the host-level filesystem slowdown or prove every historical
+timeout had this cause.
+
+No small safe test-only optimization was demonstrated to remove enough work:
+reusing consumed fixtures, caching integrity decisions, skipping negative cases
+or increasing contention would compromise the established test boundary.
+The full suite is intentionally retained for **every PR, main push and manual
+workflow run**, on Windows/Linux with Node 22/24. Therefore the smallest scoped
+fix raises only `jobs.validate.timeout-minutes` from 45 to 90, allowing restore,
+static checks and variability beyond the observed 56.5-minute current and
+60.4-minute earlier local gates. Individual test/subprocess and production
+deadlines are unchanged. There are no retries, allowed failures, new
+dependencies, coverage changes or reduced matrix entries.
+
+Historical CI is different evidence: the prior PR #17 run
+[44325072929](https://github.com/svarukala/Copilot-MCP-Toolkit/actions/runs/44325072929),
+observed before this task, passed Ubuntu Node 22/24 in 10:23 / 12:46 and Windows
+Node 22/24 in 23:02 / 22:47. The 45-minute budget did not fail that matrix.
+The older product notes below describe their pre-CI checkpoint, not a current
+claim that PR #17 never ran. This task performs no GitHub/network operation.
+A fresh run of the revised matrix remains pending; neither the longer timeout
+nor local success establishes indefinite reliability.
+
+### Commands and final verification
+
+Baseline diagnostic command:
+
+```powershell
+npm test -- --test-reporter=tap --test-reporter=./.test-output/ci-timing-reporter.mjs --test-reporter-destination=stdout --test-reporter-destination=stderr
+```
+
+The temporary reporter emits Node `test:summary` records only; it does not alter
+test selection or production code. The focused measurement command was:
+
+```powershell
+node --import=./.test-output/ci-fs-profile.mjs --test --test-concurrency=1 --test-reporter=tap --test-name-pattern='^first-call Tavily profile binds and consumes passed|^controlled delegated literal-quote compatibility' test\apim-modes.test.js test\mcp-native-proof.test.js
+```
+
+The temporary profiler counts and times existing filesystem calls without
+changing their arguments, results or checks. Both helpers were removed after
+measurement; raw synthetic diagnostic logs remain ignored/local, not published
+assets or runtime dependencies.
+
+| Post-change command | Result |
+| --- | --- |
+| `node scripts\update-assets.mjs` | Passed; existing 175-entry inventory remains current (no shipped file added/removed) |
+| `npm run check:assets` | Exit 0; 1.839 seconds wall |
+| `npm run check` | Exit 0; 11.720 seconds wall |
+| `npm run test:types` | Exit 0; 2.995 seconds wall |
+| `node --test test\development.test.js` | 3/3 passed, 0 failed/cancelled/skipped; 5.312 seconds Node / 5.413 wall. Covers phase cleanup ordering, accurate stderr-only timing/exit reporting, ordinary failure with packaging still run, and packed-only failure propagation |
+| `git -c core.safecrlf=false diff --check` | Passed |
+| `npm run validate` | **Exit 1**; 3,404.634 seconds wall (56.744 minutes). Assets/syntax/types passed; ordinary 1,316 passed / 1 failed, 3,156.790 seconds phase wall; packed consumer 1/1 passed, 234.660 seconds phase wall. Total 1,317 passed / 1 failed / 0 cancelled / 0 skipped |
+| `node --test test\mcp-lifecycle.test.js` | Diagnostic isolation only: 7/7 passed, 0 failed/cancelled/skipped; 7.892 seconds Node / 7.982 wall. Does not replace or clear the failed full gate |
+
+The static-check measurement wrapper initially stopped before the focused test
+because it mixed npm output strings with result objects in its exit-code filter.
+All three actual commands returned 0; the focused command was then run directly
+and passed. This was an invocation/reporting error, not a hidden suite failure.
+
+### Remaining reliability blocker
+
+The final full gate failed in `test/mcp-lifecycle.test.js:77`, "standalone
+artifact and definition drift fail closed before execution, without regenerating
+reviewed files". Windows returned `EPERM` replacing a synthetic fixture's
+`.azure-identity.json` with its unique `.pending` file. The stack reaches
+`persist` (`src/azure-identity.js:54`) from the selected-state write in
+`switchAzureAccount` (`src/azure-identity.js:115`), during mock identity setup.
+This is not a timeout, network call, or evidence that 90 minutes is insufficient.
+
+The inspected path awaits the temporary file write, sync and close before
+rename. The fixture has a unique workspace, awaited mock identity selection
+and test-scoped cleanup; no unawaited file handle or shared fixture collision
+was established. Production identity code is unchanged by this task.
+An isolated run of the entire seven-test lifecycle file passed, but that is
+diagnostic evidence only, not a fix or replacement acceptance run. The failed
+full run remains failed; there was no full-suite retry, suppression, persistence
+retry or relaxed check. The runner correctly continued to the successful packed
+phase and returned failure overall.
+
+The OS-level cause of the intermittent rename denial is unresolved; attributing
+it to antivirus, permissions, a competing handle or Node 26 without further
+evidence would be speculation. The next investigation needs a controlled
+reproduction with file-lock/permission tracing on a supported Windows Node
+22/24 environment. Do not change host security policy or production persistence
+semantics to hide it. Fresh Windows/Linux Node 22/24 CI remains pending and
+**the matrix is not qualified as reliable**. The timeout-budget change addresses
+measured runtime headroom only, not this newly observed failure.
+
+Retained ignored logs: `.test-output\ci-baseline-20261119.log`,
+`.test-output\ci-focused-profile-20261119.log`,
+`.test-output\ci-final-validation-20261119.log` and
+`.test-output\ci-lifecycle-diagnostic-20261119.log`. No external network,
+cloud/provider/Microsoft 365, login, deployment, registration, publication or
+package-upload operation was performed during this investigation. Nothing was
+committed or pushed during that measurement/implementation checkpoint.
+
+### Integration review
+
+The user subsequently requested review and merge on 2026-11-19, authorizing
+GitHub integration operations separately from the offline investigation.
+Direct review of the six-file diff found no blocking defect in the scoped
+change: test selection, phase ordering, nonzero exit propagation, all four CI
+entries and all production code remain unchanged. The elapsed/exit messages
+are stderr-only and exercised by success and both failure-path regressions.
+The unexplained local `EPERM` remains disclosed, not fixed or suppressed.
+Integration requires a fresh passing complete Windows/Linux Node 22/24 PR
+matrix; consult the integration PR for its subsequent results and merge status.
+No cloud/provider/Microsoft 365 deployment or publication is authorized.
 
 ## Product improvement sequence (2026-11-17)
 

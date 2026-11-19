@@ -39,6 +39,13 @@ suite is running: tests bind their exact content digest. The CI workflow runs
 this gate on Windows/Linux with Node 22/24, after a separate locked restore from
 the repository-approved feed; no cloud credentials or live provider tests are
 configured. Do not replace feed failures with a public-registry fallback.
+Every pull request, push to `main` and manual workflow run retains the complete
+four-job matrix. Each job has a **90-minute outer timeout**, including dependency
+restore, static checks, the entire offline suite and the unchanged-files check.
+There is no fast-only replacement, scheduled-only full suite, retry or allowed
+failure. Job time is per matrix entry, not total time including the queue.
+The longer outer budget does not alter individual test/subprocess deadlines,
+MCP request limits, approval checks, integrity validation or consumed attempts.
 Use [validation readiness](validation-readiness.md) to pin the checkout/package/
 skill baseline and record separate platform and consumer acceptance.
 
@@ -50,6 +57,32 @@ alone. Both phases run even if an ordinary assertion fails; either phase failing
 makes the command fail. Test-name/reporter options passed after `npm test --` are
 forwarded to both phases. For a targeted check, use native `node --test` with the
 specific files instead of running the entire suite.
+Each phase reports its elapsed seconds and actual exit status on stderr,
+including on failure; stdout remains the selected Node test reporter's output.
+`npm test` and `npm run validate` without filtering options remain full gates.
+
+The 2026-11-19 unchanged baseline passed all 1,318 tests in 56.5 minutes on
+Windows Node 26.13.0: ordinary tests took 52.6 minutes and the isolated packed
+consumer 3.85 minutes. Static checks took another 15.51 seconds. The longest
+ordinary file, `apim-modes.test.js`, took 46.0 minutes; native-proof coverage
+took 35.1 minutes. These concurrent file durations are not additive wall time.
+Two focused synthetic proof cases (16 tests including subtests) issued more than
+553,000 `lstat` calls and 125,000 `realpath` calls while retaining project,
+path, identity and evidence revalidation around simulated operations.
+The investigation found repeated filesystem validation, not a long real-network
+wait or package installation, as the main measured cost. It did not establish
+why this host's filesystem work is slower than hosted CI.
+
+Keeping those safety regressions and isolation intact is more important than
+caching their checks or reusing consumed fixtures. No small safe test-only
+optimization was demonstrated to bring this complete local gate below 45 minutes;
+even the longest measured file exceeded that budget. The 90-minute budget
+therefore retains the complete PR gate with roughly 30 minutes above the prior
+60.4-minute local run for restore, checks and variability. It is not a performance
+guarantee. The previous Node 22/24 Windows/Linux CI run passed in approximately
+10-23 minutes per job; those historical measurements do not predict local Node 26
+or qualify a revised workflow. Record fresh matrix results and actual timing
+before declaring the current matrix reliable.
 
 This boundary follows a reproduced Windows Node 26 contention failure, not a
 production timeout relaxation. Eleven isolated concurrent copies of the direct

@@ -74,13 +74,14 @@ test('offline runner finishes ordinary cleanup before packaging and preserves fa
   await mkdir(path.join(root, 'test'));
   await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
   const ordinary = path.join(root, 'test', 'ordinary.test.js');
-  await writeFile(ordinary, `
+  const ordinarySource = `
     import test from 'node:test';
     import { writeFile } from 'node:fs/promises';
     test('synthetic ordinary phase', t => {
       t.after(() => writeFile(new URL('../ordinary-finished', import.meta.url), 'done'));
     });
-  `);
+  `;
+  await writeFile(ordinary, ordinarySource);
   await writeFile(path.join(root, 'test', 'package.test.js'), `
     import test from 'node:test';
     import assert from 'node:assert/strict';
@@ -93,6 +94,9 @@ test('offline runner finishes ordinary cleanup before packaging and preserves fa
   assert.equal(passed.status, 0, passed.stdout + passed.stderr);
   assert.match(passed.stdout, /synthetic ordinary phase/);
   assert.match(passed.stdout, /synthetic packed phase/);
+  assert.match(passed.stderr, /Offline ordinary tests finished in \d+\.\d{3}s \(exit 0\)/);
+  assert.match(passed.stderr, /Offline packed consumer tests finished in \d+\.\d{3}s \(exit 0\)/);
+  assert.doesNotMatch(passed.stdout, /Offline .*tests finished/);
   await writeFile(ordinary, `
     import test from 'node:test';
     import assert from 'node:assert/strict';
@@ -102,4 +106,16 @@ test('offline runner finishes ordinary cleanup before packaging and preserves fa
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /Expected offline runner fixture failure/);
   assert.match(failed.stdout, /synthetic packed phase/);
+  assert.match(failed.stderr, /Offline ordinary tests finished in \d+\.\d{3}s \(exit 1\)/);
+  assert.match(failed.stderr, /Offline packed consumer tests finished in \d+\.\d{3}s \(exit 0\)/);
+  await writeFile(ordinary, ordinarySource);
+  await writeFile(path.join(root, 'test', 'package.test.js'), `
+    import test from 'node:test';
+    test('synthetic packed failure', () => { throw Error('Expected packed fixture failure'); });
+  `);
+  const packedFailure = run();
+  assert.notEqual(packedFailure.status, 0);
+  assert.match(packedFailure.stdout, /Expected packed fixture failure/);
+  assert.match(packedFailure.stderr, /Offline ordinary tests finished in \d+\.\d{3}s \(exit 0\)/);
+  assert.match(packedFailure.stderr, /Offline packed consumer tests finished in \d+\.\d{3}s \(exit 1\)/);
 });

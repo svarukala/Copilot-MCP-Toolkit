@@ -19,9 +19,12 @@ for (const [label, selected, jobs] of [
   ['packed consumer', [packed], 1],
 ]) {
   console.error(`Offline ${label} tests (${jobs} concurrent file${jobs === 1 ? '' : 's'}).`);
+  const started = performance.now();
   const result = spawnSync(process.execPath, [
     '--test', `--test-concurrency=${jobs}`, ...process.argv.slice(2), ...selected,
   ], { cwd: root, stdio: 'inherit' });
+  console.error(`Offline ${label} tests finished in ${((performance.now() - started) / 1000).toFixed(3)}s`
+    + ` (exit ${result.status ?? 'none'}${result.signal ? `, signal ${result.signal}` : ''}).`);
   if (result.error) throw result.error;
   if (result.signal) throw new Error(`Offline tests interrupted by ${result.signal}.`);
   if (result.status !== 0) process.exitCode = result.status ?? 1;
